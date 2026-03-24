@@ -1,6 +1,7 @@
 /**
  * Search Service
  * Handles course search, filtering, and search analytics
+ * Enhanced with AI-powered search capabilities
  */
 
 import {
@@ -11,6 +12,7 @@ import {
   CourseCategory,
 } from '../models/Course';
 import logger from '../utils/logger';
+import { AISearchService } from './search/AISearchService';
 
 interface CourseDatabase {
   [id: string]: Course;
@@ -24,11 +26,13 @@ export class SearchService {
   private courseDatabase: CourseDatabase;
   private analyticsStore: AnalyticsStore;
   private categoryIndex: Map<string, CourseCategory>;
+  private aiSearchService: AISearchService;
 
   constructor() {
     this.courseDatabase = {};
     this.analyticsStore = {};
     this.categoryIndex = new Map();
+    this.aiSearchService = new AISearchService();
     this.initializeSampleData();
   }
 
@@ -43,72 +47,142 @@ export class SearchService {
   /**
    * Search courses with query and filters
    * Returns relevant courses sorted by relevance
+   * Now integrated with AI-powered search
    */
   async searchCourses(
     query: string,
     filters: SearchFilter,
     sessionId: string,
-    userId?: string
+    userId?: string,
+    enableAISearch: boolean = true
   ): Promise<SearchResult> {
     try {
-      logger.info(`Search initiated - Query: ${query}, Filters:`, filters);
+      logger.info(`Search initiated - Query: ${query}, AI: ${enableAISearch}, Filters:`, filters);
 
-      // Normalize query
-      const normalizedQuery = query.toLowerCase().trim();
+      // Use AI search if enabled and available
+      if (enableAISearch && this.shouldUseAISearch(query, filters)) {
+        try {
+          const aiRequest = {
+            query,
+            filters,
+            userId,
+            sessionId,
+            enableAIFeatures: true
+          };
 
-      // Get all courses and apply filters
-      let results = Object.values(this.courseDatabase);
+          const aiResponse = await this.aiSearchService.search(aiRequest);
+          
+          // Convert AI search results to standard format
+          const searchResult: SearchResult = {
+            courses: aiResponse.results.courses,
+            total: aiResponse.results.total,
+            page: aiResponse.results.page,
+            limit: aiResponse.results.limit,
+            hasMore: aiResponse.results.hasMore
+          };
 
-      // Apply text search
-      if (normalizedQuery) {
-        results = this.applyTextSearch(results, normalizedQuery);
-      }
+          // Record analytics with AI metadata
+          await this.recordSearchAnalytics({
+            id: `analytics_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            query: query.toLowerCase().trim(),
+            filters,
+            resultCount: searchResult.total,
+            timestamp: new Date(),
+            userId,
+            sessionId,
+            resultsClicked: []
+          });
 
-      // Apply filters
-      if (filters) {
-        results = this.applyFilters(results, filters);
-      }
+          logger.info(`AI search completed - Found ${searchResult.total} courses`);
+          return searchResult;
 
-      // Calculate relevance scores
-      results = this.rankByRelevance(results, normalizedQuery, filters);
-
-      // Apply sorting
-      results = this.sortResults(results, filters.sortBy || 'relevance');
-
-      // Apply pagination
-      const page = filters.page || 1;
-      const limit = filters.limit || 10;
-      const start = (page - 1) * limit;
-      const end = start + limit;
-
-      const paginatedResults = results.slice(start, end);
-      const total = results.length;
-
-      // Record analytics
-      await this.recordSearchAnalytics(
-        {
-          query: normalizedQuery,
-          filters,
-          resultCount: total,
-          timestamp: new Date(),
-          userId,
-          sessionId,
+        } catch (aiError) {
+          logger.warn('AI search failed, falling back to traditional search:', aiError);
+          // Fall back to traditional search
         }
-      );
+      }
 
-      logger.info(`Search completed - Found ${total} courses, returning page ${page}`);
+      // Traditional search implementation
+      return await this.performTraditionalSearch(query, filters, sessionId, userId);
 
-      return {
-        courses: paginatedResults,
-        total,
-        page,
-        limit,
-        hasMore: end < total,
-      };
     } catch (error) {
       logger.error('Error in searchCourses', error);
       throw error;
     }
+  }
+
+  /**
+   * Determine if AI search should be used
+   */
+  private shouldUseAISearch(query: string, filters: SearchFilter): boolean {
+    // Use AI search for complex queries or when AI features are beneficial
+    const queryLength = query.split(' ').length;
+    const hasComplexTerms = /\b(how to|learn|compare|vs|best|recommend|find)\b/i.test(query);
+    
+    return queryLength >= 2 || hasComplexTerms;
+  }
+
+  /**
+   * Perform traditional search (fallback)
+   */
+  private async performTraditionalSearch(
+    query: string,
+    filters: SearchFilter,
+    sessionId: string,
+    userId?: string
+  ): Promise<SearchResult> {
+    // Normalize query
+    const normalizedQuery = query.toLowerCase().trim();
+
+    // Get all courses and apply filters
+    let results = Object.values(this.courseDatabase);
+
+    // Apply text search
+    if (normalizedQuery) {
+      results = this.applyTextSearch(results, normalizedQuery);
+    }
+
+    // Apply filters
+    if (filters) {
+      results = this.applyFilters(results, filters);
+    }
+
+    // Calculate relevance scores
+    results = this.rankByRelevance(results, normalizedQuery, filters);
+
+    // Apply sorting
+    results = this.sortResults(results, filters.sortBy || 'relevance');
+
+    // Apply pagination
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+
+    const paginatedResults = results.slice(start, end);
+    const total = results.length;
+
+    // Record analytics
+    await this.recordSearchAnalytics({
+      id: `analytics_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      query: normalizedQuery,
+      filters,
+      resultCount: total,
+      timestamp: new Date(),
+      userId,
+      sessionId,
+      resultsClicked: []
+    });
+
+    logger.info(`Traditional search completed - Found ${total} courses, returning page ${page}`);
+
+    return {
+      courses: paginatedResults,
+      total,
+      page,
+      limit,
+      hasMore: end < total,
+    };
   }
 
   /**
@@ -290,13 +364,9 @@ export class SearchService {
    */
   private async recordSearchAnalytics(analytics: SearchAnalytics): Promise<void> {
     try {
-      const id = `analytics_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      this.analyticsStore[id] = {
-        ...analytics,
-        id,
-      };
+      this.analyticsStore[analytics.id] = analytics;
 
-      logger.info(`Search analytics recorded: ${id}`);
+      logger.info(`Search analytics recorded: ${analytics.id}`);
 
       // In production, this would be saved to a database
       // and potentially used to improve search algorithms
@@ -441,6 +511,86 @@ export class SearchService {
     } catch (error) {
       logger.error('Error getting search analytics', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get AI-powered search suggestions
+   */
+  async getAISuggestions(query: string, userId?: string, limit: number = 5): Promise<string[]> {
+    try {
+      return await this.aiSearchService.getSuggestions(query, userId, limit);
+    } catch (error) {
+      logger.error('Error getting AI suggestions', error);
+      // Fallback to traditional suggestions
+      return this.getSearchSuggestions(query, limit);
+    }
+  }
+
+  /**
+   * Get search insights and analytics
+   */
+  async getSearchInsights(timeframe: 'day' | 'week' | 'month' = 'week') {
+    try {
+      return await this.aiSearchService.getSearchInsights(timeframe);
+    } catch (error) {
+      logger.error('Error getting search insights', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get personalized recommendations
+   */
+  async getPersonalizedRecommendations(userId: string, limit: number = 10): Promise<Course[]> {
+    try {
+      return await this.aiSearchService.getPersonalizedRecommendations(userId, limit);
+    } catch (error) {
+      logger.error('Error getting personalized recommendations', error);
+      return [];
+    }
+  }
+
+  /**
+   * Find similar courses
+   */
+  async findSimilarCourses(courseId: string, limit: number = 5): Promise<Course[]> {
+    try {
+      return await this.aiSearchService.findSimilarCourses(courseId, limit);
+    } catch (error) {
+      logger.error('Error finding similar courses', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get search performance metrics
+   */
+  getSearchMetrics() {
+    try {
+      return this.aiSearchService.getPerformanceMetrics();
+    } catch (error) {
+      logger.error('Error getting search metrics', error);
+      return {
+        averageSearchTime: 0,
+        cacheHitRate: 0,
+        accuracyRate: 0,
+        userSatisfaction: 0,
+        conversionRate: 0,
+        systemHealth: 'fair' as const
+      };
+    }
+  }
+
+  /**
+   * Optimize search performance
+   */
+  async optimizeSearch(): Promise<void> {
+    try {
+      await this.aiSearchService.optimizeSearch();
+      logger.info('Search optimization completed');
+    } catch (error) {
+      logger.error('Error during search optimization', error);
     }
   }
 }

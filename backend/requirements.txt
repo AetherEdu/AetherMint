@@ -1,0 +1,53 @@
+# AI/ML Dependencies for Advanced Search and Federated Learning
+
+# Core ML/NLP Libraries
+numpy>=1.21.0
+pandas>=1.3.0
+scikit-learn>=1.0.0
+scipy>=1.7.0
+
+# NLP Processing
+nltk>=3.6.0
+spacy>=3.4.0
+textblob>=0.17.0
+
+# Semantic Search & Embeddings
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.0
+transformers>=4.21.0
+torch>=1.12.0
+
+# Federated Learning
+tensorflow>=2.10.0
+tensorflow-federated>=0.20.0
+tensorflow-privacy>=0.8.2
+
+# Privacy-Preserving Machine Learning
+syft>=0.6.0
+phe>=1.4.0
+tenacity>=8.0.0
+
+# Secure Multi-Party Computation
+mpc>=0.1.0
+charm-crypto>=0.50
+
+# Cryptography
+cryptography>=3.4.0
+pycryptodome>=3.15.0
+
+# Language Detection
+langdetect>=1.0.9
+
+# Data Processing
+joblib>=1.1.0
+pickle5>=0.0.11
+
+# Development and Testing
+pytest>=6.2.0
+pytest-cov>=3.0.0
+
+# Optional: GPU support for FAISS (uncomment if GPU available)
+# faiss-gpu>=1.7.0
+
+# Optional: GPU support for TensorFlow (uncomment if GPU available)
+# tensorflow-gpu>=2.10.0

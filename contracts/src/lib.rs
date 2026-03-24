@@ -5,6 +5,8 @@ pub mod credentials;
 #[cfg(test)]
 mod credentials_test;
 
+pub mod credential_registry;
+
 pub mod progress;
 pub mod event_logger;
 pub mod user_profile;
@@ -330,5 +332,79 @@ impl StarkEdContract {
         env.storage().instance()
             .get(&DataKey::AchievementCount)
             .unwrap_or(0)
+    }
+
+    // ===== CredentialRegistry Integration =====
+
+    /// Issue a new credential with expiration support
+    pub fn issue_credential_with_expiration(
+        env: Env,
+        issuer: Address,
+        recipient: Address,
+        title: String,
+        description: String,
+        course_id: String,
+        ipfs_hash: String,
+        validity_duration: u64,
+    ) -> u64 {
+        credential_registry::issue_credential_with_expiration(
+            &env, issuer, recipient, title, description, course_id, ipfs_hash, validity_duration
+        )
+    }
+
+    /// Renew an existing credential
+    pub fn renew_credential(
+        env: Env,
+        credential_id: u64,
+        renewer: Address,
+        extension_duration: u64,
+    ) -> bool {
+        credential_registry::renew_credential(&env, credential_id, renewer, extension_duration)
+    }
+
+    /// Check and update credential expiration status
+    pub fn check_credential_expiration(env: Env, credential_id: u64) -> u8 {
+        let status = credential_registry::check_credential_expiration(&env, credential_id);
+        status.to_u8()
+    }
+
+    /// Get credential with current expiration status
+    pub fn get_credential_with_status(env: Env, credential_id: u64) -> credential_registry::CredentialRegistry {
+        credential_registry::get_credential(&env, credential_id)
+    }
+
+    /// Get user credentials with current status
+    pub fn get_user_credentials_with_status(env: Env, user: Address) -> Vec<u64> {
+        credential_registry::get_user_credentials(&env, user)
+    }
+
+    /// Get expired credentials list
+    pub fn get_expired_credentials(env: Env) -> Vec<u64> {
+        credential_registry::get_expired_credentials(&env)
+    }
+
+    /// Get renewal history for a credential
+    pub fn get_credential_renewal_history(env: Env, credential_id: u64) -> Vec<credential_registry::RenewalRecord> {
+        credential_registry::get_renewal_history(&env, credential_id)
+    }
+
+    /// Revoke a credential (using registry)
+    pub fn revoke_credential_registry(env: Env, credential_id: u64, revoker: Address) -> bool {
+        credential_registry::revoke_credential(&env, credential_id, revoker)
+    }
+
+    /// Check if a credential is currently valid
+    pub fn is_credential_valid(env: Env, credential_id: u64) -> bool {
+        credential_registry::is_credential_valid(&env, credential_id)
+    }
+
+    /// Get credentials expiring within a time window
+    pub fn get_credentials_expiring_soon(env: Env, within_seconds: u64) -> Vec<u64> {
+        credential_registry::get_credentials_expiring_soon(&env, within_seconds)
+    }
+
+    /// Batch update expiration status for multiple credentials
+    pub fn batch_update_expiration_status(env: Env, credential_ids: Vec<u64>) -> Vec<u64> {
+        credential_registry::batch_update_expiration_status(&env, credential_ids)
     }
 }

@@ -1,0 +1,378 @@
+﻿
+> starked-education-backend@1.0.0 test
+> jest tests/middleware/rateLimit.test.js --verbose
+
+  console.log
+    Testing in environment: test
+
+      at Object.log (tests/setup.js:9:9)
+
+2026-03-24 17:17:14:1714 info: Stellar server initialized for testnet network
+2026-03-24 17:17:15:1715 info: Redis connected successfully
+  console.log
+    2026-03-24T16:17:15.175Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.270ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.596ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.100ms
+  console.log
+    2026-03-24T16:17:15.224Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.077ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.167ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.038ms
+  console.log
+    2026-03-24T16:17:15.237Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.112ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.207ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.080ms
+  console.log
+    2026-03-24T16:17:15.249Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.229ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.242ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.103ms
+  console.log
+    2026-03-24T16:17:15.261Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.274ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.512ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.085ms
+  console.log
+    2026-03-24T16:17:15.273Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.106ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.309ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.094ms
+  console.log
+    2026-03-24T16:17:15.288Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.116ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.195ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.077ms
+  console.log
+    2026-03-24T16:17:15.300Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.576ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.177ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.046ms
+  console.log
+    2026-03-24T16:17:15.311Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.108ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.317ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.051ms
+  console.log
+    2026-03-24T16:17:15.321Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.092ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.192ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.043ms
+  console.log
+    2026-03-24T16:17:15.331Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.123ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.178ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.043ms
+  console.log
+    2026-03-24T16:17:15.340Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.069ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.197ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.060ms
+  console.log
+    2026-03-24T16:17:15.348Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.170ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.222ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.032ms
+  console.log
+    2026-03-24T16:17:15.357Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.063ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.107ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.031ms
+  console.log
+    2026-03-24T16:17:15.363Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.078ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.118ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.064ms
+  console.log
+    2026-03-24T16:17:15.370Z - GET /api/health
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.060ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 16)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 1
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.058ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 17)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 2
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.061ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 18)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 3
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.057ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 19)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 4
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.065ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 20)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 5
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.099ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 21)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 6
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.059ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 22)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 7
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.063ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 23)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 8
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.056ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 24)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 9
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.056ms
+2026-03-24 17:17:15:1715 warn: DDoS protection triggered for IP: ::ffff:127.0.0.1 (Requests: 25)
+2026-03-24 17:17:15:1715 warn: Security event logged: ddos_attempt for IP: ::ffff:127.0.0.1. Total suspicious events: 10
+2026-03-24 17:17:15:1715 error: IP automatically blocked: ::ffff:127.0.0.1. Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 warn: Blocked request from blacklisted IP: ::ffff:127.0.0.1 Reason: Exceeded suspicious event threshold: 10
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.059ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.120ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.026ms
+  console.log
+    2026-03-24T16:17:15.585Z - POST /api/auth/login
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 warn: Security event logged: auth_failure for IP: ::ffff:127.0.0.1. Total suspicious events: 1
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.048ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.115ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.029ms
+  console.log
+    2026-03-24T16:17:15.592Z - POST /api/auth/login
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 warn: Security event logged: auth_failure for IP: ::ffff:127.0.0.1. Total suspicious events: 2
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.045ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.115ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.033ms
+  console.log
+    2026-03-24T16:17:15.599Z - POST /api/auth/login
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 warn: Rate limit exceeded: ::ffff:127.0.0.1 - POST /login
+2026-03-24 17:17:15:1715 warn: Security event logged: rate_limit_exceeded for IP: ::ffff:127.0.0.1. Total suspicious events: 3
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.047ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.113ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.034ms
+  console.log
+    2026-03-24T16:17:15.607Z - POST /api/auth/login
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 warn: Rate limit exceeded: ::ffff:127.0.0.1 - POST /login
+2026-03-24 17:17:15:1715 warn: Security event logged: rate_limit_exceeded for IP: ::ffff:127.0.0.1. Total suspicious events: 4
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.051ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.129ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.032ms
+  console.log
+    2026-03-24T16:17:15.614Z - POST /api/auth/login
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 warn: Rate limit exceeded: ::ffff:127.0.0.1 - POST /login
+2026-03-24 17:17:15:1715 warn: Security event logged: rate_limit_exceeded for IP: ::ffff:127.0.0.1. Total suspicious events: 5
+2026-03-24 17:17:15:1715 debug: Performance: Middleware checkBlacklist took 0.089ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware ddosProtection took 0.167ms
+2026-03-24 17:17:15:1715 debug: Performance: Middleware botDetection took 0.048ms
+  console.log
+    2026-03-24T16:17:15.622Z - POST /api/auth/login
+
+      at log (src/index.js:53:11)
+
+2026-03-24 17:17:15:1715 warn: Rate limit exceeded: ::ffff:127.0.0.1 - POST /login
+2026-03-24 17:17:15:1715 warn: Security event logged: rate_limit_exceeded for IP: ::ffff:127.0.0.1. Total suspicious events: 6
+2026-03-24 17:17:15:1715 info: Redis disconnected successfully
+node.exe : FAIL tests/m
+iddleware/rateLimit.tes
+t.js (6.406 s)
+At line:1 char:1
++ & "C:\nvm4w\nodejs/no
+de.exe" "C:\Users\EMMA\
+AppData\Roaming\npm/nod
+e_ ...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (FAIL tests/mi   
+ dd...st.js (6.406     
+s):String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+  Rate Limiting 
+Middleware
+    ΓêÜ should allow 
+requests within global 
+rate limit (94 ms)
+    ├ù should block 
+requests exceeding 
+global rate limit (355 
+ms)
+    ΓêÜ should enforce 
+auth endpoint specific 
+limits (64 ms)
+    ΓêÜ should skip 
+rate limiting for 
+whitelisted IPs (4 ms)
+
+  ΓùÅ Rate Limiting 
+Middleware ΓÇ║ should 
+block requests 
+exceeding global rate 
+limit
+
+    expect(received).to
+Be(expected) // 
+Object.is equality
+
+    Expected: 429
+    Received: 403
+
+    [0m [90m 38 
+|[39m     
+     [90m 39 |[39m   
+  [36mconst[39m res 
+[33m=[39m 
+[36mawait[39m request
+(app)[33m.[39m[36mge
+t[39m([32m'/api/healt
+h'[39m)[33m.[39m[36
+mset[39m([32m'x-test-
+security'[39m[33m,[3
+9m [32m'true'[39m)[3
+3m;[39m
+    [31m[1m>[22m[39
+m[90m 40 |[39m     ex
+pect(res[33m.[39mstat
+us)[33m.[39mtoBe([35
+m429[39m)[33m;[39m
+     [90m    |[39m   
+                     
+[31m[1m^[22m[39m
+     [90m 41 |[39m   
+  expect(res[33m.[39m
+body[33m.[39mmessage)
+[33m.[39mtoContain([
+32m'Too many requests'
+[39m)[33m;[39m
+     [90m 42 |[39m   
+})[33m;[39m
+     [90m 43 
+|[39m[0m
+
+      at Object.toBe (t
+ests/middleware/rateLim
+it.test.js:40:24)
+
+Test Suites: 1 failed, 
+1 total
+Tests:       1 failed, 
+3 passed, 4 total
+Snapshots:   0 total
+Time:        6.841 s, 
+estimated 9 s
+Ran all test suites 
+matching /tests\\middle
+ware\\rateLimit.test.js
+/i.
+Force exiting Jest: 
+Have you considered 
+using 
+`--detectOpenHandles` 
+to detect async 
+operations that kept 
+running after all 
+tests finished?
+npm error Lifecycle 
+script `test` failed 
+with error:
+npm error code 1
+npm error path C:\Users
+\EMMA\Desktop\starked\b
+ackend
+npm error workspace sta
+rked-education-backend@
+1.0.0
+npm error location C:\U
+sers\EMMA\Desktop\stark
+ed\backend
+npm error command 
+failed
+npm error command C:\WI
+NDOWS\system32\cmd.exe 
+/d /s /c jest tests/mid
+dleware/rateLimit.test.
+js --verbose

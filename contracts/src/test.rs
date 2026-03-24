@@ -4,6 +4,7 @@ use crate::utils::storage::{StorageUtils, PackedUserFlags, PackedTimestamps, Pac
 use crate::credentials;
 use crate::user_profile;
 use crate::courseMetadata;
+use crate::credential_registry;
 
 #[contracttype]
 pub struct BenchmarkResult {
@@ -393,5 +394,340 @@ mod tests {
         let rating = PackedRating::new(8500, 42);
         assert_eq!(rating.rating_bps(), 8500);
         assert_eq!(rating.review_count(), 42);
+    }
+
+    #[test]
+    fn test_credential_expiration_flow() {
+        let env = TestEnv::default();
+        let admin = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        
+        // Set up admin
+        env.storage().instance().set(&soroban_sdk::Symbol::new(&env, "admin"), &admin);
+        
+        // Issue credential with short validity period for testing
+        let validity_duration = 100; // 100 seconds
+        let credential_id = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Test Credential"),
+            String::from_str(&env, "Test Description"),
+            String::from_str(&env, "course_1"),
+            String::from_str(&env, "QmTestHash"),
+            validity_duration,
+        );
+        
+        // Verify credential is initially active
+        let credential = credential_registry::get_credential(&env, credential_id);
+        assert_eq!(credential.status, credential_registry::CredentialStatus::Active);
+        assert!(credential_registry::is_credential_valid(&env, credential_id));
+        
+        // Fast forward time beyond expiration
+        env.ledger().set_timestamp(env.ledger().timestamp() + validity_duration + 10);
+        
+        // Check expiration status
+        let status = credential_registry::check_credential_expiration(&env, credential_id);
+        assert_eq!(status, credential_registry::CredentialStatus::Expired);
+        
+        // Verify credential is no longer valid
+        assert!(!credential_registry::is_credential_valid(&env, credential_id));
+        
+        // Check that credential appears in expired credentials list
+        let expired_creds = credential_registry::get_expired_credentials(&env);
+        assert!(expired_creds.contains(&credential_id));
+    }
+
+    #[test]
+    fn test_credential_renewal() {
+        let env = TestEnv::default();
+        let admin = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        
+        // Set up admin
+        env.storage().instance().set(&soroban_sdk::Symbol::new(&env, "admin"), &admin);
+        
+        // Issue credential
+        let validity_duration = 50;
+        let credential_id = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Test Credential"),
+            String::from_str(&env, "Test Description"),
+            String::from_str(&env, "course_1"),
+            String::from_str(&env, "QmTestHash"),
+            validity_duration,
+        );
+        
+        // Fast forward close to expiration
+        env.ledger().set_timestamp(env.ledger().timestamp() + validity_duration - 10);
+        
+        // Renew credential
+        let extension_duration = 100;
+        let renewal_success = credential_registry::renew_credential(
+            &env,
+            credential_id,
+            recipient.clone(), // Recipient can renew
+            extension_duration,
+        );
+        assert!(renewal_success);
+        
+        // Verify credential is still valid after renewal
+        let credential = credential_registry::get_credential(&env, credential_id);
+        assert_eq!(credential.status, credential_registry::CredentialStatus::Active);
+        assert_eq!(credential.renewal_count, 1);
+        assert!(credential.last_renewed_at.is_some());
+        
+        // Check renewal history
+        let renewal_history = credential_registry::get_renewal_history(&env, credential_id);
+        assert_eq!(renewal_history.len(), 1);
+        
+        let renewal_record = renewal_history.get(0).unwrap();
+        assert_eq!(renewal_record.renewed_by, recipient);
+        assert_eq!(renewal_record.new_expires_at, renewal_record.old_expires_at + extension_duration);
+    }
+
+    #[test]
+    fn test_expired_credential_renewal() {
+        let env = TestEnv::default();
+        let admin = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        
+        // Set up admin
+        env.storage().instance().set(&soroban_sdk::Symbol::new(&env, "admin"), &admin);
+        
+        // Issue credential with very short validity
+        let validity_duration = 10;
+        let credential_id = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Test Credential"),
+            String::from_str(&env, "Test Description"),
+            String::from_str(&env, "course_1"),
+            String::from_str(&env, "QmTestHash"),
+            validity_duration,
+        );
+        
+        // Fast forward past expiration
+        env.ledger().set_timestamp(env.ledger().timestamp() + validity_duration + 5);
+        
+        // Verify credential is expired
+        assert_eq!(
+            credential_registry::check_credential_expiration(&env, credential_id),
+            credential_registry::CredentialStatus::Expired
+        );
+        
+        // Renew expired credential
+        let extension_duration = 100;
+        let renewal_success = credential_registry::renew_credential(
+            &env,
+            credential_id,
+            admin.clone(), // Admin can renew expired credentials
+            extension_duration,
+        );
+        assert!(renewal_success);
+        
+        // Verify credential is active again
+        let credential = credential_registry::get_credential(&env, credential_id);
+        assert_eq!(credential.status, credential_registry::CredentialStatus::Active);
+        assert!(credential_registry::is_credential_valid(&env, credential_id));
+    }
+
+    #[test]
+    fn test_credential_revocation() {
+        let env = TestEnv::default();
+        let admin = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        
+        // Set up admin
+        env.storage().instance().set(&soroban_sdk::Symbol::new(&env, "admin"), &admin);
+        
+        // Issue credential
+        let credential_id = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Test Credential"),
+            String::from_str(&env, "Test Description"),
+            String::from_str(&env, "course_1"),
+            String::from_str(&env, "QmTestHash"),
+            1000,
+        );
+        
+        // Revoke credential
+        let revoke_success = credential_registry::revoke_credential(&env, credential_id, admin.clone());
+        assert!(revoke_success);
+        
+        // Verify credential is revoked
+        let credential = credential_registry::get_credential(&env, credential_id);
+        assert_eq!(credential.status, credential_registry::CredentialStatus::Revoked);
+        assert!(!credential_registry::is_credential_valid(&env, credential_id));
+        
+        // Attempt to renew revoked credential (should fail)
+        let renewal_success = credential_registry::renew_credential(
+            &env,
+            credential_id,
+            admin.clone(),
+            100,
+        );
+        assert!(!renewal_success); // Should fail due to panic
+    }
+
+    #[test]
+    fn test_credentials_expiring_soon() {
+        let env = TestEnv::default();
+        let admin = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        
+        // Set up admin
+        env.storage().instance().set(&soroban_sdk::Symbol::new(&env, "admin"), &admin);
+        
+        // Issue multiple credentials with different expiration times
+        let current_time = env.ledger().timestamp();
+        
+        // Credential expiring soon (30 seconds)
+        let cred1 = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Credential 1"),
+            String::from_str(&env, "Description 1"),
+            String::from_str(&env, "course_1"),
+            String::from_str(&env, "QmHash1"),
+            30,
+        );
+        
+        // Credential expiring later (200 seconds)
+        let cred2 = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Credential 2"),
+            String::from_str(&env, "Description 2"),
+            String::from_str(&env, "course_2"),
+            String::from_str(&env, "QmHash2"),
+            200,
+        );
+        
+        // Get credentials expiring within 60 seconds
+        let expiring_soon = credential_registry::get_credentials_expiring_soon(&env, 60);
+        assert!(expiring_soon.contains(&cred1));
+        assert!(!expiring_soon.contains(&cred2));
+    }
+
+    #[test]
+    fn test_batch_expiration_update() {
+        let env = TestEnv::default();
+        let admin = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        
+        // Set up admin
+        env.storage().instance().set(&soroban_sdk::Symbol::new(&env, "admin"), &admin);
+        
+        // Issue multiple credentials
+        let cred1 = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Credential 1"),
+            String::from_str(&env, "Description 1"),
+            String::from_str(&env, "course_1"),
+            String::from_str(&env, "QmHash1"),
+            20,
+        );
+        
+        let cred2 = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Credential 2"),
+            String::from_str(&env, "Description 2"),
+            String::from_str(&env, "course_2"),
+            String::from_str(&env, "QmHash2"),
+            25,
+        );
+        
+        let cred3 = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Credential 3"),
+            String::from_str(&env, "Description 3"),
+            String::from_str(&env, "course_3"),
+            String::from_str(&env, "QmHash3"),
+            100, // Won't expire
+        );
+        
+        // Fast forward past expiration of first two credentials
+        env.ledger().set_timestamp(env.ledger().timestamp() + 30);
+        
+        // Batch update expiration status
+        let credential_ids = Vec::from_array(&env, [cred1, cred2, cred3]);
+        let expired_credentials = credential_registry::batch_update_expiration_status(&env, credential_ids);
+        
+        // Verify that only the first two credentials are expired
+        assert_eq!(expired_credentials.len(), 2);
+        assert!(expired_credentials.contains(&cred1));
+        assert!(expired_credentials.contains(&cred2));
+        assert!(!expired_credentials.contains(&cred3));
+    }
+
+    #[test]
+    fn test_unauthorized_renewal() {
+        let env = TestEnv::default();
+        let admin = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        let unauthorized_user = Address::generate(&env);
+        
+        // Set up admin
+        env.storage().instance().set(&soroban_sdk::Symbol::new(&env, "admin"), &admin);
+        
+        // Issue credential
+        let credential_id = credential_registry::issue_credential_with_expiration(
+            &env,
+            admin.clone(),
+            recipient.clone(),
+            String::from_str(&env, "Test Credential"),
+            String::from_str(&env, "Test Description"),
+            String::from_str(&env, "course_1"),
+            String::from_str(&env, "QmTestHash"),
+            100,
+        );
+        
+        // Attempt renewal by unauthorized user (should fail)
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            credential_registry::renew_credential(
+                &env,
+                credential_id,
+                unauthorized_user.clone(),
+                50,
+            )
+        }));
+        
+        assert!(result.is_err()); // Should panic due to unauthorized access
+    }
+
+    #[test]
+    fn test_credential_status_enum() {
+        // Test CredentialStatus enum conversion
+        let active = credential_registry::CredentialStatus::Active;
+        let expired = credential_registry::CredentialStatus::Expired;
+        let revoked = credential_registry::CredentialStatus::Revoked;
+        let pending = credential_registry::CredentialStatus::Pending;
+        
+        assert_eq!(active.to_u8(), 0);
+        assert_eq!(expired.to_u8(), 1);
+        assert_eq!(revoked.to_u8(), 2);
+        assert_eq!(pending.to_u8(), 3);
+        
+        assert_eq!(credential_registry::CredentialStatus::from_u8(0), active);
+        assert_eq!(credential_registry::CredentialStatus::from_u8(1), expired);
+        assert_eq!(credential_registry::CredentialStatus::from_u8(2), revoked);
+        assert_eq!(credential_registry::CredentialStatus::from_u8(3), pending);
+        
+        // Test invalid value defaults to Pending
+        assert_eq!(credential_registry::CredentialStatus::from_u8(99), pending);
     }
 }

@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { createServer } from 'http';
 import { INotification } from '../models/Notification';
+import collaborationService from './collaborationService';
 
 // Define the shape of the notification data that will be sent to the client
 interface ClientNotificationData {
@@ -22,6 +23,7 @@ interface UserSockets {
 class WebsocketService {
   private io: Server;
   private userSockets: UserSockets = {};
+  private socketUsers: Record<string, string> = {};
 
   constructor(server?: any) {
     if (server) {
@@ -52,11 +54,64 @@ class WebsocketService {
       console.log(`User connected: ${socket.id}`);
 
       socket.on('register-user', (userId: string) => {
+        this.socketUsers[socket.id] = userId;
         this.addUserSocket(userId, socket);
         console.log(`User ${userId} registered with socket ${socket.id}`);
       });
 
+      socket.on('join-classroom', (payload: { classroomId: string; userId: string; name: string; role?: 'student' | 'instructor' | 'moderator' | 'reviewer' }) => {
+        const classroom = collaborationService.joinClassroom(payload.classroomId, payload);
+        socket.join(this.getRoomName(payload.classroomId));
+        socket.emit('classroom-state', classroom);
+        this.io.to(this.getRoomName(payload.classroomId)).emit('classroom-presence-updated', classroom.participants);
+      });
+
+      socket.on('leave-classroom', (payload: { classroomId: string; userId: string }) => {
+        const classroom = collaborationService.leaveClassroom(payload.classroomId, payload.userId);
+        socket.leave(this.getRoomName(payload.classroomId));
+        this.io.to(this.getRoomName(payload.classroomId)).emit('classroom-presence-updated', classroom.participants);
+      });
+
+      socket.on('classroom-message', (payload: { classroomId: string; userId: string; userName: string; body: string; emojis?: string[]; files?: any[] }) => {
+        const message = collaborationService.addMessage(payload.classroomId, {
+          userId: payload.userId,
+          userName: payload.userName,
+          body: payload.body,
+          emojis: payload.emojis ?? [],
+          files: payload.files ?? []
+        });
+        this.io.to(this.getRoomName(payload.classroomId)).emit('classroom-message-created', message);
+      });
+
+      socket.on('whiteboard-update', (payload: { classroomId: string; userId: string; color: string; width: number; points: Array<{ x: number; y: number }> }) => {
+        const stroke = collaborationService.addWhiteboardStroke(payload.classroomId, payload);
+        this.io.to(this.getRoomName(payload.classroomId)).emit('whiteboard-updated', stroke);
+      });
+
+      socket.on('screen-share-status', (payload: { classroomId: string; userId?: string; streamLabel?: string; active: boolean }) => {
+        const classroom = payload.active && payload.userId
+          ? collaborationService.setScreenShare(payload.classroomId, payload.userId, payload.streamLabel)
+          : collaborationService.clearScreenShare(payload.classroomId);
+        this.io.to(this.getRoomName(payload.classroomId)).emit('screen-share-updated', classroom.screenShare);
+      });
+
+      socket.on('hand-raise', (payload: { classroomId: string; userId: string; raised: boolean }) => {
+        const classroom = collaborationService.setHandRaise(payload.classroomId, payload.userId, payload.raised);
+        this.io.to(this.getRoomName(payload.classroomId)).emit('hand-raise-updated', classroom.presenterControls.queue);
+      });
+
+      socket.on('poll-response', (payload: { classroomId: string; pollId: string; optionId: string; userId: string }) => {
+        const poll = collaborationService.respondToPoll(payload.classroomId, payload.pollId, payload.optionId, payload.userId);
+        this.io.to(this.getRoomName(payload.classroomId)).emit('poll-updated', poll);
+      });
+
+      socket.on('document-sync', (payload: { workspaceId: string; documentId: string; title: string; userId: string; version: number; updatedAt?: Date; content: Record<string, unknown>; strategy?: any }) => {
+        const document = collaborationService.syncDocument(payload);
+        this.io.emit(`workspace-document-${payload.workspaceId}`, document);
+      });
+
       socket.on('disconnect', () => {
+        delete this.socketUsers[socket.id];
         this.removeSocket(socket);
         console.log(`User disconnected: ${socket.id}`);
       });
@@ -98,6 +153,8 @@ class WebsocketService {
         delete this.userSockets[userId];
       }
     });
+
+    delete this.socketUsers[socket.id];
   }
 
   public sendNotification(userId: string, notification: INotification): void {
@@ -137,6 +194,15 @@ class WebsocketService {
     this.io.emit(event, data);
   }
 
+  public emitToUser(userId: string, event: string, data: unknown): void {
+    const sockets = this.userSockets[userId] || [];
+    sockets.filter((socket) => socket.connected).forEach((socket) => socket.emit(event, data));
+  }
+
+  public emitToRoom(classroomId: string, event: string, data: unknown): void {
+    this.io.to(this.getRoomName(classroomId)).emit(event, data);
+  }
+
   public getConnectedUsers(): string[] {
     return Object.keys(this.userSockets);
   }
@@ -147,6 +213,10 @@ class WebsocketService {
 
   public getIO(): Server {
     return this.io;
+  }
+
+  private getRoomName(classroomId: string): string {
+    return `classroom:${classroomId}`;
   }
 }
 

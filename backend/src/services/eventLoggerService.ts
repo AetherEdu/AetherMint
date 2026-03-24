@@ -302,9 +302,9 @@ class EventLoggerService {
       // This might involve checking the contract state, transaction hashes, etc.
       
       // Basic verification - check if event exists and has required fields
-      const isValid = event.id === eventId && 
+      const isValid = Boolean(event.id === eventId && 
                      event.user && 
-                     event.timestamp > 0;
+                     event.timestamp > 0);
       
       logger.info(`Event ${eventId} verification: ${isValid ? 'PASSED' : 'FAILED'}`);
       return isValid;

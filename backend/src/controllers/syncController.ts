@@ -148,7 +148,7 @@ export async function syncEntity(req: Request, res: Response): Promise<void> {
       updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
       payload: payload || {}
     }, strategy);
-    res.status(200).json({ success: true, ...result });
+    res.status(200).json({ ...result, success: true });
   } catch (error) {
     logger.error('syncEntity error', error);
     res.status(500).json({

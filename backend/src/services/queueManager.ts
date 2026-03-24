@@ -1,5 +1,4 @@
 /**
-
  * Offline sync queue manager
  * Queues changes when offline; processes queue when online.
  * GIVEN offline changes, WHEN online, THEN sync processes queue.
@@ -40,7 +39,7 @@ const defaultOptions: Required<QueueManagerOptions> = {
 
 /**
  * In-memory queue for offline sync operations.
- * Processes items in order (FIFO) when processQueue() is called (e.g. when device comes online).
+ * Processes items in order (FIFO) when processQueue() is called.
  */
 class QueueManager {
   private queue: QueuedItem[] = [];
@@ -53,16 +52,10 @@ class QueueManager {
     this.options = { ...defaultOptions, ...options };
   }
 
-  /**
-   * Set the handler that will be invoked for each item when processing the queue.
-   */
   setProcessHandler(handler: ProcessItemHandler): void {
     this.processHandler = handler;
   }
 
-  /**
-   * Add an item to the queue. Rejects if queue is full.
-   */
   enqueue(item: Omit<QueuedItem, 'id' | 'queuedAt' | 'retryCount'>): string {
     if (this.queue.length >= this.options.maxQueueSize) {
       throw new Error(`Sync queue full (max ${this.options.maxQueueSize})`);
@@ -75,53 +68,48 @@ class QueueManager {
       queuedAt: new Date(),
       retryCount: 0
     };
+
     this.queue.push(queuedItem);
     logger.debug(`Sync queue: enqueued ${item.operation} ${item.entityType}/${item.entityId}, queue size=${this.queue.length}`);
+
     return id;
   }
 
-  /**
-   * Number of items pending in the queue.
-   */
   getPendingCount(): number {
     return this.queue.length;
   }
 
-  /**
-   * Get all pending items (read-only snapshot).
-   */
   getPendingItems(): ReadonlyArray<QueuedItem> {
     return [...this.queue];
   }
 
-  /**
-   * Remove items that have been successfully processed (called internally after processItem succeeds).
-   */
   removeProcessed(id: string): void {
     this.queue = this.queue.filter((item) => item.id !== id);
   }
 
-  /**
-   * Mark item as failed and optionally re-queue for retry.
-   */
   private markFailed(item: QueuedItem, error: string): void {
-    const index = this.queue.findIndex((q) => q.id === item.id);
-    if (index === -1) return;
+    const index = this.queue.findIndex((queuedItem) => queuedItem.id === item.id);
 
-    const next = { ...item, retryCount: item.retryCount + 1, lastError: error };
+    if (index === -1) {
+      return;
+    }
+
+    const next = {
+      ...item,
+      retryCount: item.retryCount + 1,
+      lastError: error
+    };
+
     if (next.retryCount >= this.options.maxRetries) {
       this.queue.splice(index, 1);
       logger.warn(`Sync queue: dropped item ${item.id} after ${this.options.maxRetries} retries: ${error}`);
-    } else {
-      this.queue[index] = next;
-      logger.debug(`Sync queue: will retry item ${item.id}, retry ${next.retryCount}/${this.options.maxRetries}`);
+      return;
     }
+
+    this.queue[index] = next;
+    logger.debug(`Sync queue: will retry item ${item.id}, retry ${next.retryCount}/${this.options.maxRetries}`);
   }
 
-  /**
-   * Process the queue: for each item, call the process handler. Runs sequentially.
-   * Returns number of successfully processed items.
-   */
   async processQueue(): Promise<{ processed: number; failed: number }> {
     if (this.processing) {
       logger.debug('Sync queue: process already in progress, skipping');
@@ -140,19 +128,17 @@ class QueueManager {
     try {
       while (this.queue.length > 0) {
         const item = this.queue[0];
+
         try {
           await this.processHandler(item);
           this.removeProcessed(item.id);
-          processed++;
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          processed += 1;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           this.markFailed(item, message);
-          failed++;
+          failed += 1;
           await this.delay(this.options.retryDelayMs);
         }
-      }
-      if (processed > 0) {
-        logger.info(`Sync queue: processed ${processed} items, ${failed} failed`);
       }
     } finally {
       this.processing = false;
@@ -161,15 +147,16 @@ class QueueManager {
     return { processed, failed };
   }
 
-  /**
-   * Process queue only for a specific user (e.g. when that user's device comes online).
-   */
   async processQueueForUser(userId: string): Promise<{ processed: number; failed: number }> {
-    if (this.processing) return { processed: 0, failed: 0 };
-    if (!this.processHandler) return { processed: 0, failed: 0 };
+    if (this.processing || !this.processHandler) {
+      return { processed: 0, failed: 0 };
+    }
 
-    const userItems = this.queue.filter((q) => q.userId === userId);
-    if (userItems.length === 0) return { processed: 0, failed: 0 };
+    const userItems = this.queue.filter((item) => item.userId === userId);
+
+    if (userItems.length === 0) {
+      return { processed: 0, failed: 0 };
+    }
 
     this.processing = true;
     let processed = 0;
@@ -180,11 +167,11 @@ class QueueManager {
         try {
           await this.processHandler(item);
           this.removeProcessed(item.id);
-          processed++;
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          processed += 1;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           this.markFailed(item, message);
-          failed++;
+          failed += 1;
           await this.delay(this.options.retryDelayMs);
         }
       }
@@ -195,23 +182,17 @@ class QueueManager {
     return { processed, failed };
   }
 
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  /**
-   * Clear all items (e.g. for testing or reset).
-   */
   clear(): void {
     this.queue = [];
     logger.debug('Sync queue: cleared');
   }
 
-  /**
-   * Whether the queue is currently being processed.
-   */
   isProcessing(): boolean {
     return this.processing;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
@@ -221,312 +202,8 @@ export function getQueueManager(options?: QueueManagerOptions): QueueManager {
   if (!queueManagerInstance) {
     queueManagerInstance = new QueueManager(options);
   }
+
   return queueManagerInstance;
 }
 
 export default QueueManager;
-=======
- * Queue Manager Service
- * Handles offline data queuing and processing for synchronization
- */
-
-import { EventEmitter } from 'events';
-import { SyncQueueItem } from '../models/SyncStatus';
-
-export interface QueueStats {
-  totalItems: number;
-  pendingItems: number;
-  processingItems: number;
-  failedItems: number;
-  completedItems: number;
-}
-
-export interface QueueFilter {
-  deviceId?: string;
-  entityType?: string;
-  status?: SyncQueueItem['status'];
-  priority?: SyncQueueItem['priority'];
-  olderThan?: Date;
-}
-
-export class QueueManager extends EventEmitter {
-  private queues: Map<string, SyncQueueItem[]> = new Map();
-  private processing: Set<string> = new Set();
-  private retryTimers: Map<string, any> = new Map();
-
-  constructor() {
-    super();
-  }
-
-  /**
-   * Add an item to the sync queue
-   */
-  async enqueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>): Promise<SyncQueueItem> {
-    const queueItem: SyncQueueItem = {
-      ...item,
-      id: this.generateItemId(),
-      timestamp: new Date(),
-      retryCount: 0
-    };
-
-    const deviceQueue = this.queues.get(item.deviceId) || [];
-    deviceQueue.push(queueItem);
-    this.queues.set(item.deviceId, deviceQueue);
-
-    // Sort by priority and timestamp
-    deviceQueue.sort((a, b) => {
-      const priorityOrder: { [key: string]: number } = { high: 3, medium: 2, low: 1 };
-      const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
-      if (priorityDiff !== 0) return priorityDiff;
-      return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-    });
-
-    this.emit('itemQueued', queueItem);
-    return queueItem;
-  }
-
-  /**
-   * Get queued items for a device
-   */
-  async getQueuedItems(deviceId: string, limit?: number): Promise<SyncQueueItem[]> {
-    const queue = this.queues.get(deviceId) || [];
-    const pendingItems = queue.filter(item => item.status === 'pending');
-    
-    if (limit) {
-      return pendingItems.slice(0, limit);
-    }
-    
-    return pendingItems;
-  }
-
-  /**
-   * Get count of pending items for a device
-   */
-  async getPendingCount(deviceId: string): Promise<number> {
-    const queue = this.queues.get(deviceId) || [];
-    return queue.filter(item => item.status === 'pending').length;
-  }
-
-  /**
-   * Process a queue item
-   */
-  async processItem(item: SyncQueueItem): Promise<void> {
-    if (this.processing.has(item.id)) {
-      throw new Error(`Item ${item.id} is already being processed`);
-    }
-
-    this.processing.add(item.id);
-    item.status = 'processing';
-
-    try {
-      // Simulate processing - in real implementation, this would sync with backend
-      await this.simulateSyncOperation(item);
-      
-      item.status = 'completed';
-      this.emit('itemProcessed', item);
-      
-    } catch (error) {
-      item.retryCount++;
-      
-      if (item.retryCount < item.maxRetries) {
-        item.status = 'pending';
-        this.scheduleRetry(item);
-        this.emit('itemRetryScheduled', item);
-      } else {
-        item.status = 'failed';
-        this.emit('itemFailed', item);
-      }
-    } finally {
-      this.processing.delete(item.id);
-    }
-  }
-
-  /**
-   * Get queue statistics
-   */
-  getQueueStats(deviceId?: string): QueueStats {
-    let allItems: SyncQueueItem[] = [];
-    
-    if (deviceId) {
-      allItems = this.queues.get(deviceId) || [];
-    } else {
-      for (const queue of this.queues.values()) {
-        allItems = allItems.concat(queue);
-      }
-    }
-
-    return {
-      totalItems: allItems.length,
-      pendingItems: allItems.filter(item => item.status === 'pending').length,
-      processingItems: allItems.filter(item => item.status === 'processing').length,
-      failedItems: allItems.filter(item => item.status === 'failed').length,
-      completedItems: allItems.filter(item => item.status === 'completed').length
-    };
-  }
-
-  /**
-   * Filter queue items
-   */
-  filterQueue(filter: QueueFilter): SyncQueueItem[] {
-    let items: SyncQueueItem[] = [];
-    
-    if (filter.deviceId) {
-      items = this.queues.get(filter.deviceId) || [];
-    } else {
-      for (const queue of this.queues.values()) {
-        items = items.concat(queue);
-      }
-    }
-
-    return items.filter(item => {
-      if (filter.entityType && item.entityType !== filter.entityType) return false;
-      if (filter.status && item.status !== filter.status) return false;
-      if (filter.priority && item.priority !== filter.priority) return false;
-      if (filter.olderThan && new Date(item.timestamp) >= filter.olderThan) return false;
-      return true;
-    });
-  }
-
-  /**
-   * Retry failed items
-   */
-  async retryFailedItems(deviceId?: string): Promise<number> {
-    let retriedCount = 0;
-    
-    const queues = deviceId ? [deviceId] : Array.from(this.queues.keys());
-    
-    for (const queueId of queues) {
-      const queue = this.queues.get(queueId) || [];
-      const failedItems = queue.filter(item => item.status === 'failed');
-      
-      for (const item of failedItems) {
-        item.status = 'pending';
-        item.retryCount = 0;
-        retriedCount++;
-      }
-    }
-    
-    this.emit('itemsRetried', retriedCount);
-    return retriedCount;
-  }
-
-  /**
-   * Clear completed items from queue
-   */
-  clearCompletedItems(deviceId?: string): number {
-    let clearedCount = 0;
-    
-    const queues = deviceId ? [deviceId] : Array.from(this.queues.keys());
-    
-    for (const queueId of queues) {
-      const queue = this.queues.get(queueId) || [];
-      const originalLength = queue.length;
-      
-      const filteredQueue = queue.filter(item => item.status !== 'completed');
-      this.queues.set(queueId, filteredQueue);
-      
-      clearedCount += originalLength - filteredQueue.length;
-    }
-    
-    this.emit('itemsCleared', clearedCount);
-    return clearedCount;
-  }
-
-  /**
-   * Get item by ID
-   */
-  getItem(itemId: string): SyncQueueItem | undefined {
-    for (const queue of this.queues.values()) {
-      const item = queue.find(i => i.id === itemId);
-      if (item) return item;
-    }
-    return undefined;
-  }
-
-  /**
-   * Update item status
-   */
-  updateItemStatus(itemId: string, status: SyncQueueItem['status']): boolean {
-    const item = this.getItem(itemId);
-    if (item) {
-      item.status = status;
-      this.emit('itemUpdated', item);
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * Remove item from queue
-   */
-  removeItem(itemId: string): boolean {
-    for (const [deviceId, queue] of this.queues.entries()) {
-      const index = queue.findIndex(item => item.id === itemId);
-      if (index !== -1) {
-        const removedItem = queue.splice(index, 1)[0];
-        this.queues.set(deviceId, queue);
-        this.emit('itemRemoved', removedItem);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Schedule retry for failed item
-   */
-  private scheduleRetry(item: SyncQueueItem): void {
-    const delay = Math.min(Math.pow(2, item.retryCount) * 1000, 30000); // Exponential backoff, max 30s
-    
-    const timer = setTimeout(async () => {
-      try {
-        await this.processItem(item);
-      } catch (error) {
-        console.error(`Retry failed for item ${item.id}:`, error);
-      }
-    }, delay);
-    
-    this.retryTimers.set(item.id, timer);
-  }
-
-  /**
-   * Simulate sync operation (replace with actual implementation)
-   */
-  private async simulateSyncOperation(item: SyncQueueItem): Promise<void> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
-    
-    // Simulate occasional failures (10% chance)
-    if (Math.random() < 0.1) {
-      throw new Error('Simulated sync failure');
-    }
-    
-    console.log(`Processed ${item.operation} for ${item.entityType}:${item.entityId}`);
-  }
-
-  /**
-   * Generate unique item ID
-   */
-  private generateItemId(): string {
-    return `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  /**
-   * Cleanup resources
-   */
-  destroy(): void {
-    // Clear all retry timers
-    for (const timer of this.retryTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.retryTimers.clear();
-    
-    // Clear queues
-    this.queues.clear();
-    this.processing.clear();
-    
-    // Remove all listeners
-    this.removeAllListeners();
-  }
-}
-

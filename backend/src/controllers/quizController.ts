@@ -24,7 +24,7 @@ class QuizController {
    */
   async createQuiz(req: Request, res: Response): Promise<void> {
     try {
-      const instructorId = req.user?.id || 'default-instructor'; // Get from auth middleware
+      const instructorId = (req as any).user?.id || 'default-instructor'; // Get from auth middleware
       const createRequest: CreateQuizRequest = req.body;
 
       // Validate required fields
@@ -189,7 +189,7 @@ class QuizController {
   async submitQuiz(req: Request, res: Response): Promise<void> {
     try {
       const { id: quizId } = req.params;
-      const userId = req.user?.id || 'default-user'; // Get from auth middleware
+      const userId = (req as any).user?.id || 'default-user'; // Get from auth middleware
       const submitRequest: SubmitQuizRequest = {
         quizId,
         answers: req.body.answers,
@@ -274,7 +274,7 @@ class QuizController {
   async getUserSubmission(req: Request, res: Response): Promise<void> {
     try {
       const { id: quizId } = req.params;
-      const userId = req.user?.id || req.query.userId as string;
+      const userId = (req as any).user?.id || req.query.userId as string;
 
       if (!userId) {
         res.status(400).json({

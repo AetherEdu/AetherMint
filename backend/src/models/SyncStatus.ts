@@ -1,10 +1,9 @@
 /**
-
  * SyncStatus and Device models
- * Device registration and sync state tracking for cross-device synchronization
+ * Device registration and sync state tracking for cross-device synchronization.
  */
 
-import mongoose, { Document, Schema, Model } from 'mongoose';
+import mongoose, { Document, Model, Schema } from 'mongoose';
 
 // --- Device (registration and management) ---
 
@@ -12,10 +11,10 @@ export type DeviceStatus = 'online' | 'offline' | 'syncing' | 'error';
 
 export interface IDevice extends Document {
   _id: string;
-  deviceId: string;       // Unique client-generated id (e.g. UUID)
+  deviceId: string;
   userId: string;
-  name?: string;         // User-friendly name, e.g. "Chrome on Windows"
-  type?: string;         // e.g. "web", "mobile", "desktop"
+  name?: string;
+  type?: string;
   userAgent?: string;
   status: DeviceStatus;
   lastSeenAt: Date;
@@ -24,35 +23,38 @@ export interface IDevice extends Document {
   updatedAt: Date;
 }
 
-const DeviceSchema: Schema = new Schema({
-  deviceId: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true
+const DeviceSchema: Schema = new Schema(
+  {
+    deviceId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true
+    },
+    userId: {
+      type: String,
+      required: true,
+      index: true
+    },
+    name: { type: String, trim: true },
+    type: { type: String, trim: true },
+    userAgent: { type: String },
+    status: {
+      type: String,
+      enum: ['online', 'offline', 'syncing', 'error'],
+      default: 'offline'
+    },
+    lastSeenAt: {
+      type: Date,
+      default: Date.now,
+      required: true
+    },
+    lastSyncAt: { type: Date }
   },
-  userId: {
-    type: String,
-    required: true,
-    index: true
-  },
-  name: { type: String, trim: true },
-  type: { type: String, trim: true },
-  userAgent: { type: String },
-  status: {
-    type: String,
-    enum: ['online', 'offline', 'syncing', 'error'],
-    default: 'offline'
-  },
-  lastSeenAt: {
-    type: Date,
-    default: Date.now,
-    required: true
-  },
-  lastSyncAt: { type: Date }
-}, {
-  timestamps: true
-});
+  {
+    timestamps: true
+  }
+);
 
 DeviceSchema.index({ userId: 1, deviceId: 1 });
 DeviceSchema.index({ userId: 1, lastSeenAt: -1 });
@@ -61,58 +63,70 @@ export const Device: Model<IDevice> = mongoose.model<IDevice>('Device', DeviceSc
 
 // --- Sync status per entity (for conflict detection and status tracking) ---
 
-export type SyncEntityType = 'progress' | 'preferences' | 'course_state' | 'notes' | 'generic';
+export type SyncEntityType =
+  | 'progress'
+  | 'preferences'
+  | 'course_state'
+  | 'notes'
+  | 'generic'
+  | 'collaboration_doc'
+  | 'whiteboard'
+  | 'classroom'
+  | 'workspace';
 
 export interface ISyncStatus extends Document {
   _id: string;
   userId: string;
   entityType: SyncEntityType;
-  entityId: string;      // e.g. courseId, progressId
-  version: number;       // Incremented on each successful sync
+  entityId: string;
+  version: number;
   lastModifiedAt: Date;
   lastModifiedByDeviceId: string;
-  checksum?: string;     // Optional hash for quick change detection
+  checksum?: string;
   metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const SyncStatusSchema: Schema = new Schema({
-  userId: {
-    type: String,
-    required: true,
-    index: true
+const SyncStatusSchema: Schema = new Schema(
+  {
+    userId: {
+      type: String,
+      required: true,
+      index: true
+    },
+    entityType: {
+      type: String,
+      required: true,
+      enum: ['progress', 'preferences', 'course_state', 'notes', 'generic', 'collaboration_doc', 'whiteboard', 'classroom', 'workspace'],
+      index: true
+    },
+    entityId: {
+      type: String,
+      required: true,
+      index: true
+    },
+    version: {
+      type: Number,
+      default: 0,
+      required: true
+    },
+    lastModifiedAt: {
+      type: Date,
+      default: Date.now,
+      required: true
+    },
+    lastModifiedByDeviceId: {
+      type: String,
+      required: true
+    },
+    checksum: { type: String },
+    metadata: { type: Schema.Types.Mixed }
   },
-  entityType: {
-    type: String,
-    required: true,
-    enum: ['progress', 'preferences', 'course_state', 'notes', 'generic'],
-    index: true
-  },
-  entityId: {
-    type: String,
-    required: true,
-    index: true
-  },
-  version: {
-    type: Number,
-    default: 0,
-    required: true
-  },
-  lastModifiedAt: {
-    type: Date,
-    default: Date.now,
-    required: true
-  },
-  lastModifiedByDeviceId: {
-    type: String,
-    required: true
-  },
-  checksum: { type: String },
-  metadata: { type: Schema.Types.Mixed }
-}, {
-  timestamps: true
-});
+  {
+    timestamps: true
+  }
+);
 
 SyncStatusSchema.index({ userId: 1, entityType: 1, entityId: 1 }, { unique: true });
 SyncStatusSchema.index({ userId: 1, lastModifiedAt: -1 });
@@ -137,151 +151,27 @@ export interface ISyncOperation extends Document {
   createdAt: Date;
 }
 
-const SyncOperationSchema: Schema = new Schema({
-  userId: { type: String, required: true, index: true },
-  deviceId: { type: String, required: true, index: true },
-  entityType: { type: String, required: true, index: true },
-  entityId: { type: String, required: true, index: true },
-  operation: {
-    type: String,
-    enum: ['create', 'update', 'delete'],
-    required: true
+const SyncOperationSchema: Schema = new Schema(
+  {
+    userId: { type: String, required: true, index: true },
+    deviceId: { type: String, required: true, index: true },
+    entityType: { type: String, required: true, index: true },
+    entityId: { type: String, required: true, index: true },
+    operation: {
+      type: String,
+      enum: ['create', 'update', 'delete'],
+      required: true
+    },
+    version: { type: Number, required: true },
+    payload: { type: Schema.Types.Mixed },
+    resolvedAt: { type: Date },
+    conflictResolved: { type: Boolean }
   },
-  version: { type: Number, required: true },
-  payload: { type: Schema.Types.Mixed },
-  resolvedAt: { type: Date },
-  conflictResolved: { type: Boolean }
-}, {
-  timestamps: true
-});
+  {
+    timestamps: true
+  }
+);
 
 SyncOperationSchema.index({ userId: 1, createdAt: -1 });
 
 export const SyncOperation: Model<ISyncOperation> = mongoose.model<ISyncOperation>('SyncOperation', SyncOperationSchema);
-=======
- * Sync Status Model
- * Defines the structure and interfaces for data synchronization status tracking
- */
-
-export enum SyncState {
-  IDLE = 'idle',
-  SYNCING = 'syncing',
-  CONFLICT = 'conflict',
-  OFFLINE = 'offline',
-  ERROR = 'error',
-  COMPLETED = 'completed'
-}
-
-export enum ConflictResolutionStrategy {
-  LAST_WRITE_WINS = 'last_write_wins',
-  FIRST_WRITE_WINS = 'first_write_wins',
-  MANUAL = 'manual',
-  MERGE = 'merge'
-}
-
-export interface Device {
-  id: string;
-  userId: string;
-  name: string;
-  type: 'desktop' | 'mobile' | 'tablet';
-  platform: string;
-  lastActive: Date;
-  isOnline: boolean;
-  syncVersion: number;
-  registeredAt: Date;
-}
-
-export interface SyncConflict {
-  id: string;
-  entityType: string;
-  entityId: string;
-  deviceId: string;
-  localData: any;
-  remoteData: any;
-  conflictType: 'update' | 'delete' | 'create';
-  timestamp: Date;
-  resolution?: ConflictResolutionStrategy;
-  resolvedAt?: Date;
-  resolvedBy?: string;
-}
-
-export interface SyncQueueItem {
-  id: string;
-  deviceId: string;
-  entityType: string;
-  entityId: string;
-  operation: 'create' | 'update' | 'delete';
-  data: any;
-  timestamp: Date;
-  retryCount: number;
-  maxRetries: number;
-  priority: 'low' | 'medium' | 'high';
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-}
-
-export interface SyncSession {
-  id: string;
-  deviceId: string;
-  userId: string;
-  startTime: Date;
-  endTime?: Date;
-  status: SyncState;
-  itemsProcessed: number;
-  totalItems: number;
-  conflicts: SyncConflict[];
-  errors: string[];
-  lastSyncTimestamp?: Date;
-}
-
-export interface SyncStatus {
-  userId: string;
-  deviceId: string;
-  state: SyncState;
-  lastSyncTime: Date;
-  nextSyncTime?: Date;
-  pendingItems: number;
-  failedItems: number;
-  conflicts: number;
-  syncVersion: number;
-  isOnline: boolean;
-  batteryLevel?: number;
-  networkType?: 'wifi' | 'cellular' | 'none';
-  storageUsage?: {
-    used: number;
-    total: number;
-  };
-}
-
-export interface SyncConfiguration {
-  autoSync: boolean;
-  syncInterval: number; // in minutes
-  maxRetries: number;
-  conflictResolution: ConflictResolutionStrategy;
-  syncOnWifiOnly: boolean;
-  syncOnBatteryOnly: boolean;
-  maxStorageUsage: number; // in MB
-  batchSize: number;
-  enableRealTimeSync: boolean;
-}
-
-export interface SyncEvent {
-  id: string;
-  type: 'sync_started' | 'sync_completed' | 'sync_failed' | 'conflict_detected' | 'device_registered';
-  deviceId: string;
-  userId: string;
-  timestamp: Date;
-  data?: any;
-  message?: string;
-}
-
-export interface SyncMetrics {
-  totalSyncs: number;
-  successfulSyncs: number;
-  failedSyncs: number;
-  averageSyncTime: number; // in seconds
-  totalDataTransferred: number; // in bytes
-  conflictsResolved: number;
-  lastSyncTime: Date;
-  devicesActive: number;
-}
-

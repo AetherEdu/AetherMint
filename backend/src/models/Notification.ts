@@ -76,6 +76,9 @@ const NotificationSchema: Schema = new Schema({
 // Indexes for common queries
 NotificationSchema.index({ userId: 1, createdAt: -1 });
 NotificationSchema.index({ userId: 1, isRead: 1 });
-NotificationSchema.index({ scheduledTime: 1, isDelivered: 0 });
+NotificationSchema.index(
+  { scheduledTime: 1 },
+  { partialFilterExpression: { isDelivered: false } }
+);
 
 export const Notification: Model<INotification> = mongoose.model<INotification>('Notification', NotificationSchema);

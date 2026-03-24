@@ -181,7 +181,7 @@ class QuizService {
         };
       }
 
-      const updatedQuiz: Quiz = {
+      const updatedQuiz: any = {
         ...existingQuiz,
         title: updateRequest.title || existingQuiz.title,
         description: updateRequest.description || existingQuiz.description,

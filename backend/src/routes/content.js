@@ -6,6 +6,7 @@ const { requirePermission } = require('../middleware/rbac');
 const { PERMISSIONS } = require('../utils/roles');
 const { ipfsAuth, optionalIpfsAuth, validateContentAccess, validateFileSize } = require('../middleware/ipfsAuth');
 const { createIpfsError } = require('../utils/ipfsUtils');
+const { ipfsLimiter } = require('../middleware/rateLimiter');
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -27,6 +28,8 @@ const upload = multer({
  */
 router.post('/upload', 
   requirePermission(PERMISSIONS.CONTENT_CREATE),
+  ipfsLimiter,
+  ipfsAuth('upload'),
   upload.single('file'),
   validateFileSize,
   async (req, res) => {
@@ -88,6 +91,8 @@ router.post('/upload',
  */
 router.post('/upload/batch',
   requirePermission(PERMISSIONS.CONTENT_CREATE),
+  ipfsLimiter,
+  ipfsAuth('upload'),
   upload.array('files', 10),
   validateFileSize,
   async (req, res) => {

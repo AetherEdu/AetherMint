@@ -29,8 +29,8 @@ module.exports = {
     '^.+\\.ts$': 'ts-jest',
     '^.+\\.js$': 'babel-jest'
   },
-  moduleNameMapping: {
-    '^@/(.*)$': '<rootDir>/src/$1'
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
   },
   testPathIgnorePatterns: [
     '/node_modules/',

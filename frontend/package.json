@@ -11,31 +11,32 @@
     "lint:fix": "next lint --fix"
   },
   "dependencies": {
+    "@creit.tech/stellar-wallets-kit": "^1.9.5",
+    "@stellar/stellar-sdk": "^14.5.0",
+    "axios": "^1.5.0",
+    "connectkit": "^1.7.0",
+    "ethers": "^6.7.1",
+    "framer-motion": "^10.16.4",
+    "lucide-react": "^0.263.1",
     "next": "^14.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@stellar/stellar-sdk": "^14.5.0",
-    "@creit.tech/stellar-wallets-kit": "^1.9.5",
-    "axios": "^1.5.0",
-    "tailwindcss": "^3.3.3",
-    "lucide-react": "^0.263.1",
-    "react-query": "^3.39.3",
     "react-hot-toast": "^2.4.1",
-    "framer-motion": "^10.16.4",
-    "ethers": "^6.7.1",
-    "wagmi": "^1.4.0",
-    "connectkit": "^1.7.0"
+    "react-query": "^3.39.3",
+    "recharts": "^3.8.0",
+    "tailwindcss": "^3.3.3",
+    "wagmi": "^1.4.0"
   },
   "devDependencies": {
     "@types/node": "^20.5.0",
     "@types/react": "^18.2.21",
     "@types/react-dom": "^18.2.7",
-    "typescript": "^5.1.6",
+    "autoprefixer": "^10.4.15",
     "eslint": "^8.47.0",
     "eslint-config-next": "^14.0.0",
+    "postcss": "^8.4.28",
     "prettier": "^3.0.2",
-    "autoprefixer": "^10.4.15",
-    "postcss": "^8.4.28"
+    "typescript": "^5.1.6"
   },
   "keywords": [
     "stellar",

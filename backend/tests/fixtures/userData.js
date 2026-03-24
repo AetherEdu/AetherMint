@@ -5,6 +5,7 @@ module.exports = {
       address: 'GD5DJ3B7MHLRWGS7QKXYYEJZRGFQMVJ7T7S6DLPNHP5TGB7FZ7NBHJVP',
       username: 'testuser',
       email: 'test@example.com',
+      role: 'instructor',
       bio: 'Test user bio',
       avatar: 'https://example.com/avatar.jpg',
       preferences: {

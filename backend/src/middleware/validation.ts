@@ -6,6 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { VersionControlUtils } from '../models/ContentVersion';
+import Joi from 'joi';
 
 /**
  * Handle validation errors middleware
@@ -395,3 +396,195 @@ declare global {
     }
   }
 }
+
+// Assignment validation schemas
+export interface ValidationSchema {
+  body?: Joi.ObjectSchema;
+  query?: Joi.ObjectSchema;
+  params?: Joi.ObjectSchema;
+}
+
+export const validateRequest = (schema: ValidationSchema) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const errors: string[] = [];
+
+    // Validate request body
+    if (schema.body) {
+      const { error } = schema.body.validate(req.body);
+      if (error) {
+        errors.push(`Body: ${error.details[0].message}`);
+      }
+    }
+
+    // Validate query parameters
+    if (schema.query) {
+      const { error } = schema.query.validate(req.query);
+      if (error) {
+        errors.push(`Query: ${error.details[0].message}`);
+      }
+    }
+
+    // Validate route parameters
+    if (schema.params) {
+      const { error } = schema.params.validate(req.params);
+      if (error) {
+        errors.push(`Params: ${error.details[0].message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: errors
+      });
+    }
+
+    next();
+  };
+};
+
+// Assignment validation schemas
+export const createAssignmentSchema: ValidationSchema = {
+  body: Joi.object({
+    title: Joi.string().min(3).max(200).required(),
+    description: Joi.string().min(10).max(2000).required(),
+    instructions: Joi.string().min(10).max(5000).required(),
+    type: Joi.string().valid('quiz', 'essay', 'code', 'project', 'video', 'file_upload', 'text_submission').required(),
+    submissionTypes: Joi.array().items(Joi.string().valid('text', 'file', 'code', 'video', 'audio', 'multiple_files')).min(1).required(),
+    maxPoints: Joi.number().min(1).max(1000).required(),
+    dueDate: Joi.date().iso().required(),
+    allowLateSubmissions: Joi.boolean().default(false),
+    latePolicy: Joi.string().valid('no_late_submissions', 'penalty_per_hour', 'penalty_per_day', 'no_penalty').optional(),
+    latePenaltyAmount: Joi.number().min(0).max(100).optional(),
+    maxAttempts: Joi.number().min(1).max(10).optional(),
+    timeLimit: Joi.number().min(1).max(480).optional(),
+    allowedFileTypes: Joi.array().items(Joi.string()).optional(),
+    maxFileSize: Joi.number().min(1).max(500).optional(),
+    maxFiles: Joi.number().min(1).max(50).optional(),
+    isPublished: Joi.boolean().default(false),
+    showSolutions: Joi.date().iso().optional(),
+    autoGrade: Joi.boolean().default(false),
+    plagiarismCheck: Joi.boolean().default(true),
+    groupAssignment: Joi.boolean().default(false),
+    maxGroupSize: Joi.number().min(2).max(10).optional(),
+    resources: Joi.array().items(Joi.object({
+      title: Joi.string().required(),
+      description: Joi.string().optional(),
+      type: Joi.string().valid('file', 'link', 'video', 'text').required(),
+      url: Joi.string().uri().optional(),
+      content: Joi.string().optional(),
+      fileName: Joi.string().optional(),
+      fileSize: Joi.number().optional(),
+      mimeType: Joi.string().optional()
+    })).default([])
+  }),
+  params: Joi.object({
+    courseId: Joi.string().uuid().required()
+  })
+};
+
+export const updateAssignmentSchema: ValidationSchema = {
+  body: Joi.object({
+    title: Joi.string().min(3).max(200).optional(),
+    description: Joi.string().min(10).max(2000).optional(),
+    instructions: Joi.string().min(10).max(5000).optional(),
+    dueDate: Joi.date().iso().optional(),
+    allowLateSubmissions: Joi.boolean().optional(),
+    latePolicy: Joi.string().valid('no_late_submissions', 'penalty_per_hour', 'penalty_per_day', 'no_penalty').optional(),
+    latePenaltyAmount: Joi.number().min(0).max(100).optional(),
+    maxAttempts: Joi.number().min(1).max(10).optional(),
+    timeLimit: Joi.number().min(1).max(480).optional(),
+    allowedFileTypes: Joi.array().items(Joi.string()).optional(),
+    maxFileSize: Joi.number().min(1).max(500).optional(),
+    maxFiles: Joi.number().min(1).max(50).optional(),
+    isPublished: Joi.boolean().optional(),
+    showSolutions: Joi.date().iso().optional(),
+    autoGrade: Joi.boolean().optional(),
+    plagiarismCheck: Joi.boolean().optional(),
+    groupAssignment: Joi.boolean().optional(),
+    maxGroupSize: Joi.number().min(2).max(10).optional(),
+    resources: Joi.array().items(Joi.object({
+      title: Joi.string().required(),
+      description: Joi.string().optional(),
+      type: Joi.string().valid('file', 'link', 'video', 'text').required(),
+      url: Joi.string().uri().optional(),
+      content: Joi.string().optional(),
+      fileName: Joi.string().optional(),
+      fileSize: Joi.number().optional(),
+      mimeType: Joi.string().optional()
+    })).optional()
+  }),
+  params: Joi.object({
+    assignmentId: Joi.string().uuid().required()
+  })
+};
+
+export const createSubmissionSchema: ValidationSchema = {
+  body: Joi.object({
+    textContent: Joi.string().max(10000).optional(),
+    codeSubmission: Joi.object({
+      language: Joi.string().required(),
+      code: Joi.string().required(),
+      fileName: Joi.string().optional()
+    }).optional(),
+    videoSubmission: Joi.object({
+      url: Joi.string().uri().required(),
+      duration: Joi.number().min(1).required(),
+      thumbnail: Joi.string().uri().optional(),
+      fileSize: Joi.number().required(),
+      format: Joi.string().required()
+    }).optional(),
+    audioSubmission: Joi.object({
+      url: Joi.string().uri().required(),
+      duration: Joi.number().min(1).required(),
+      fileSize: Joi.number().required(),
+      format: Joi.string().required(),
+      transcription: Joi.string().optional()
+    }).optional()
+  }),
+  params: Joi.object({
+    assignmentId: Joi.string().uuid().required()
+  })
+};
+
+export const gradeSubmissionSchema: ValidationSchema = {
+  body: Joi.object({
+    totalPoints: Joi.number().min(0).required(),
+    earnedPoints: Joi.number().min(0).required(),
+    feedback: Joi.string().max(5000).optional(),
+    privateFeedback: Joi.string().max(5000).optional(),
+    rubricGrades: Joi.array().items(Joi.object({
+      criterionId: Joi.string().uuid().required(),
+      levelId: Joi.string().uuid().required(),
+      points: Joi.number().min(0).required(),
+      feedback: Joi.string().max(1000).optional()
+    })).optional(),
+    annotations: Joi.array().items(Joi.object({
+      type: Joi.string().valid('text', 'drawing', 'highlight', 'comment').required(),
+      content: Joi.string().required(),
+      position: Joi.object({
+        x: Joi.number().required(),
+        y: Joi.number().required(),
+        page: Joi.number().optional(),
+        selection: Joi.object({
+          start: Joi.number().required(),
+          end: Joi.number().required()
+        }).optional()
+      }).required()
+    })).optional()
+  }),
+  params: Joi.object({
+    submissionId: Joi.string().uuid().required()
+  })
+};
+
+export const bulkGradeSchema: ValidationSchema = {
+  body: Joi.object({
+    operation: Joi.string().valid('apply_rubric', 'apply_late_penalty', 'bulk_feedback', 'auto_grade').required(),
+    criteria: Joi.object().optional(),
+    gradingData: Joi.object().optional()
+  }),
+  params: Joi.object({
+    assignmentId: Joi.string().uuid().required()
+  })
+};

@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { authenticateToken, requireAdmin, requirePermission } = require('../middleware/auth');
 const { UserRole, PERMISSIONS } = require('../utils/roles');
+const { authLimiter } = require('../middleware/rateLimiter');
+const securityService = require('../services/securityService');
 const router = express.Router();
 
 // Mock user database - replace with actual database implementation
@@ -30,7 +32,7 @@ function generateToken(user) {
  * Register new user
  * POST /api/auth/register
  */
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   try {
     const { username, email, password, role = UserRole.STUDENT } = req.body;
 
@@ -48,7 +50,9 @@ router.post('/register', async (req, res) => {
     );
 
     if (existingUser) {
+      await securityService.logSecurityEvent(req.ip, 'auth_conflict', { username, email });
       return res.status(409).json({
+        success: false,
         error: 'User already exists',
         message: 'A user with this username or email already exists'
       });
@@ -105,7 +109,7 @@ router.post('/register', async (req, res) => {
  * User login
  * POST /api/auth/login
  */
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -122,6 +126,7 @@ router.post('/login', async (req, res) => {
     );
 
     if (!user) {
+      await securityService.logSecurityEvent(req.ip, 'auth_failure', { username, reason: 'user_not_found' });
       return res.status(401).json({
         error: 'Invalid credentials',
         message: 'Invalid username or password'
@@ -131,6 +136,7 @@ router.post('/login', async (req, res) => {
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
+      await securityService.logSecurityEvent(req.ip, 'auth_failure', { username, reason: 'invalid_password' });
       return res.status(401).json({
         error: 'Invalid credentials',
         message: 'Invalid username or password'
