@@ -69,6 +69,7 @@ pub fn string_to_bytes(env: &Env, s: &String) -> Bytes {
     Bytes::from_slice(env, &buf[..buf_len])
 }
 
+pub mod access_control;
 pub mod credentials;
 #[cfg(test)]
 mod credentials_test;
@@ -244,11 +245,14 @@ impl AetherMintContract {
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("Contract already initialized");
         }
-        
+
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::CredentialCount, &0u64);
         env.storage().instance().set(&DataKey::CourseCount, &0u64);
         env.storage().instance().set(&DataKey::AchievementCount, &0u64);
+
+        // Bootstrap admin role for RBAC
+        access_control::set_initial_admin(&env, &admin);
     }
 
     /// Issue a new credential with optimized storage
@@ -261,13 +265,9 @@ impl AetherMintContract {
         course_id: String,
         ipfs_hash: String,
     ) -> u64 {
-        let admin: Address = env.storage().instance()
-            .get(&DataKey::Admin)
-            .unwrap_or_else(|| panic!("Admin not found"));
-
-        if issuer != admin {
-            panic!("Only admin can issue credentials");
-        }
+        issuer.require_auth();
+        // RBAC: require Issuer role (Admin also satisfies this via grant_role)
+        access_control::require_role(&env, &issuer, access_control::Role::Issuer);
 
         let count: u64 = env.storage().instance()
             .get(&DataKey::CredentialCount)
@@ -330,13 +330,9 @@ impl AetherMintContract {
         description: String,
         price: u64,
     ) -> u64 {
-        let admin: Address = env.storage().instance()
-            .get(&DataKey::Admin)
-            .unwrap_or_else(|| panic!("Admin not found"));
-
-        if instructor != admin {
-            panic!("Only admin can create courses");
-        }
+        instructor.require_auth();
+        // RBAC: require Instructor role
+        access_control::require_role(&env, &instructor, access_control::Role::Instructor);
 
         let course_count: u64 = env.storage().instance()
             .get(&DataKey::CourseCount)
@@ -381,6 +377,26 @@ impl AetherMintContract {
                 reputation: 0,
             }
         }
+    }
+
+    // ===== RBAC Management =====
+
+    /// Grant a role to an address. Caller must have Admin role.
+    pub fn grant_role(env: Env, caller: Address, target: Address, role: u32) {
+        let r = role_from_u32(role);
+        access_control::grant_role(&env, caller, target, r);
+    }
+
+    /// Revoke a role from an address. Caller must have Admin role.
+    pub fn revoke_role(env: Env, caller: Address, target: Address, role: u32) {
+        let r = role_from_u32(role);
+        access_control::revoke_role(&env, caller, target, r);
+    }
+
+    /// Check whether an address has a specific role.
+    pub fn has_role(env: Env, addr: Address, role: u32) -> bool {
+        let r = role_from_u32(role);
+        access_control::has_role(&env, &addr, r)
     }
 
     /// Get total credential count
@@ -561,5 +577,16 @@ impl AetherMintContract {
     /// Get balance of owner
     pub fn balance_of(env: Env, owner: Address) -> u64 {
         dynamic_nft::balance_of(&env, owner)
+    }
+}
+
+/// Map u32 to Role enum (0=Admin,1=Issuer,2=Instructor,3=Student)
+fn role_from_u32(role: u32) -> access_control::Role {
+    match role {
+        0 => access_control::Role::Admin,
+        1 => access_control::Role::Issuer,
+        2 => access_control::Role::Instructor,
+        3 => access_control::Role::Student,
+        _ => panic!("Unknown role"),
     }
 }

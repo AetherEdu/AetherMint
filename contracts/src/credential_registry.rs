@@ -94,15 +94,8 @@ pub fn issue_credential_with_expiration(
 ) -> u64 {
     issuer.require_auth();
 
-    let admin: Address = env
-        .storage()
-        .instance()
-        .get(&Symbol::new(env, "admin"))
-        .unwrap_or_else(|| panic!("Admin not found"));
-
-    if issuer != admin {
-        panic!("Unauthorized issuer");
-    }
+    // RBAC: require Issuer role
+    crate::access_control::require_role(env, &issuer, crate::access_control::Role::Issuer);
 
     let credential_id = StorageUtils::get_next_id(env, EntityType::Credential);
     let current_time = env.ledger().timestamp();
@@ -169,15 +162,9 @@ pub fn renew_credential(
         .get(&CredentialRegistryKey::Credential(credential_id))
         .unwrap_or_else(|| panic!("Credential not found"));
 
-    // Check if renewer is authorized (admin or credential recipient)
-    let admin: Address = env
-        .storage()
-        .instance()
-        .get(&Symbol::new(env, "admin"))
-        .unwrap_or_else(|| panic!("Admin not found"));
-
-    if renewer != admin && renewer != credential.recipient {
-        panic!("Unauthorized to renew credential");
+    // Check if renewer is authorized (Admin or credential recipient)
+    if renewer != credential.recipient {
+        crate::access_control::require_role(env, &renewer, crate::access_control::Role::Admin);
     }
 
     // Check if credential is eligible for renewal
@@ -334,15 +321,8 @@ pub fn get_renewal_history(env: &Env, credential_id: u64) -> Vec<RenewalRecord> 
 pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) -> bool {
     revoker.require_auth();
 
-    let admin: Address = env
-        .storage()
-        .instance()
-        .get(&Symbol::new(env, "admin"))
-        .unwrap_or_else(|| panic!("Admin not found"));
-
-    if revoker != admin {
-        panic!("Only admin can revoke credentials");
-    }
+    // RBAC: require Admin role
+    crate::access_control::require_role(env, &revoker, crate::access_control::Role::Admin);
 
     let mut credential: CredentialRegistry = env
         .storage()

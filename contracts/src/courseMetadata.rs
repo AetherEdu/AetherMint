@@ -169,6 +169,10 @@ impl CourseMetadataContract {
         tags: Vec<String>,
         params: CreateCourseParams,
     ) -> String {
+        instructor.require_auth();
+        // RBAC: require Instructor role
+        crate::access_control::require_role(&env, &instructor, crate::access_control::Role::Instructor);
+
         // Check if instructor exists, create if not
         if !env
             .storage()
