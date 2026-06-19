@@ -26,7 +26,7 @@
     "python:setup": "python -m spacy download en_core_web_sm"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^14.5.0",
+    "@stellar/stellar-sdk": "^16.0.1",
     "axios": "^1.5.0",
     "bcryptjs": "^2.4.3",
     "brain.js": "^2.0.0-beta.24",
