@@ -71,7 +71,7 @@ jobs:
           npm run test:smoke -w backend || true
 
       - name: Post staging URL
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             github.rest.issues.createComment({
