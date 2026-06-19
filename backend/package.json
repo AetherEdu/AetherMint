@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.5.0",
-    "axios": "^1.5.0",
+    "axios": "^1.18.0",
     "bcryptjs": "^2.4.3",
     "brain.js": "^2.0.0-beta.24",
     "compromise": "^14.10.0",
