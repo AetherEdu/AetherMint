@@ -50,7 +50,7 @@
     "ml-matrix": "^6.10.4",
     "mongoose": "^7.5.0",
     "multer": "^1.4.5-lts.1",
-    "natural": "^6.5.0",
+    "natural": "^8.1.1",
     "neo4j-driver": "^5.11.0",
     "node-cache": "^5.1.2",
     "node-cron": "^3.0.3",
