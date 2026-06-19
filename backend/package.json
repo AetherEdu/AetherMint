@@ -84,7 +84,7 @@
     "@types/fluent-ffmpeg": "^2.1.21",
     "@types/geoip-lite": "^1.4.2",
     "@types/graphlib": "^2.1.12",
-    "@types/ioredis": "^4.28.10",
+    "@types/ioredis": "^5.0.0",
     "@types/jest": "^29.5.4",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.1.0",
