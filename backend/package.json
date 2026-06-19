@@ -61,7 +61,7 @@
     "redis": "^4.6.8",
     "sentiment": "^5.0.2",
     "socket.io": "^4.7.2",
-    "twilio": "^5.13.1",
+    "twilio": "^6.0.2",
     "aws-sdk": "^2.1668.0",
     "ffmpeg-static": "^5.1.0",
     "sharp": "^0.32.0",
