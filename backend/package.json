@@ -65,7 +65,7 @@
     "aws-sdk": "^2.1668.0",
     "ffmpeg-static": "^5.1.0",
     "sharp": "^0.32.0",
-    "uuid": "^9.0.1",
+    "uuid": "^14.0.0",
     "web-push": "^3.6.7",
     "winston": "^3.10.0",
     "winston-daily-rotate-file": "^5.0.0"
