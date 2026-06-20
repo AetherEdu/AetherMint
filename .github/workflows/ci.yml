@@ -242,6 +242,7 @@ jobs:
         npx playwright test --reporter=json,html,junit --pass-with-no-tests
       env:
         CI: true
+        NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: ${{ secrets.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA' }}
         
     - name: Upload test results
       if: always()
