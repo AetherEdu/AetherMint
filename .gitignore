@@ -103,4 +103,4 @@ prof/
 .LSOverride
 ehthumbs.db
 
-contracts/targetcontracts/Cargo.lock
+contracts/target
