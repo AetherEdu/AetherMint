@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useWebRTC } from '@/hooks/useWebRTC';
+import { env } from '@/lib/env';
 import { useWhiteboard } from '@/hooks/useWhiteboard';
 import VideoGrid from './VideoGrid';
 import Whiteboard from './Whiteboard';
@@ -52,7 +53,7 @@ const CollaborationRoom: React.FC<CollaborationRoomProps> = ({
 
   // Initialize socket connection
   useEffect(() => {
-    const newSocket = io(process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000', {
+    const newSocket = io(env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000', {
       transports: ['websocket'],
       reconnection: true
     });

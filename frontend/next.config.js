@@ -2,6 +2,32 @@
 const path = require('path');
 const { i18n } = require('./next-i18next.config');
 
+// Validate environment variables at build time.
+// This ensures missing/invalid vars are caught early with a clear error message.
+const { z } = require('zod');
+
+const envSchema = z.object({
+  NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: z
+    .string()
+    .min(56, 'Must be a valid Stellar public key (56 chars)')
+    .max(56, 'Must be a valid Stellar public key (56 chars)')
+    .regex(/^G[A-Z2-7]{55}$/, 'Must be a valid Stellar public key (starts with G)'),
+  NEXT_PUBLIC_BACKEND_URL: z.string().url().optional(),
+  NEXT_PUBLIC_WS_URL: z.string().url().optional(),
+  NEXT_PUBLIC_API_URL: z.string().url().optional(),
+  NEXT_PUBLIC_API_BASE_URL: z.string().url().optional(),
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  NEXT_PUBLIC_SOCKET_URL: z.string().url().optional(),
+});
+
+const parsed = envSchema.safeParse(process.env);
+if (!parsed.success) {
+  const errors = parsed.error.errors
+    .map((e) => `  ${e.path.join('.')}: ${e.message}`)
+    .join('\n');
+  throw new Error(`❌ Invalid environment variables:\n${errors}\n\nSee .env.example for reference.`);
+}
+
 const nextConfig = {
   // Enable standalone output for Docker container builds
   output: 'standalone',

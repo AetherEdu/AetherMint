@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { EnrollmentFormProps, EnrollmentStep, EnrollmentData, WalletInfo, TransactionReceipt } from '@/types/enrollment';
+import { env } from '@/lib/env';
 import WalletConnector from './WalletConnector';
 import PaymentProcessor from './PaymentProcessor';
 import { 
@@ -150,7 +151,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
         courseId: course.id,
         amount: course.price,
         currency: course.currency,
-        recipientAddress: process.env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || '',
+        recipientAddress: env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS,
         transactionHash: txHash,
         status: 'completed',
         timestamp: new Date().toISOString()
@@ -180,7 +181,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
           courseId: course.id,
           amount: course.price,
           currency: course.currency,
-          recipientAddress: process.env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || '',
+          recipientAddress: env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS,
           transactionHash: transactionHash || '',
           status: 'completed',
           timestamp: new Date().toISOString()
@@ -224,23 +225,27 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
   const CurrentStepComponent = steps[currentStep].component;
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg">
+    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg" role="form" aria-label="Course enrollment form">
       {/* Progress Steps */}
-      <div className="px-6 py-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
+      <nav aria-label="Enrollment progress" className="px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between" role="list">
           {steps.map((step, index) => (
-            <div key={step.id} className="flex items-center flex-1">
+            <div key={step.id} className="flex items-center flex-1" role="listitem">
               <div className="flex items-center">
-                <div className={`
-                  w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium
-                  ${index < currentStep ? 'bg-green-600 text-white' : 
-                    index === currentStep ? 'bg-blue-600 text-white' : 
-                    'bg-gray-200 text-gray-600'}
-                `}>
+                <div
+                  className={`
+                    w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium
+                    ${index < currentStep ? 'bg-green-600 text-white' : 
+                      index === currentStep ? 'bg-blue-600 text-white' : 
+                      'bg-gray-200 text-gray-600'}
+                  `}
+                  aria-current={index === currentStep ? 'step' : undefined}
+                  aria-label={`Step ${index + 1}: ${step.title}${index < currentStep ? ' (completed)' : index === currentStep ? ' (current)' : ''}`}
+                >
                   {index < currentStep ? (
-                    <CheckCircle className="w-5 h-5" />
+                    <CheckCircle className="w-5 h-5" aria-hidden="true" />
                   ) : (
-                    index + 1
+                    <span aria-hidden="true">{index + 1}</span>
                   )}
                 </div>
                 <div className="ml-3 hidden sm:block">
@@ -255,15 +260,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
               {index < steps.length - 1 && (
                 <div className={`flex-1 h-px mx-4 ${
                   index < currentStep ? 'bg-green-600' : 'bg-gray-200'
-                }`} />
+                }`} aria-hidden="true" />
               )}
             </div>
           ))}
         </div>
-      </div>
+      </nav>
 
       {/* Step Content */}
-      <div className="p-6">
+      <div className="p-6" role="region" aria-label={`Step ${currentStep + 1}: ${steps[currentStep].title}`}>
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             {steps[currentStep].title}
@@ -283,9 +288,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
         />
 
         {error && (
-          <div className="mt-4 flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span className="text-sm">{error}</span>
+          <div className="mt-4 flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg" role="alert" aria-live="assertive">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+            <span className="text-sm" id="enrollment-error">{error}</span>
           </div>
         )}
 
@@ -295,8 +300,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
             onClick={handlePrevious}
             disabled={currentStep === 0}
             className="flex items-center space-x-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Go to previous step"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             <span>Previous</span>
           </button>
 
@@ -304,21 +310,22 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
             onClick={handleNext}
             disabled={isSubmitting}
             className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label={isSubmitting ? 'Processing enrollment' : currentStep === steps.length - 1 ? 'Complete enrollment' : 'Go to next step'}
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                 <span>Processing...</span>
               </>
             ) : currentStep === steps.length - 1 ? (
               <>
-                <FileCheck className="w-4 h-4" />
+                <FileCheck className="w-4 h-4" aria-hidden="true" />
                 <span>Complete Enrollment</span>
               </>
             ) : (
               <>
                 <span>Next</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </>
             )}
           </button>
@@ -335,57 +342,69 @@ const PersonalInfoStep: React.FC<any> = ({ personalInfo, onPersonalInfoChange })
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" role="group" aria-label="Personal information">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            First Name *
+          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+            First Name <span aria-hidden="true">*</span>
           </label>
           <input
+            id="firstName"
             type="text"
             value={personalInfo.firstName}
             onChange={(e) => handleChange('firstName', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="Enter your first name"
+            required
+            aria-required="true"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Last Name *
+          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+            Last Name <span aria-hidden="true">*</span>
           </label>
           <input
+            id="lastName"
             type="text"
             value={personalInfo.lastName}
             onChange={(e) => handleChange('lastName', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="Enter your last name"
+            required
+            aria-required="true"
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Email Address *
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          Email Address <span aria-hidden="true">*</span>
         </label>
         <input
+          id="email"
           type="email"
           value={personalInfo.email}
           onChange={(e) => handleChange('email', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="your.email@example.com"
+          required
+          aria-required="true"
+          autoComplete="email"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Phone Number (Optional)
+        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+          Phone Number <span className="text-gray-400">(Optional)</span>
         </label>
         <input
+          id="phone"
           type="tel"
           value={personalInfo.phone}
           onChange={(e) => handleChange('phone', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="+1 (555) 123-4567"
+          autoComplete="tel"
         />
       </div>
     </div>

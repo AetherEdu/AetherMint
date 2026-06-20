@@ -30,6 +30,9 @@ COPY frontend/ ./frontend/
 
 # Build Next.js with standalone output
 WORKDIR /app/frontend
+# Build-time env vars required by next.config.js validation
+ARG NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS
+ENV NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS=${NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS}
 RUN npm run build
 
 # Build-time arguments for image labeling

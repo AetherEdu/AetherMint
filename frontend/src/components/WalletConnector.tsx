@@ -166,34 +166,35 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
 
   if (connectedWallet) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm" role="region" aria-label="Connected wallet information">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
-            <CheckCircle className="w-5 h-5 text-green-500" />
+            <CheckCircle className="w-5 h-5 text-green-500" aria-hidden="true" />
             <span className="text-sm font-medium text-gray-900">Wallet Connected</span>
           </div>
-          <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">
+          <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full" aria-label={`Network: ${network}`}>
             {network}
           </span>
         </div>
 
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-gray-500 uppercase tracking-wider">Wallet Type</label>
-            <p className="text-sm font-medium text-gray-900 capitalize">
+            <label className="text-xs text-gray-500 uppercase tracking-wider" id="wallet-type-label">Wallet Type</label>
+            <p className="text-sm font-medium text-gray-900 capitalize" aria-labelledby="wallet-type-label">
               {connectedWallet.walletType}
             </p>
           </div>
 
           <div>
-            <label className="text-xs text-gray-500 uppercase tracking-wider">Balance</label>
-            <div className="flex items-center justify-between">
-              <p className="text-lg font-semibold text-gray-900">
+            <label className="text-xs text-gray-500 uppercase tracking-wider" id="balance-label">Balance</label>
+            <div className="flex items-center justify-between" role="group" aria-labelledby="balance-label">
+              <p className="text-lg font-semibold text-gray-900" aria-live="polite" aria-atomic="true">
                 {formatStellarBalance(balance)}
               </p>
               <button
                 onClick={refreshBalance}
                 className="text-xs text-blue-600 hover:text-blue-800"
+                aria-label="Refresh balance"
               >
                 Refresh
               </button>
@@ -202,32 +203,34 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-gray-500 uppercase tracking-wider">Address</label>
+              <label className="text-xs text-gray-500 uppercase tracking-wider" id="address-label">Address</label>
               <button
                 onClick={() => setShowAddress(!showAddress)}
                 className="text-xs text-blue-600 hover:text-blue-800"
+                aria-expanded={showAddress}
+                aria-controls="wallet-address-section"
               >
                 {showAddress ? 'Hide' : 'Show'}
               </button>
             </div>
             {showAddress && (
-              <div className="flex items-center space-x-2">
-                <p className="text-xs font-mono bg-gray-100 p-2 rounded flex-1 break-all">
+              <div id="wallet-address-section" className="flex items-center space-x-2" role="group" aria-label="Wallet address actions">
+                <p className="text-xs font-mono bg-gray-100 p-2 rounded flex-1 break-all" aria-label={`Wallet address: ${connectedWallet.publicKey}`}>
                   {connectedWallet.publicKey}
                 </p>
                 <button
                   onClick={copyAddress}
                   className="p-1 text-gray-500 hover:text-gray-700"
-                  title="Copy address"
+                  aria-label="Copy wallet address to clipboard"
                 >
-                  <Copy className="w-4 h-4" />
+                  <Copy className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <button
                   onClick={viewOnStellarExplorer}
                   className="p-1 text-gray-500 hover:text-gray-700"
-                  title="View on Stellar Explorer"
+                  aria-label="View wallet on Stellar Explorer (opens in new tab)"
                 >
-                  <ExternalLink className="w-4 h-4" />
+                  <ExternalLink className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
             )}
@@ -237,13 +240,14 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
         <button
           onClick={disconnectWallet}
           className="mt-4 w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+          aria-label="Disconnect wallet"
         >
           Disconnect Wallet
         </button>
 
         {error && (
-          <div className="mt-3 flex items-center space-x-2 text-red-600">
-            <AlertCircle className="w-4 h-4" />
+          <div className="mt-3 flex items-center space-x-2 text-red-600" role="alert" aria-live="assertive">
+            <AlertCircle className="w-4 h-4" aria-hidden="true" />
             <span className="text-xs">{error}</span>
           </div>
         )}
@@ -252,18 +256,18 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm" role="region" aria-label="Wallet connection">
       <div className="text-center">
-        <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Connect Your Wallet</h3>
-        <p className="text-sm text-gray-600 mb-6">
+        <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-4" aria-hidden="true" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2" id="connect-wallet-heading">Connect Your Wallet</h3>
+        <p className="text-sm text-gray-600 mb-6" aria-describedby="connect-wallet-heading">
           Connect your Stellar wallet to enroll in courses and make payments
         </p>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-center space-x-4 text-xs text-gray-500">
+          <div className="flex items-center justify-center space-x-4 text-xs text-gray-500" aria-label={`Network: ${network}. Supported wallets: XBull, Albedo, Freighter`}>
             <span>Network: {network}</span>
-            <span>•</span>
+            <span aria-hidden="true">•</span>
             <span>Supported: XBull, Albedo, Freighter</span>
           </div>
 
@@ -271,12 +275,13 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
             onClick={connectWallet}
             disabled={isConnecting}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+            aria-label={isConnecting ? 'Connecting wallet' : 'Connect wallet'}
           >
             {isConnecting ? 'Connecting...' : 'Connect Wallet'}
           </button>
 
           {network === 'testnet' && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" role="note" aria-label="Testnet mode notice">
               <p className="text-xs text-yellow-800">
                 <strong>Testnet Mode:</strong> New accounts will be automatically funded with test XLM.
               </p>
@@ -284,8 +289,8 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
           )}
 
           {error && (
-            <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg" role="alert" aria-live="assertive">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <span className="text-sm">{error}</span>
             </div>
           )}

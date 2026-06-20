@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Medal, Crown, TrendingUp, Users, Filter, ChevronDown, Search, Star } from 'lucide-react';
+import { env } from '@/lib/env';
 import { io, Socket } from 'socket.io-client';
 
 interface LeaderboardUser {
@@ -77,7 +78,7 @@ export function Leaderboard({
   // Initialize Socket.io for real-time updates
   useEffect(() => {
     if (showRealTime) {
-      const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001');
+      const newSocket = io(env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3001');
       setSocket(newSocket);
 
       newSocket.on('leaderboard-update', (updatedData: LeaderboardUser[]) => {

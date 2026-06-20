@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Achievement } from '../../types/profile';
+import { env } from '@/lib/env';
 import { io, Socket } from 'socket.io-client';
 import { Trophy, Star, Flame, Target, Users, Zap, Settings } from 'lucide-react';
 
@@ -100,7 +101,7 @@ export function GamificationDashboard({
   // Initialize Socket.io for real-time updates
   useEffect(() => {
     if (showRealTime) {
-      const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001');
+      const newSocket = io(env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3001');
       setSocket(newSocket);
 
       newSocket.on('achievement-unlocked', (achievement: Achievement) => {

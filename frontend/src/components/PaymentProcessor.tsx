@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PaymentProcessorProps, PaymentDetails, TransactionReceipt } from '@/types/enrollment';
 import { stellarService, createEnrollmentMemo, formatStellarBalance } from '@/lib/stellar';
+import { env } from '@/lib/env';
 import { WalletsKit, MAINNET, TESTNET } from '@creit.tech/stellar-wallets-kit';
 import { 
   CreditCard, 
@@ -85,9 +86,8 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
       const studentId = wallet.publicKey.slice(-8); // Last 8 characters as student ID
       const memo = createEnrollmentMemo(course.id, studentId);
       
-      // Platform's recipient address (this should come from environment/config)
-      const recipientAddress = process.env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 
-        'GDUKMG4GD6VQY66JWH2D7SRPE2A4F4FJKM3KODD37MPEXGLB5JDO3M2M';
+      // Platform's recipient address (validated at startup via Zod schema)
+      const recipientAddress = env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS;
 
       // Create transaction
       const transactionXDR = await stellarService.createPaymentTransaction(
@@ -170,19 +170,19 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
 
   if (paymentStatus === 'success' && transactionReceipt) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm" role="region" aria-label="Payment success confirmation" aria-live="polite">
         <div className="text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" aria-hidden="true" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Payment Successful!</h3>
           <p className="text-sm text-gray-600 mb-4">
             Your enrollment in {course.title} has been confirmed.
           </p>
 
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4" aria-label="Transaction details">
             <div className="text-left space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Transaction Hash:</span>
-                <span className="font-mono text-xs">{transactionReceipt.transactionHash.slice(0, 12)}...</span>
+                <span className="font-mono text-xs" aria-label={`Transaction hash: ${transactionReceipt.transactionHash}`}>{transactionReceipt.transactionHash.slice(0, 12)}...</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Amount Paid:</span>
@@ -198,8 +198,9 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
           <button
             onClick={viewTransaction}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+            aria-label="View transaction on Stellar Explorer (opens in new tab)"
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-4 h-4" aria-hidden="true" />
             <span>View Transaction</span>
           </button>
         </div>
@@ -208,13 +209,13 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm" role="region" aria-label="Payment section" aria-live="polite">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           {getStatusIcon()}
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Payment Details</h3>
-            <p className="text-sm text-gray-600">{getStatusText()}</p>
+            <p className="text-sm text-gray-600" aria-live="polite" aria-atomic="true">{getStatusText()}</p>
           </div>
         </div>
         {paymentStatus === 'idle' && (
@@ -222,14 +223,15 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
             onClick={checkBalanceAndEstimateFee}
             disabled={isCheckingBalance}
             className="p-2 text-gray-500 hover:text-gray-700"
+            aria-label="Refresh balance and fee estimate"
           >
-            <RefreshCw className={`w-4 h-4 ${isCheckingBalance ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isCheckingBalance ? 'animate-spin' : ''}`} aria-hidden="true" />
           </button>
         )}
       </div>
 
       <div className="space-y-4 mb-6">
-        <div className="bg-gray-50 rounded-lg p-4">
+        <div className="bg-gray-50 rounded-lg p-4" aria-label="Course information">
           <h4 className="font-medium text-gray-900 mb-3">Course Information</h4>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
@@ -247,7 +249,7 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
           </div>
         </div>
 
-        <div className="bg-blue-50 rounded-lg p-4">
+        <div className="bg-blue-50 rounded-lg p-4" aria-label="Payment breakdown">
           <h4 className="font-medium text-gray-900 mb-3">Payment Breakdown</h4>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
@@ -266,7 +268,7 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
         </div>
 
         {wallet && (
-          <div className="bg-yellow-50 rounded-lg p-4">
+          <div className="bg-yellow-50 rounded-lg p-4" aria-label="Wallet information">
             <h4 className="font-medium text-gray-900 mb-3">Wallet Information</h4>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
@@ -289,15 +291,15 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
       </div>
 
       {error && (
-        <div className="mb-4 flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+        <div className="mb-4 flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg" role="alert" aria-live="assertive">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
           <span className="text-sm">{error}</span>
         </div>
       )}
 
       {sufficientBalance === false && (
-        <div className="mb-4 flex items-center space-x-2 text-yellow-600 bg-yellow-50 p-3 rounded-lg">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+        <div className="mb-4 flex items-center space-x-2 text-yellow-600 bg-yellow-50 p-3 rounded-lg" role="alert" aria-live="assertive">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
           <span className="text-sm">
             Insufficient balance. Please add at least {formatStellarBalance(course.price - (wallet?.balance || 0))} to your wallet.
           </span>
@@ -309,6 +311,7 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
           <button
             onClick={retryPayment}
             className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+            aria-label="Retry payment"
           >
             Try Again
           </button>
@@ -324,10 +327,11 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
             isCheckingBalance
           }
           className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+          aria-label={paymentStatus === 'processing' || paymentStatus === 'pending' ? 'Processing payment' : `Pay ${formatStellarBalance(course.price)}`}
         >
           {paymentStatus === 'processing' || paymentStatus === 'pending' ? (
             <span className="flex items-center justify-center space-x-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
               <span>Processing...</span>
             </span>
           ) : (

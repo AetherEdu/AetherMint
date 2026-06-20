@@ -14,8 +14,9 @@ import {
     TrendingResponse,
     VoiceSearchResponse
 } from '../components/Discovery/types';
+import { env } from '@/lib/env';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
 const request = async <T> (path: string, init?: RequestInit): Promise<T> => {
     const response = await fetch(`${API_BASE_URL}${path}`, {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Video, Users, Calendar, Plus } from 'lucide-react';
+import { env } from '@/lib/env';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -29,7 +30,7 @@ const RoomLobby: React.FC = () => {
   const fetchRooms = async () => {
     try {
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/collaboration/rooms`
+        `${env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000'}/api/collaboration/rooms`
       );
       setRooms(response.data.data || []);
     } catch (error) {
@@ -48,7 +49,7 @@ const RoomLobby: React.FC = () => {
 
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/collaboration/rooms`,
+        `${env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000'}/api/collaboration/rooms`,
         {
           name: newRoomName,
           scheduledAt: new Date().toISOString()

@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { env } from '@/lib/env';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 export interface UploadConsciousnessRequest {
   ownerPublicKey: string;
