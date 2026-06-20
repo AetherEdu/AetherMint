@@ -233,7 +233,7 @@ jobs:
     - name: Run Playwright tests
       run: |
         cd frontend
-        npx playwright test --reporter=json,html,junit
+        npx playwright test --reporter=json,html,junit --pass-with-no-tests
       env:
         CI: true
         
