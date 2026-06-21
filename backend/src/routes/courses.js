@@ -1,11 +1,4 @@
 /**
- * @openapi
- * tags:
- *   - name: Courses
- *     description: Course content version management
- */
-
-/**
  * Courses Route
  * Handles course content and version management endpoints
  */
@@ -35,41 +28,22 @@ const router = express.Router();
 // const VersionControlService = require('../utils/versionControl');
 
 /**
- * @openapi
- * /api/courses/{contentId}/versions:
- *   post:
- *     tags: [Courses]
- *     summary: Create a new version for course content
- *     parameters:
- *       - in: path
- *         name: contentId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               content:
- *                 type: object
- *               changes:
- *                 type: array
- *                 items:
- *                   type: string
- *               createdBy:
- *                 type: string
- *     responses:
- *       201:
- *         description: Version created successfully
- *       500:
- *         description: Server error
+ * POST /api/courses/:contentId/versions
+ * Create a new version for course content
+ * 
+ * @param {string} contentId - Content ID
+ * @body {ContentVersionCreateRequest} - Version creation data
+ * @returns {ContentVersion} - Created version
+ * 
+ * @example
+ * POST /api/courses/content_123/versions
+ * {
+ *   "title": "Updated Lesson Content",
+ *   "description": "Updated description",
+ *   "content": { "sections": [...] },
+ *   "changes": ["Updated introduction", "Added new examples"],
+ *   "createdBy": "user_456"
+ * }
  */
 router.post('/:contentId/versions', 
   // validateContentIdParam,
@@ -117,28 +91,15 @@ router.post('/:contentId/versions',
 );
 
 /**
- * @openapi
- * /api/courses/{contentId}/versions:
- *   get:
- *     tags: [Courses]
- *     summary: Get version history for course content
- *     parameters:
- *       - in: path
- *         name: contentId
- *         required: true
- *         schema:
- *           type: string
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Version history retrieved
+ * GET /api/courses/:contentId/versions
+ * Get version history for course content
+ * 
+ * @param {string} contentId - Content ID
+ * @query {VersionFilter} - Filter options
+ * @returns {VersionHistoryResult} - Paginated version history
+ * 
+ * @example
+ * GET /api/courses/content_123/versions?page=1&limit=10&sortBy=version&sortOrder=desc
  */
 router.get('/:contentId/versions',
   // validateContentIdParam,
@@ -205,20 +166,14 @@ router.get('/:contentId/versions',
 );
 
 /**
- * @openapi
- * /api/courses/{contentId}/versions/current:
- *   get:
- *     tags: [Courses]
- *     summary: Get current version of course content
- *     parameters:
- *       - in: path
- *         name: contentId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Current version retrieved
+ * GET /api/courses/:contentId/versions/current
+ * Get current version of course content
+ * 
+ * @param {string} contentId - Content ID
+ * @returns {ContentVersion} - Current version
+ * 
+ * @example
+ * GET /api/courses/content_123/versions/current
  */
 router.get('/:contentId/versions/current',
   // validateContentIdParam,
@@ -261,25 +216,15 @@ router.get('/:contentId/versions/current',
 );
 
 /**
- * @openapi
- * /api/courses/{contentId}/versions/{versionNumber}:
- *   get:
- *     tags: [Courses]
- *     summary: Get specific version by version number
- *     parameters:
- *       - in: path
- *         name: contentId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: versionNumber
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Version retrieved
+ * GET /api/courses/:contentId/versions/:versionNumber
+ * Get specific version by version number
+ * 
+ * @param {string} contentId - Content ID
+ * @param {number} versionNumber - Version number
+ * @returns {ContentVersion} - Specific version
+ * 
+ * @example
+ * GET /api/courses/content_123/versions/1
  */
 router.get('/:contentId/versions/:versionNumber',
   // validateContentIdParam,
@@ -323,25 +268,15 @@ router.get('/:contentId/versions/:versionNumber',
 );
 
 /**
- * @openapi
- * /api/courses/versions/compare/{version1Id}/{version2Id}:
- *   post:
- *     tags: [Courses]
- *     summary: Compare two versions
- *     parameters:
- *       - in: path
- *         name: version1Id
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: version2Id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Versions compared
+ * POST /api/courses/versions/compare/:version1Id/:version2Id
+ * Compare two versions
+ * 
+ * @param {string} version1Id - First version ID
+ * @param {string} version2Id - Second version ID
+ * @returns {VersionComparison} - Comparison result
+ * 
+ * @example
+ * POST /api/courses/versions/compare/ver_1/ver_2
  */
 router.post('/versions/compare/:version1Id/:version2Id',
   // validateVersionComparison,
@@ -407,33 +342,20 @@ router.post('/versions/compare/:version1Id/:version2Id',
 );
 
 /**
- * @openapi
- * /api/courses/{contentId}/versions/restore:
- *   post:
- *     tags: [Courses]
- *     summary: Restore content to a specific version
- *     parameters:
- *       - in: path
- *         name: contentId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               versionId:
- *                 type: string
- *               restoreReason:
- *                 type: string
- *               restoredBy:
- *                 type: string
- *     responses:
- *       200:
- *         description: Content restored
+ * POST /api/courses/:contentId/versions/restore
+ * Restore content to a specific version
+ * 
+ * @param {string} contentId - Content ID
+ * @body {VersionRestoreRequest} - Restore request data
+ * @returns {Content} - Updated content with restored version
+ * 
+ * @example
+ * POST /api/courses/content_123/versions/restore
+ * {
+ *   "versionId": "ver_1",
+ *   "restoreReason": "Reverting to previous stable version",
+ *   "restoredBy": "user_456"
+ * }
  */
 router.post('/:contentId/versions/restore',
   // validateContentIdParam,
@@ -482,31 +404,19 @@ router.post('/:contentId/versions/restore',
 );
 
 /**
- * @openapi
- * /api/courses/{contentId}/versions/settings:
- *   put:
- *     tags: [Courses]
- *     summary: Update version control settings
- *     parameters:
- *       - in: path
- *         name: contentId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               autoVersioning:
- *                 type: boolean
- *               maxVersions:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Settings updated
+ * PUT /api/courses/:contentId/versions/settings
+ * Update version control settings for content
+ * 
+ * @param {string} contentId - Content ID
+ * @body {object} - Version control settings
+ * @returns {object} - Updated settings
+ * 
+ * @example
+ * PUT /api/courses/content_123/versions/settings
+ * {
+ *   "autoVersioning": true,
+ *   "maxVersions": 20
+ * }
  */
 router.put('/:contentId/versions/settings',
   // validateContentIdParam,
@@ -547,25 +457,15 @@ router.put('/:contentId/versions/settings',
 );
 
 /**
- * @openapi
- * /api/courses/{contentId}/versions/export:
- *   get:
- *     tags: [Courses]
- *     summary: Export version history
- *     parameters:
- *       - in: path
- *         name: contentId
- *         required: true
- *         schema:
- *           type: string
- *       - in: query
- *         name: format
- *         schema:
- *           type: string
- *           enum: [json, csv]
- *     responses:
- *       200:
- *         description: Version history exported
+ * GET /api/courses/:contentId/versions/export
+ * Export version history
+ * 
+ * @param {string} contentId - Content ID
+ * @query {string} format - Export format (json or csv)
+ * @returns {file} - Exported version history
+ * 
+ * @example
+ * GET /api/courses/content_123/versions/export?format=json
  */
 router.get('/:contentId/versions/export',
   // validateContentIdParam,
@@ -620,20 +520,14 @@ router.get('/:contentId/versions/export',
 );
 
 /**
- * @openapi
- * /api/courses/{contentId}/versions/statistics:
- *   get:
- *     tags: [Courses]
- *     summary: Get version statistics for content
- *     parameters:
- *       - in: path
- *         name: contentId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Version statistics retrieved
+ * GET /api/courses/:contentId/versions/statistics
+ * Get version statistics for content
+ * 
+ * @param {string} contentId - Content ID
+ * @returns {object} - Version statistics
+ * 
+ * @example
+ * GET /api/courses/content_123/versions/statistics
  */
 router.get('/:contentId/versions/statistics',
   // validateContentIdParam,

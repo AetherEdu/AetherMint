@@ -1,10 +1,3 @@
-/**
- * @openapi
- * tags:
- *   - name: Translation
- *     description: Real-time multi-language translation services
- */
-
 import express, { Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { realTimeTranslationService } from '../services/realTimeTranslationService';
@@ -25,38 +18,9 @@ const validateRequest = (req: Request, res: Response, next: Function) => {
 };
 
 /**
- * @openapi
- * /api/translate/text:
- *   post:
- *     tags: [Translation]
- *     summary: Translate text content
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - text
- *               - sourceLanguage
- *               - targetLanguage
- *             properties:
- *               text:
- *                 type: string
- *               sourceLanguage:
- *                 type: string
- *               targetLanguage:
- *                 type: string
- *               context:
- *                 type: string
- *               contentType:
- *                 type: string
- *                 enum: [course, subtitle, interaction, general]
- *     responses:
- *       '200':
- *         description: Translation completed
+ * @route   POST /api/translate/text
+ * @desc    Translate text content
+ * @access  Private
  */
 router.post(
   '/text',
@@ -97,27 +61,9 @@ router.post(
 );
 
 /**
- * @openapi
- * /api/translate/batch:
- *   post:
- *     tags: [Translation]
- *     summary: Batch translate multiple texts
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - requests
- *             properties:
- *               requests:
- *                 type: array
- *     responses:
- *       '200':
- *         description: Batch translation completed
+ * @route   POST /api/translate/batch
+ * @desc    Batch translate multiple texts
+ * @access  Private
  */
 router.post(
   '/batch',
@@ -151,30 +97,9 @@ router.post(
 );
 
 /**
- * @openapi
- * /api/translate/subtitles:
- *   post:
- *     tags: [Translation]
- *     summary: Translate and synchronize subtitles
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - segments
- *               - targetLanguage
- *             properties:
- *               segments:
- *                 type: array
- *               targetLanguage:
- *                 type: string
- *     responses:
- *       '200':
- *         description: Subtitle translation completed
+ * @route   POST /api/translate/subtitles
+ * @desc    Translate and synchronize subtitles
+ * @access  Private
  */
 router.post(
   '/subtitles',
@@ -212,35 +137,9 @@ router.post(
 );
 
 /**
- * @openapi
- * /api/translate/correction:
- *   post:
- *     tags: [Translation]
- *     summary: Submit translation correction
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - originalText
- *               - translation
- *               - correctedTranslation
- *             properties:
- *               originalText:
- *                 type: string
- *               translation:
- *                 type: string
- *               correctedTranslation:
- *                 type: string
- *               context:
- *                 type: string
- *     responses:
- *       '200':
- *         description: Correction submitted
+ * @route   POST /api/translate/correction
+ * @desc    Submit a translation correction for quality improvement
+ * @access  Private
  */
 router.post(
   '/correction',
@@ -278,23 +177,9 @@ router.post(
 );
 
 /**
- * @openapi
- * /api/translate/quality/{contentType}:
- *   get:
- *     tags: [Translation]
- *     summary: Get translation quality metrics
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: contentType
- *         required: false
- *         schema:
- *           type: string
- *           enum: [course, subtitle, interaction, general]
- *     responses:
- *       '200':
- *         description: Quality metrics retrieved
+ * @route   GET /api/translate/quality/:contentType?
+ * @desc    Get translation quality metrics
+ * @access  Private
  */
 router.get(
   '/quality/:contentType?',

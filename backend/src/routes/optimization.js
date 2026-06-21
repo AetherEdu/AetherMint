@@ -1,94 +1,79 @@
-/**
- * @openapi
- * tags:
- *   - name: Optimization
- *     description: System optimization and resource management
- */
-
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const { authenticate, authorize } = require("../middleware/auth");
-const optimizationController = require("../controllers/optimizationController");
+const OptimizationController = require('../controllers/optimizationController');
 
-router.use(authenticate, authorize("admin"));
+// Initialize optimization controller
+const optimizationController = new OptimizationController();
 
-/**
- * @openapi
- * /api/optimization/cache:
- *   get:
- *     tags: [Optimization]
- *     summary: Get cache optimization status
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Cache status retrieved
- *   post:
- *     tags: [Optimization]
- *     summary: Optimize cache
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Cache optimized
- */
-router.get("/cache", optimizationController.getCacheStatus);
-router.post("/cache", optimizationController.optimizeCache);
+// Initialize optimization services
+router.post('/initialize', async (req, res) => {
+  await optimizationController.initialize(req, res);
+});
 
-/**
- * @openapi
- * /api/optimization/compression:
- *   post:
- *     tags: [Optimization]
- *     summary: Compress data for optimization
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Data compressed
- */
-router.post("/compression", optimizationController.optimizeCompression);
+// Learning Path Optimization
+router.post('/learning-paths/optimize', async (req, res) => {
+  await optimizationController.optimizeLearningPath(req, res);
+});
 
-/**
- * @openapi
- * /api/optimization/performance:
- *   get:
- *     tags: [Optimization]
- *     summary: Get performance optimization report
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Performance report retrieved
- */
-router.get("/performance", optimizationController.getPerformanceReport);
+// Resource Allocation Optimization
+router.post('/resources/optimize', async (req, res) => {
+  await optimizationController.optimizeResourceAllocation(req, res);
+});
 
-/**
- * @openapi
- * /api/optimization/scheduler:
- *   post:
- *     tags: [Optimization]
- *     summary: Schedule optimization task
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Task scheduled
- */
-router.post("/scheduler", optimizationController.scheduleOptimization);
+// Dynamic Replanning
+router.post('/replanning/register', async (req, res) => {
+  await optimizationController.registerPath(req, res);
+});
 
-/**
- * @openapi
- * /api/optimization/recommendations:
- *   get:
- *     tags: [Optimization]
- *     summary: Get optimization recommendations
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Recommendations retrieved
- */
-router.get("/recommendations", optimizationController.getOptimizationRecommendations);
+router.post('/replanning/update-environment', async (req, res) => {
+  await optimizationController.updateEnvironmentState(req, res);
+});
+
+// Swarm Coordination
+router.post('/swarm/initialize', async (req, res) => {
+  await optimizationController.initializeSwarm(req, res);
+});
+
+// Analytics and Visualization
+router.get('/analytics', async (req, res) => {
+  await optimizationController.getAnalytics(req, res);
+});
+
+router.get('/visualizations/:vizId', async (req, res) => {
+  await optimizationController.getVisualization(req, res);
+});
+
+router.get('/visualizations', async (req, res) => {
+  await optimizationController.getAllVisualizations(req, res);
+});
+
+router.get('/realtime', async (req, res) => {
+  await optimizationController.getRealTimeData(req, res);
+});
+
+// Session Management
+router.get('/sessions/:sessionId', async (req, res) => {
+  await optimizationController.getSessionStatus(req, res);
+});
+
+// Data Export
+router.get('/export', async (req, res) => {
+  await optimizationController.exportData(req, res);
+});
+
+// Health Check
+router.get('/health', async (req, res) => {
+  await optimizationController.healthCheck(req, res);
+});
+
+// Error handling middleware
+router.use((error, req, res, next) => {
+  console.error('Optimization API error:', error);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: error.message,
+    timestamp: new Date()
+  });
+});
 
 module.exports = router;

@@ -1,10 +1,3 @@
-/**
- * @openapi
- * tags:
- *   - name: Users
- *     description: User profile and settings management
- */
-
 import { Router, Request, Response, NextFunction } from "express";
 import { body, param, validationResult } from "express-validator";
 import { userController } from "../controllers/userController";
@@ -23,51 +16,8 @@ const validateRequest = (req: Request, res: Response, next: NextFunction) => {
 };
 
 /**
- * @openapi
- * /api/users/profile/{address}:
- *   get:
- *     tags: [Users]
- *     summary: Get user profile by Stellar address
- *     parameters:
- *       - in: path
- *         name: address
- *         required: true
- *         schema:
- *           type: string
- *         description: Stellar wallet address
- *     responses:
- *       200:
- *         description: User profile retrieved
- *       400:
- *         description: Invalid address
- *   put:
- *     tags: [Users]
- *     summary: Update user profile
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               username:
- *                 type: string
- *               email:
- *                 type: string
- *                 format: email
- *               bio:
- *                 type: string
- *     parameters:
- *       - in: path
- *         name: address
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Profile updated
- *       400:
- *         description: Validation error
+ * @route GET /api/users/profile/:address
+ * @desc Get user profile by Stellar address
  */
 router.get(
   "/profile/:address",
@@ -93,38 +43,8 @@ router.put(
 );
 
 /**
- * @openapi
- * /api/users/settings/{userId}:
- *   get:
- *     tags: [Users]
- *     summary: Get user settings
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User settings retrieved
- *   put:
- *     tags: [Users]
- *     summary: Update user settings
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *     responses:
- *       200:
- *         description: Settings updated
+ * @route GET /api/users/settings/:userId
+ * @desc Get user settings
  */
 router.get(
   "/settings/:userId",

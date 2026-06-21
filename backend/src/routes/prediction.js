@@ -1,85 +1,108 @@
-/**
- * @openapi
- * tags:
- *   - name: Prediction
- *     description: AI-powered predictions and forecasting
- */
-
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const { authenticate } = require("../middleware/auth");
-const predictionController = require("../controllers/predictionController");
+const PredictionController = require('../controllers/predictionController');
 
-router.use(authenticate);
+// Initialize controller
+const predictionController = new PredictionController();
 
-/**
- * @openapi
- * /api/prediction/student-performance:
- *   post:
- *     tags: [Prediction]
- *     summary: Predict student performance
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Performance prediction generated
- */
-router.post("/student-performance", predictionController.predictStudentPerformance);
+// Middleware for validation
+const validateStudentData = (req, res, next) => {
+  const { studentData } = req.body;
+  
+  if (!studentData || typeof studentData !== 'object') {
+    return res.status(400).json({
+      success: false,
+      message: 'Valid student data object is required'
+    });
+  }
+  
+  next();
+};
 
-/**
- * @openapi
- * /api/prediction/dropout-risk:
- *   post:
- *     tags: [Prediction]
- *     summary: Predict dropout risk
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Dropout risk prediction generated
- */
-router.post("/dropout-risk", predictionController.predictDropoutRisk);
+const validateBatchData = (req, res, next) => {
+  const { students } = req.body;
+  
+  if (!students || !Array.isArray(students) || students.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Valid students array is required'
+    });
+  }
+  
+  if (students.length > 100) {
+    return res.status(400).json({
+      success: false,
+      message: 'Maximum 100 students allowed per batch request'
+    });
+  }
+  
+  next();
+};
 
-/**
- * @openapi
- * /api/prediction/course-completion:
- *   post:
- *     tags: [Prediction]
- *     summary: Predict course completion probability
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Completion prediction generated
- */
-router.post("/course-completion", predictionController.predictCourseCompletion);
+// Prediction routes
+router.post('/students/:studentId/predict', 
+  validateStudentData,
+  predictionController.predictStudentOutcomes.bind(predictionController)
+);
 
-/**
- * @openapi
- * /api/prediction/engagement:
- *   post:
- *     tags: [Prediction]
- *     summary: Predict student engagement levels
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Engagement prediction generated
- */
-router.post("/engagement", predictionController.predictEngagement);
+router.post('/batch/predict',
+  validateBatchData,
+  predictionController.predictBatchOutcomes.bind(predictionController)
+);
 
-/**
- * @openapi
- * /api/prediction/learning-style:
- *   post:
- *     tags: [Prediction]
- *     summary: Predict learning style
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: Learning style prediction generated
- */
-router.post("/learning-style", predictionController.predictLearningStyle);
+// At-risk student identification
+router.post('/at-risk/identify',
+  validateBatchData,
+  predictionController.identifyAtRiskStudents.bind(predictionController)
+);
+
+// Intervention recommendations
+router.post('/students/:studentId/interventions',
+  predictionController.generateInterventions.bind(predictionController)
+);
+
+router.put('/students/:studentId/interventions/:interventionId/status',
+  predictionController.updateInterventionStatus.bind(predictionController)
+);
+
+router.get('/students/:studentId/interventions/effectiveness',
+  predictionController.getInterventionEffectiveness.bind(predictionController)
+);
+
+// Learning path optimization
+router.post('/students/:studentId/learning-path/optimize',
+  predictionController.optimizeLearningPath.bind(predictionController)
+);
+
+// Model management
+router.get('/models/accuracy',
+  predictionController.getModelAccuracy.bind(predictionController)
+);
+
+router.post('/models/train',
+  predictionController.trainModels.bind(predictionController)
+);
+
+// Comprehensive analytics
+router.post('/students/:studentId/analytics',
+  validateStudentData,
+  predictionController.getStudentAnalytics.bind(predictionController)
+);
+
+// Health check
+router.get('/health',
+  predictionController.healthCheck.bind(predictionController)
+);
+
+// Error handling middleware
+router.use((error, req, res, next) => {
+  console.error('Prediction route error:', error);
+  
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error in prediction service',
+    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  });
+});
 
 module.exports = router;

@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import { Redis } from 'ioredis';
-import swaggerUi from 'swagger-ui-express';
 import logger from './utils/logger';
 import requestLogger from './middleware/requestLogger';
 import { connectRedis } from './utils/redis';
@@ -13,7 +12,6 @@ import { setSyncWebsocketEmitter } from './services/syncService';
 import { initCollaborationService } from './services/initCollaboration';
 // @ts-ignore
 import SecureRealtimeCommunication from './services/secureRealtimeCommunication';
-import { swaggerSpec } from './config/swagger';
 
 // @ts-ignore
 import * as transactionQueue from './services/transactionQueue';
@@ -126,12 +124,6 @@ app.use(detectSuspiciousPatterns);
 
 // NEW/Updated: Sanitize all inputs
 app.use(requestSanitizer);
-
-// Serve Swagger UI at /api-docs
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  explorer: true,
-  customSiteTitle: 'AetherMint API Docs',
-}));
 
 // API routes
 app.use('/api/quizzes', quizRoutes);

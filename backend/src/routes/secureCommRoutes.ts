@@ -1,75 +1,117 @@
-/**
- * @openapi
- * tags:
- *   - name: Secure Communications
- *     description: End-to-end encrypted communications
- */
+import express from 'express';
+import secureCommController from '../controllers/secureCommController';
+import { authenticateToken } from '../middleware/auth';
+import { handleValidationErrors } from '../middleware/validation';
+import { body, param } from 'express-validator';
 
-import express, { Request, Response } from "express";
-import { secureCommController } from "../controllers/secureCommController";
-
-const router = express.Router();
+const router: import('express').Router = express.Router();
 
 /**
- * @openapi
- * /api/secure-comm/init:
- *   post:
- *     tags: [Secure Communications]
- *     summary: Initialize secure communication session
- *     responses:
- *       '200':
- *         description: Session initialized
+ * @route   POST /api/secure-comm/generate-keypair
+ * @desc    Generate quantum-resistant key pair
+ * @access  Private
  */
-router.post("/init", (req: Request, res: Response) => {
-  secureCommController.initializeSession(req, res);
-});
+router.post(
+  '/generate-keypair',
+  authenticateToken,
+  secureCommController.generateKeyPair
+);
 
 /**
- * @openapi
- * /api/secure-comm/send:
- *   post:
- *     tags: [Secure Communications]
- *     summary: Send encrypted message
- *     responses:
- *       '200':
- *         description: Message sent
+ * @route   POST /api/secure-comm/establish-secret
+ * @desc    Establish shared secret between users
+ * @access  Private
  */
-router.post("/send", (req: Request, res: Response) => {
-  secureCommController.sendMessage(req, res);
-});
+router.post(
+  '/establish-secret',
+  authenticateToken,
+  [
+    body('privateKey').notEmpty().withMessage('Private key is required'),
+    body('peerPublicKey').notEmpty().withMessage('Peer public key is required'),
+    body('userId').notEmpty().withMessage('User ID is required'),
+    body('peerId').notEmpty().withMessage('Peer ID is required')
+  ],
+  handleValidationErrors,
+  secureCommController.establishSharedSecret
+);
 
 /**
- * @openapi
- * /api/secure-comm/receive/{sessionId}:
- *   get:
- *     tags: [Secure Communications]
- *     summary: Receive encrypted messages for session
- *     parameters:
- *       - in: path
- *         name: sessionId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       '200':
- *         description: Messages retrieved
+ * @route   POST /api/secure-comm/encrypt
+ * @desc    Encrypt message
+ * @access  Private
  */
-router.get("/receive/:sessionId", (req: Request, res: Response) => {
-  secureCommController.receiveMessages(req, res);
-});
+router.post(
+  '/encrypt',
+  authenticateToken,
+  [
+    body('message').notEmpty().withMessage('Message is required'),
+    body('sharedSecret').notEmpty().withMessage('Shared secret is required')
+  ],
+  handleValidationErrors,
+  secureCommController.encryptMessage
+);
 
 /**
- * @openapi
- * /api/secure-comm/end:
- *   post:
- *     tags: [Secure Communications]
- *     summary: End secure communication session
- *     responses:
- *       '200':
- *         description: Session ended
+ * @route   POST /api/secure-comm/decrypt
+ * @desc    Decrypt message
+ * @access  Private
  */
-router.post("/end", (req: Request, res: Response) => {
-  secureCommController.endSession(req, res);
-});
+router.post(
+  '/decrypt',
+  authenticateToken,
+  [
+    body('ciphertext').notEmpty().withMessage('Ciphertext is required'),
+    body('nonce').notEmpty().withMessage('Nonce is required'),
+    body('sharedSecret').notEmpty().withMessage('Shared secret is required')
+  ],
+  handleValidationErrors,
+  secureCommController.decryptMessage
+);
+
+/**
+ * @route   POST /api/secure-comm/sign
+ * @desc    Sign message
+ * @access  Private
+ */
+router.post(
+  '/sign',
+  authenticateToken,
+  [
+    body('message').notEmpty().withMessage('Message is required'),
+    body('privateKey').notEmpty().withMessage('Private key is required')
+  ],
+  handleValidationErrors,
+  secureCommController.signMessage
+);
+
+/**
+ * @route   POST /api/secure-comm/verify
+ * @desc    Verify message signature
+ * @access  Private
+ */
+router.post(
+  '/verify',
+  authenticateToken,
+  [
+    body('message').notEmpty().withMessage('Message is required'),
+    body('signature').notEmpty().withMessage('Signature is required'),
+    body('publicKey').notEmpty().withMessage('Public key is required')
+  ],
+  handleValidationErrors,
+  secureCommController.verifySignature
+);
+
+/**
+ * @route   GET /api/secure-comm/stats/:userId
+ * @desc    Get communication statistics
+ * @access  Private
+ */
+router.get(
+  '/stats/:userId',
+  authenticateToken,
+  [param('userId').notEmpty().withMessage('User ID is required')],
+  handleValidationErrors,
+  secureCommController.getStats
+);
 
 export default router;
