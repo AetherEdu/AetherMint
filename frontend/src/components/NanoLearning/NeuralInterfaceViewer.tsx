@@ -6,7 +6,7 @@
 'use client';
 
 import React from 'react';
-import type { NeuralPattern } from '../types/nanotech';
+import type { NeuralPattern } from '../../types/nanotech';
 
 interface NeuralInterfaceViewerProps {
   pattern: NeuralPattern | null;

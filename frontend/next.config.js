@@ -1,11 +1,18 @@
-/** @type {import('next').NextConfig} */
-const path = require('path');
-const { i18n } = require('./next-i18next.config');
+// @ts-check
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { z } from 'zod';
+import nextI18nConfig from './next-i18next.config.js';
+import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
+
+const i18n = nextI18nConfig.i18n;
+
+// `__dirname` is not defined in ESM scope; reconstruct it from the module URL.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Validate environment variables at build time.
 // This ensures missing/invalid vars are caught early with a clear error message.
-const { z } = require('zod');
-
 const envSchema = z.object({
   NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: z
     .string()
@@ -28,17 +35,10 @@ if (!parsed.success) {
   throw new Error(`❌ Invalid environment variables:\n${errors}\n\nSee .env.example for reference.`);
 }
 
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable standalone output for Docker container builds
   output: 'standalone',
-  typescript: {
-    // Ignore TS build errors — pre-existing type issues across the codebase
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    // Ignore ESLint errors during build — pre-existing issues across the codebase
-    ignoreDuringBuilds: true,
-  },
   transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
   env: {
     NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: process.env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS,
@@ -53,26 +53,26 @@ const nextConfig = {
     ];
   },
   // Performance monitoring configuration
-  webpack: (config, { isServer }) => {
+  webpack: (config, _env) => {
     // Enable bundle analysis in production
     if (process.env.ANALYZE === 'true') {
-      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
       config.plugins.push(
         new BundleAnalyzerPlugin({
           analyzerMode: 'static',
           openAnalyzer: false,
-        })
+        }),
       );
     }
 
-  // Performance optimizations
     // Stub native-only modules and broken packages that can't run in browser/build
     config.resolve.alias = {
       ...config.resolve.alias,
       brainflow: false,
-      '@creit.tech/stellar-wallets-kit': path.resolve(__dirname, 'src/stubs/stellar-wallets-kit.ts'),
+      '@creit.tech/stellar-wallets-kit': path.resolve(
+        __dirname,
+        'src/stubs/stellar-wallets-kit.ts',
+      ),
     };
-
 
     config.optimization.splitChunks = {
       chunks: 'all',
@@ -125,4 +125,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;

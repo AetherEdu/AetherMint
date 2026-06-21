@@ -14,75 +14,13 @@ export { default as InteractiveQuiz } from './InteractiveQuiz';
 // Accessibility Provider
 export { default as AccessibilityProvider, useAccessibility } from './AccessibilityProvider';
 
-// Type Exports
-export type {
-  VirtualLabProps,
-  ExperimentStep,
-} from './VirtualLabSimulation';
-
-export type {
-  InteractiveDiagramProps,
-  DiagramData,
-  DiagramNode,
-  DiagramConnection,
-} from './InteractiveDiagram';
-
-export type {
-  DragDropActivityProps,
-  DragDropItem,
-  DropTarget,
-  ActivityResults,
-  ItemResult,
-} from './DragDropActivity';
-
-export type {
-  GamificationProps,
-  Points,
-  Badge,
-  Achievement,
-  LeaderboardEntry,
-  LearningStreak,
-} from './GamificationEngine';
-
-export type {
-  InteractiveTimelineMapProps,
-  TimelineEvent,
-  TimelineData,
-  MapLocation,
-  MapData,
-  Milestone,
-} from './InteractiveTimelineMap';
-
-export type {
-  CollaborativeWhiteboardProps,
-  WhiteboardUser,
-  DrawingElement,
-  WhiteboardData,
-} from './CollaborativeWhiteboard';
-
-export type {
-  ProgressVisualizationProps,
-  ProgressData,
-  CourseProgress,
-  WeeklyProgress,
-  SkillProgress,
-  TimeSpentData,
-  StreakData,
-  Milestone as ProgressMilestone,
-} from './ProgressVisualization';
-
-export type {
-  InteractiveQuizProps,
-  QuizQuestion,
-  QuizProgress,
-  QuizResults,
-  QuestionResult,
-} from './InteractiveQuiz';
-
-export type {
-  AccessibilityFeaturesProps,
-  AccessibilitySettings,
-} from './AccessibilityProvider';
+// NOTE: The original barrel file attempted to re-export types from sibling
+// components (VirtualLabProps, ExperimentStep, Achievement, etc.) that those
+// components do not currently declare as exported. To keep this barrel
+// type-safe under strict mode without modifying the runtime behavior of the
+// consuming components, those `export type { ... }` blocks have been removed.
+// Consumers that need those types should import them directly from the source
+// component once those components export them explicitly.
 
 // Utility Functions
 export const createInteractiveLab = (config: any) => {
@@ -288,6 +226,16 @@ export const getThemeColors = (theme: 'light' | 'dark') => {
 };
 
 // Export all components as a single object for convenience
+import VirtualLabSimulation from './VirtualLabSimulation';
+import InteractiveDiagram from './InteractiveDiagram';
+import DragDropActivity from './DragDropActivity';
+import GamificationEngine from './GamificationEngine';
+import InteractiveTimelineMap from './InteractiveTimelineMap';
+import CollaborativeWhiteboard from './CollaborativeWhiteboard';
+import ProgressVisualization from './ProgressVisualization';
+import InteractiveQuiz from './InteractiveQuiz';
+import AccessibilityProvider from './AccessibilityProvider';
+
 export const InteractiveComponents = {
   VirtualLabSimulation,
   InteractiveDiagram,

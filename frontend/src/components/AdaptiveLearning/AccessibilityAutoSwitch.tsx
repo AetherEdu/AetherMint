@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Volume2, VolumeX, Keyboard, Mouse, Zap, Settings, Moon, Sun, Contrast } from 'lucide-react';
+import { Eye, EyeOff, Volume2, VolumeX, Keyboard, Mouse, Zap, Settings, Moon, Sun, Contrast, Brain } from 'lucide-react';
 
 export type AccessibilityMode = 'none' | 'visual' | 'hearing' | 'motor' | 'cognitive' | 'comprehensive';
 export type AdaptationLevel = 'minimal' | 'moderate' | 'extensive';

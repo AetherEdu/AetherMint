@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import CollaborationRoom from '@/components/collaboration/CollaborationRoom';
+import CollaborationRoom from '@/components/Collaboration/CollaborationRoom';
 import toast from 'react-hot-toast';
 
 const CollaborationRoomPage = () => {

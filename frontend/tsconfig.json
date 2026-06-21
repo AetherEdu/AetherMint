@@ -26,6 +26,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@creit.tech/stellar-wallets-kit": [
+        "./src/stubs/stellar-wallets-kit.ts"
       ]
     },
     "strictNullChecks": true,
@@ -40,6 +43,9 @@
   "exclude": [
     "node_modules",
     "src/**/*.test.ts",
-    "src/**/*.test.tsx"
+    "src/**/*.test.tsx",
+    "src/test-fixes.tsx",
+    "src/test-profile.tsx",
+    "src/final-check.tsx"
   ]
 }

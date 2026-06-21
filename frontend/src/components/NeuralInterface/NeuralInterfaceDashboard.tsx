@@ -9,6 +9,12 @@ import { SafetyMonitor } from './SafetyMonitor';
 import { LearningProfile } from './LearningProfile';
 import { NeuralDataService } from '@/services/neuralData';
 import { SafetyConstraints } from '@/lib/safetyConstraints';
+import type {
+  NeuralData,
+  LearningSession,
+  LearningMetrics,
+  LearningContent,
+} from '@/types/neural';
 
 interface NeuralInterfaceDashboardProps {
   userId: string;
@@ -22,7 +28,6 @@ interface LearningResult {
   sessionDuration: number;
   cognitiveLoad: number;
 }
-
 export const NeuralInterfaceDashboard: React.FC<NeuralInterfaceDashboardProps> = ({
   userId,
   onLearningComplete

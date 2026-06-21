@@ -53,10 +53,20 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({
     }
   };
 
-  const formatTooltipValue = (value: number, name: string) => {
-    if (name === 'totalTime') return `${value} min`;
-    if (name === 'quizScores') return `${value}%`;
-    return value.toString();
+  // Recharts 3.x changed the Formatter signature from
+  // `  (value: unknown, name?: string) => string` to
+  // `(value: ValueType, name: NameType, ...) => ReactNode | undefined`,
+  // so the formatter must accept whatever ReactNode-shaped value the
+  // payload hands us and reduce it to a string.
+  const formatTooltipValue = (value: unknown, name?: string): string => {
+    if (typeof value === 'number') {
+      if (name === 'totalTime') return `${value} min`;
+      if (name === 'progress' || name === 'completionRate')
+        return `${value.toFixed(1)}%`;
+      return value.toString();
+    }
+    if (value === undefined || value === null) return '';
+    return String(value);
   };
 
   if (loading) {

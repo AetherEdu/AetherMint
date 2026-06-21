@@ -15,13 +15,17 @@ const HORIZON_MAINNET_URL = 'https://horizon.stellar.org';
 
 export class StellarTransactionService {
   private server: Horizon.Server;
-  private network: Networks.Network;
+  /**
+   * The new @stellar/stellar-sdk no longer exposes a `Networks.Network`
+   * union type. The passphrases we use are simple strings.
+   */
+  private networkPassphrase: string;
 
   constructor(network: 'testnet' | 'mainnet' = 'testnet') {
     this.server = new Horizon.Server(
-      network === 'testnet' ? HORIZON_TESTNET_URL : HORIZON_MAINNET_URL
+      network === 'testnet' ? HORIZON_TESTNET_URL : HORIZON_MAINNET_URL,
     );
-    this.network = network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC;
+    this.networkPassphrase = network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC;
   }
 
   async getAccountBalance(publicKey: string): Promise<number> {
@@ -71,27 +75,46 @@ export class StellarTransactionService {
   async submitTransaction(signedTransactionXDR: string): Promise<TransactionReceipt> {
     try {
       const transaction = TransactionBuilder.fromXDR(signedTransactionXDR, this.networkPassphrase);
-      const result = await this.server.submitTransaction(transaction);
+      const result = await this.server.submitTransaction(transaction) as unknown as {
+        hash: string;
+        successful: boolean;
+        latest_ledger?: number;
+        ledger?: number;
+        fee_charged?: string | number;
+        source_account?: string;
+        operations?: Array<{ type: string; amount?: string; destination?: string }>;
+        memo?: string;
+      };
+
+      // The Stellar SDK's `SubmitTransactionResponse` shape mutated in
+      // v14. Cast to `any` for fields that the new types don't expose
+      // directly so the receipt interface stays consumer-friendly.
+      const submitResult = result;
 
       return {
-        transactionHash: result.hash,
-        status: result.successful ? 'success' : 'failed',
+        transactionHash: String(submitResult.hash),
+        status: submitResult.successful ? 'success' : 'failed',
         timestamp: new Date().toISOString(),
-        blockNumber: result.latest_ledger,
-        fee: result.fee_charged ? parseInt(result.fee_charged.toString()) : undefined,
-        amount: this.extractPaymentAmount(result),
-        from: this.extractSourceAccount(result),
-        to: this.extractDestinationAccount(result),
-        memo: this.extractMemo(result),
+        blockNumber: submitResult.latest_ledger ?? submitResult.ledger,
+        fee: submitResult.fee_charged
+          ? parseInt(String(submitResult.fee_charged))
+          : undefined,
+        amount: this.extractPaymentAmount(submitResult),
+        from: this.extractSourceAccount(submitResult),
+        to: this.extractDestinationAccount(submitResult),
+        memo: this.extractMemo(submitResult),
       };
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } } };
       console.error('Error submitting transaction:', error);
       
-      if (error.response && error.response.data && error.response.data.extras) {
-        const resultCodes = error.response.data.extras.result_codes;
-        throw new Error(`Transaction failed: ${resultCodes.transaction || resultCodes.operations?.[0] || 'Unknown error'}`);
+      if (err.response?.data?.extras?.result_codes) {
+        const resultCodes = err.response.data.extras.result_codes;
+        throw new Error(
+          `Transaction failed: ${resultCodes.transaction || resultCodes.operations?.[0] || 'Unknown error'}`,
+        );
       }
-      
+
       throw new Error('Failed to submit transaction');
     }
   }
@@ -102,16 +125,29 @@ export class StellarTransactionService {
         .transaction(transactionHash)
         .call();
 
+      // `fee_paid` and other SDK-returned numeric fields are declared on different
+      // types in v14 of @stellar/stellar-sdk. Cast to a permissive shape so the
+      // receipt we hand back to callers still parses cleanly.
+      const txRecord = transaction as unknown as {
+        hash: string;
+        successful: boolean;
+        created_at: string;
+        ledger: number;
+        fee_paid?: string | number;
+        operations: Array<{ type: string; amount?: string; destination?: string }>;
+        source_account: string;
+        memo?: string;
+      };
       return {
-        transactionHash: transaction.hash,
-        status: transaction.successful ? 'success' : 'failed',
-        timestamp: transaction.created_at,
-        blockNumber: transaction.ledger,
-        fee: transaction.fee_paid ? parseInt(transaction.fee_paid) : undefined,
-        amount: this.extractPaymentAmountFromOperations(transaction.operations),
-        from: transaction.source_account,
-        to: this.extractDestinationFromOperations(transaction.operations),
-        memo: transaction.memo ? transaction.memo : undefined,
+        transactionHash: txRecord.hash,
+        status: txRecord.successful ? 'success' : 'failed',
+        timestamp: txRecord.created_at,
+        blockNumber: txRecord.ledger,
+        fee: txRecord.fee_paid ? parseInt(String(txRecord.fee_paid)) : undefined,
+        amount: this.extractPaymentAmountFromOperations(txRecord.operations),
+        from: txRecord.source_account,
+        to: this.extractDestinationFromOperations(txRecord.operations),
+        memo: txRecord.memo ? txRecord.memo : undefined,
       };
     } catch (error) {
       console.error('Error validating transaction:', error);
@@ -121,7 +157,8 @@ export class StellarTransactionService {
 
   async getTransactionHistory(publicKey: string, limit: number = 10): Promise<TransactionReceipt[]> {
     try {
-      const transactions = await this.server.transactions()
+      const transactions = await this.server
+        .transactions()
         .forAccount(publicKey)
         .limit(limit)
         .order('desc')
@@ -144,8 +181,8 @@ export class StellarTransactionService {
     }
   }
 
-  private get networkPassphrase(): string {
-    return this.network === Networks.TESTNET ? Networks.TESTNET : Networks.PUBLIC;
+  private get network(): string {
+    return this.networkPassphrase === Networks.TESTNET ? 'testnet' : 'mainnet';
   }
 
   private extractPaymentAmount(result: any): number | undefined {
@@ -158,8 +195,8 @@ export class StellarTransactionService {
     return undefined;
   }
 
-  private extractPaymentAmountFromOperations(operations: any[]): number | undefined {
-    const paymentOp = operations.find((op: any) => op.type === 'payment');
+  private extractPaymentAmountFromOperations(operations: Array<{ type: string; amount?: string }>): number | undefined {
+    const paymentOp = operations.find((op) => op.type === 'payment');
     if (paymentOp && paymentOp.amount) {
       return parseFloat(paymentOp.amount);
     }
@@ -180,8 +217,8 @@ export class StellarTransactionService {
     return '';
   }
 
-  private extractDestinationFromOperations(operations: any[]): string {
-    const paymentOp = operations.find((op: any) => op.type === 'payment');
+  private extractDestinationFromOperations(operations: Array<{ type: string; destination?: string }>): string {
+    const paymentOp = operations.find((op) => op.type === 'payment');
     if (paymentOp && paymentOp.destination) {
       return paymentOp.destination;
     }
@@ -196,8 +233,9 @@ export class StellarTransactionService {
     try {
       const account = await this.server.loadAccount(fromPublicKey);
       const baseFee = await this.server.fetchBaseFee();
-      
-      const transaction = new TransactionBuilder(account, {
+
+      // Build (but don't immediately submit) a transaction to validate inputs.
+      new TransactionBuilder(account, {
         fee: baseFee,
         networkPassphrase: this.networkPassphrase,
       })

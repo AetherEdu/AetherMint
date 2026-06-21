@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCw, Settings, Flask, Atom, Beaker, Zap, Activity, Clock, Award, BookOpen, Lightbulb, Target } from 'lucide-react';
+import { Play, Pause, RotateCw, Settings, Atom, Beaker, Zap, Activity, Clock, Award, BookOpen, Lightbulb, Target } from 'lucide-react';
+import { Flask } from '@/utils/missingIcons';
 
 export type SimulationType = 'physics' | 'chemistry' | 'biology' | 'mathematics' | 'engineering' | 'astronomy';
 export type ExperimentState = 'idle' | 'running' | 'paused' | 'completed' | 'error';

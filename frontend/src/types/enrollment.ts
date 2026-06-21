@@ -37,6 +37,7 @@ export interface PaymentDetails {
 }
 
 export interface EnrollmentData {
+  id: string;
   studentId: string;
   courseId: string;
   walletAddress: string;

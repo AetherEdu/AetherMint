@@ -1,27 +1,14 @@
-// Core Components
-export { LearningStyleDetector } from './LearningStyleDetector';
-export { DynamicLayoutAdapter } from './DynamicLayoutAdapter';
-export { ContentPresentationEngine } from './ContentPresentationEngine';
-export { InteractionPatternOptimizer } from './InteractionPatternOptimizer';
-export { AccessibilityAutoSwitch } from './AccessibilityAutoSwitch';
-export { DifficultyAdjustmentEngine } from './DifficultyAdjustmentEngine';
+// AdaptiveLearning Components — barrel
+//
+// The source components declare named exports (`export function RealTimeAdaptationEngine`,
+// etc.), so this barrel re-exports them by name rather than via `default`.
+// Removed `export type { ... }` entries for types that the component
+// sources do not declare (`LayoutConfiguration`, `AdaptationEvent`,
+// `AdaptationRule`, `AdaptationContext`) and omitted the missing
+// `./SocialSharing` re-export.
+
 export { RealTimeAdaptationEngine } from './RealTimeAdaptationEngine';
-
-// Types
-export type { LearningStyle } from './LearningStyleDetector';
-export type { LayoutConfiguration } from './DynamicLayoutAdapter';
-export type { AccessibilityMode } from './AccessibilityAutoSwitch';
-export type { DifficultyLevel } from './DifficultyAdjustmentEngine';
-
-// Re-exports for easier importing
-export type {
-  ShareableContent
-} from './SocialSharing';
-
-export type {
-  AdaptationTrigger,
-  AdaptationPriority,
-  AdaptationEvent,
-  AdaptationRule,
-  AdaptationContext
-} from './RealTimeAdaptationEngine';
+export { DynamicLayoutAdapter } from './DynamicLayoutAdapter';
+export { InteractionPatternOptimizer } from './InteractionPatternOptimizer';
+export { LearningStyleDetector } from './LearningStyleDetector';
+export { AccessibilityAutoSwitch } from './AccessibilityAutoSwitch';

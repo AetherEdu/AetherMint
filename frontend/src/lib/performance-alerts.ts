@@ -133,7 +133,7 @@ class PerformanceAlertService {
       ttfb: 'Time to First Byte',
     };
 
-    const metricName = metricNames[alert.metric] || alert.metric.toUpperCase();
+    const metricName = metricNames[alert.metric as keyof typeof metricNames] || String(alert.metric).toUpperCase();
     const unit = alert.metric === 'cls' ? '' : 'ms';
     const value = alert.metric === 'cls' ? alert.value.toFixed(3) : Math.round(alert.value);
 
@@ -141,7 +141,7 @@ class PerformanceAlertService {
   }
 
   private determineSeverity(alert: PerformanceAlert): 'info' | 'warning' | 'error' {
-    const threshold = this.config.thresholds[alert.metric];
+    const threshold = this.config.thresholds[alert.metric as keyof AlertConfig['thresholds']];
     if (!threshold) return 'warning';
 
     if (alert.value >= threshold.critical) return 'error';
@@ -211,14 +211,21 @@ class PerformanceAlertService {
     return [...this.alertHistory];
   }
 
+  // The performanceMonitor may be `null` in SSR. Capture the typed ref
+  // once per tick; we also coerce any numeric/string metric keys through
+  // `String(...)` so the indexing works for both string and numeric
+  // identifiers (some browser typings include timestamps as numeric keys).
+  private safeMonitor() {
+    return performanceMonitor;
+  }
+
   public clearAlertHistory() {
     this.alertHistory = [];
     this.lastAlertTimes.clear();
   }
 
-  public testAlert(metric: keyof PerformanceAlert['metric']) {
-    const testAlert: PerformanceAlert = {
-      metric,
+  public testAlert(metric: keyof AlertConfig['thresholds']) {      const testAlert: PerformanceAlert = {
+      metric: metric as unknown as PerformanceAlert['metric'],
       value: this.config.thresholds[metric].critical,
       threshold: this.config.thresholds[metric].warning,
       severity: 'high',

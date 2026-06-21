@@ -109,8 +109,9 @@ const ConsciousnessUpload: React.FC = () => {
 
       setVerificationResult(result);
       alert(`Consciousness verification: ${result ? 'PASSED' : 'FAILED'}`);
-    } catch (error) {
-      console.error('Verification failed:', error);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('Verification failed:', err);
       alert(`Verification failed: ${error.message}`);
     } finally {
       setVerifying(false);

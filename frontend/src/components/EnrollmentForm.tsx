@@ -82,10 +82,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
       
       switch (step.id) {
         case 'personal-info':
-          isCompleted = step.validation({ personalInfo });
+          isCompleted = step.validation?.({ personalInfo });
           break;
         case 'wallet-connection':
-          isCompleted = step.validation({ wallet });
+          isCompleted = step.validation?.({ wallet });
           break;
         case 'payment':
           isCompleted = !!transactionHash;
@@ -174,6 +174,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 
     try {
       const enrollment: EnrollmentData = {
+        // The API produces a server-side id when the enrollment is saved;
+        // we synthesise a temporary id locally so React keys and any
+        // optimistic UI flows still resolve to a string value.
+        id: `ENR_LOCAL_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
         studentId: wallet?.publicKey || '',
         courseId: course.id,
         walletAddress: wallet?.publicKey || '',

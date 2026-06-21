@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hand, MousePointer, Move, RotateCw, ZoomIn, Pinch, Swipe, Grab, Eye } from 'lucide-react';
+import { Hand, MousePointer, Move, RotateCw, ZoomIn, Grab, Eye } from 'lucide-react';
+import { Pinch, Swipe } from '@/utils/missingIcons';
 
 export type GestureType = 
   | 'point' 

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Box, Play, Pause, RotateCw, Zap, Target, Wind, Magnet, Weight } from 'lucide-react';
+import { Box, Play, Pause, RotateCw, Zap, Target, Wind, Magnet } from 'lucide-react';
+import { Weight } from '@/utils/missingIcons';
 
 export type PhysicsEngineType = 'cannon' | 'ammo' | 'custom' | 'rapier';
 export type ForceType = 'gravity' | 'magnetic' | 'electric' | 'wind' | 'spring' | 'friction';
