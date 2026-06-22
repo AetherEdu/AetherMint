@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Wallet Connection', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    // Wallet connector is not present on the root page anymore; test against demo
+    await page.goto('/demo')
   })
 
   test('should display wallet connect button on the page', async ({ page }) => {
