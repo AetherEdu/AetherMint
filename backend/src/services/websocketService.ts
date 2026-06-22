@@ -200,6 +200,14 @@ class WebsocketService {
     sockets.filter((socket) => socket.connected).forEach((socket) => socket.emit(event, data));
   }
 
+  public broadcastAnalyticsUpdate(data: { count: number }): void {
+    this.io.emit('active-users-update', data);
+  }
+
+  public broadcastNewTransaction(transaction: any): void {
+    this.io.emit('new-transaction', transaction);
+  }
+
   public emitToRoom(classroomId: string, event: string, data: unknown): void {
     this.io.to(this.getRoomName(classroomId)).emit(event, data);
   }

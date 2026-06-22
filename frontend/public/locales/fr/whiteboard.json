@@ -1,0 +1,63 @@
+{
+  "whiteboard": {
+    "savedBoardsTitle": "Tableaux enregistrés",
+    "newBoard": "Nouveau tableau",
+    "listError": "Échec du chargement des sessions",
+    "confirmDelete": "Supprimer ce tableau enregistré ? Cette action est irréversible.",
+    "deleteError": "Échec de la suppression de la session",
+    "emptyState": "Aucun tableau enregistré. Dessinez sur le canevas puis cliquez sur Enregistrer pour en conserver un.",
+    "opsLabel": "ops",
+    "openSessionList": "Parcourir les tableaux enregistrés",
+    "deleteAria": "Supprimer le tableau enregistré",
+    "noThumbnail": "Aucun aperçu disponible",
+    "sessionListAria": "Tableaux enregistrés",
+
+    "toolPen": "Crayon",
+    "toolEraser": "Gomme",
+    "toolLine": "Ligne",
+    "toolRectangle": "Rectangle",
+    "toolCircle": "Cercle",
+    "toolText": "Texte",
+
+    "colorPickerAria": "Choisir une couleur",
+    "sizeLabel": "Taille",
+    "sizeAria": "Taille du trait",
+    "canvasAria": "Canevas du tableau collaboratif",
+
+    "saveNow": "Enregistrer",
+    "saveAsNew": "Enregistrer comme nouveau",
+    "lastSaved": "Dernier enregistrement {{relative}}",
+    "neverSaved": "jamais",
+
+    "share": "Partager",
+    "shareDialogTitle": "Partager le tableau",
+    "shareDialogCopy": "Toute personne disposant de ce lien peut consulter ce tableau. Le lien est en lecture seule — les visiteurs ne peuvent pas modifier ni télécharger.",
+    "shareUrlAria": "URL de partage",
+    "generateShare": "Générer un lien en lecture seule",
+    "revokeShare": "Révoquer le lien",
+    "copied": "Copié !",
+
+    "export": "Exporter",
+    "exportPng": "Télécharger PNG",
+    "exportSvg": "Télécharger SVG",
+
+    "conflict": {
+      "title": "Version plus récente détectée",
+      "body": "Quelqu'un a enregistré ce tableau après le début de votre édition. Rechargez la dernière version pour continuer.",
+      "loadLatest": "Charger la dernière",
+      "forceOverwrite": "Écraser avec ma version"
+    },
+
+    "autoSave": {
+      "saved": "Enregistré automatiquement {{relative}}",
+      "failed": "Échec de l'enregistrement automatique",
+      "retrying": "Nouvelle tentative…"
+    },
+
+    "shared": {
+      "title": "Tableau partagé (lecture seule)",
+      "expired": "Ce lien de partage est invalide ou a été révoqué.",
+      "loading": "Chargement du tableau partagé…"
+    }
+  }
+}

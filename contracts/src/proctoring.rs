@@ -33,7 +33,8 @@ pub struct AuditLog {
     pub data_hash: BytesN<32>, // Hash of encrypted behavioral data
 }
 
-#[contract]
+// Contract attribute disabled - this is a module used by main contract in lib.rs
+// #[contract]
 pub struct ProctoringContract;
 
 #[contractimpl]

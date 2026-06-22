@@ -15,7 +15,8 @@ pub enum ProgressKey {
     UserProgress(Address, String),
 }
 
-#[contract]
+// Contract attribute disabled - this is a module used by main contract in lib.rs
+// #[contract]
 pub struct CourseProgressContract;
 
 #[contractimpl]

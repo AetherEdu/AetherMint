@@ -131,10 +131,13 @@ pub struct UpdateCourseParams {
     pub status: Option<CourseStatus>,
 }
 
-#[contract]
-pub struct CourseMetadataContract;
+// Temporarily disabled to avoid symbol conflicts with main contract
+// #[contract]
+// pub struct CourseMetadataContract;
 
 #[contractimpl]
+pub struct CourseMetadataContract;
+
 impl CourseMetadataContract {
     /// Initialize the contract with optimized storage
     pub fn initialize(env: Env, admin: Address) {
@@ -157,7 +160,7 @@ impl CourseMetadataContract {
     }
 
     /// Create and store course metadata with optimized storage
-    pub fn create_course(
+    pub fn create_course_metadata(
         env: Env,
         instructor: Address,
         title: String,
@@ -504,7 +507,7 @@ impl CourseMetadataContract {
     }
 
     /// Get total course count
-    pub fn get_course_count(env: Env) -> u64 {
+    pub fn get_course_metadata_count(env: Env) -> u64 {
         env.storage()
             .instance()
             .get(&CourseMetadataKey::CourseCount)

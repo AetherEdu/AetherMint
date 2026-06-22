@@ -1,22 +1,50 @@
 import { useEffect, useRef } from 'react';
 
-export const useFocusTrap = (isActive: boolean) => {
+interface FocusTrapOptions {
+  onEscape?: () => void;
+  initialFocusSelector?: string;
+}
+
+const focusableSelector = [
+  'a[href]',
+  'area[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'details summary',
+  '[contenteditable="true"]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+export const useFocusTrap = (isActive: boolean, options: FocusTrapOptions = {}) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { initialFocusSelector, onEscape } = options;
 
   useEffect(() => {
     if (!isActive || !containerRef.current) return;
 
     const container = containerRef.current;
-    const focusableElements = container.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), textarea:not([disabled]), input[type="text"]:not([disabled]), input[type="radio"]:not([disabled]), input[type="checkbox"]:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusableElements = container.querySelectorAll<HTMLElement>(focusableSelector);
 
-    if (focusableElements.length === 0) return;
+    if (focusableElements.length === 0) {
+      container.setAttribute('tabindex', '-1');
+      container.focus();
+    }
 
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
+    const firstElement = focusableElements[0] || container;
+    const lastElement = focusableElements[focusableElements.length - 1] || container;
+    const initialElement = initialFocusSelector
+      ? container.querySelector<HTMLElement>(initialFocusSelector)
+      : null;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onEscape?.();
+        return;
+      }
+
       if (e.key !== 'Tab') return;
 
       if (e.shiftKey) {
@@ -33,12 +61,13 @@ export const useFocusTrap = (isActive: boolean) => {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    firstElement?.focus();
+    (initialElement || firstElement)?.focus();
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
     };
-  }, [isActive]);
+  }, [initialFocusSelector, isActive, onEscape]);
 
   return containerRef;
 };

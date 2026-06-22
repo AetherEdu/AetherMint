@@ -1,6 +1,15 @@
 import '@testing-library/jest-dom'
 import React from 'react'
 
+// Provide a valid Stellar receiver address so the strict env-var validator
+// in next.config.js (`zod` schema) doesn't blow up the moment
+// `next/jest` loads the config.
+if (!process.env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS) {
+  process.env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS =
+    'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+}
+
+
 // Mock performance monitoring modules
 jest.mock('@/lib/performance-monitor', () => ({
   performanceMonitor: {

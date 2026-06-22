@@ -20,21 +20,62 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          targets: wasm32v1-none
 
-      - name: Build contracts (native)
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            contracts/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Soroban CLI
+        run: |
+          cargo install --locked stellar-cli --version 26.1.0
+
+      - name: Verify versions
+        run: |
+          stellar version
+          rustc --version
+          cargo --version
+          rustup target list --installed
+
+      - name: Build contracts for wasm32v1-none
         run: |
           cd contracts
-          cargo build --release
+          cargo build --target wasm32v1-none --release
 
-      - name: Check wasm target
+      - name: Run contract tests
         run: |
           cd contracts
-          rustup target add wasm32-unknown-unknown
-          cargo check --target wasm32-unknown-unknown --release
+          cargo test --release
+
+      - name: Verify WASM output
+        run: |
+          cd contracts
+          ls -lh target/wasm32v1-none/release/*.wasm || echo "No WASM files found"
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-wasm
+          path: contracts/target/wasm32v1-none/release/*.wasm
+          if-no-files-found: warn
 
   build-backend:
     name: Build Backend

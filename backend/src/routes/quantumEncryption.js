@@ -1,4 +1,11 @@
 /**
+ * @openapi
+ * tags:
+ *   - name: Quantum Encryption
+ *     description: Quantum-resistant encryption, key management, and security services
+ */
+
+/**
  * Quantum Encryption API Routes
  * RESTful endpoints for quantum-resistant encryption services
  */
@@ -26,9 +33,27 @@ const validateRequest = (req, res, next) => {
 };
 
 /**
- * @route POST /api/quantum-encryption/keys/generate
- * @desc Generate quantum-resistant key pair
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/keys/generate:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Generate quantum-resistant key pair
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               algorithm:
+ *                 type: string
+ *                 default: CRYSTALS_KYBER
+ *               securityLevel:
+ *                 type: integer
+ *                 default: 4
+ *     responses:
+ *       '200':
+ *         description: Key pair generated
  */
 router.post('/keys/generate', validateRequest, async (req, res) => {
     try {
@@ -56,9 +81,20 @@ router.post('/keys/generate', validateRequest, async (req, res) => {
 });
 
 /**
- * @route GET /api/quantum-encryption/keys/:keyId
- * @desc Get public key by ID
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/keys/{keyId}:
+ *   get:
+ *     tags: [Quantum Encryption]
+ *     summary: Get public key by ID
+ *     parameters:
+ *       - in: path
+ *         name: keyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Public key retrieved
  */
 router.get('/keys/:keyId', async (req, res) => {
     try {
@@ -81,9 +117,14 @@ router.get('/keys/:keyId', async (req, res) => {
 });
 
 /**
- * @route GET /api/quantum-encryption/keys
- * @desc List all active keys
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/keys:
+ *   get:
+ *     tags: [Quantum Encryption]
+ *     summary: List all active keys
+ *     responses:
+ *       '200':
+ *         description: Keys listed
  */
 router.get('/keys', async (req, res) => {
     try {
@@ -111,9 +152,28 @@ router.get('/keys', async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/encrypt
- * @desc Encrypt data using quantum-resistant encryption
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/encrypt:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Encrypt data using quantum-resistant encryption
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: string
+ *               keyId:
+ *                 type: string
+ *               algorithm:
+ *                 type: string
+ *                 default: CRYSTALS_KYBER
+ *     responses:
+ *       '200':
+ *         description: Data encrypted
  */
 router.post('/encrypt', validateRequest, async (req, res) => {
     try {
@@ -136,7 +196,6 @@ router.post('/encrypt', validateRequest, async (req, res) => {
         let encryptedPackage;
         
         if (keyId) {
-            // Use existing key
             const publicKey = await QuantumKeyManagement.getPublicKey(keyId);
             encryptedPackage = await QuantumEncryption.encrypt(
                 data, 
@@ -145,7 +204,6 @@ router.post('/encrypt', validateRequest, async (req, res) => {
                 metadata
             );
         } else {
-            // Use hybrid encryption
             encryptedPackage = await HybridEncryption.encrypt(data, {
                 compatibilityMode,
                 algorithm,
@@ -170,9 +228,25 @@ router.post('/encrypt', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/decrypt
- * @desc Decrypt data using quantum-resistant encryption
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/decrypt:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Decrypt data using quantum-resistant encryption
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               encryptedPackage:
+ *                 type: object
+ *               keyId:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Data decrypted
  */
 router.post('/decrypt', validateRequest, async (req, res) => {
     try {
@@ -188,7 +262,6 @@ router.post('/decrypt', validateRequest, async (req, res) => {
         let decryptedData;
         
         if (keyId) {
-            // Use specific key
             const privateKey = await QuantumKeyManagement.getPrivateKey(keyId, {
                 operation: 'decryption'
             });
@@ -199,7 +272,6 @@ router.post('/decrypt', validateRequest, async (req, res) => {
                 encryptedPackage.algorithm
             );
         } else {
-            // Auto-detect and decrypt
             decryptedData = await HybridEncryption.decrypt(encryptedPackage, {
                 autoDetect
             });
@@ -221,9 +293,28 @@ router.post('/decrypt', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/sign
- * @desc Sign data using quantum-resistant digital signature
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/sign:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Sign data using quantum-resistant digital signature
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: string
+ *               keyId:
+ *                 type: string
+ *               algorithm:
+ *                 type: string
+ *                 default: CRYSTALS_DILITHIUM
+ *     responses:
+ *       '200':
+ *         description: Data signed
  */
 router.post('/sign', validateRequest, async (req, res) => {
     try {
@@ -262,9 +353,27 @@ router.post('/sign', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/verify
- * @desc Verify quantum-resistant digital signature
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/verify:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Verify quantum-resistant digital signature
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               signedData:
+ *                 type: object
+ *               keyId:
+ *                 type: string
+ *               algorithm:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Signature verification result
  */
 router.post('/verify', validateRequest, async (req, res) => {
     try {
@@ -301,9 +410,14 @@ router.post('/verify', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/migrate
- * @desc Migrate encrypted data to quantum-resistant format
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/migrate:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Migrate encrypted data to quantum-resistant format
+ *     responses:
+ *       '200':
+ *         description: Migration completed
  */
 router.post('/migrate', validateRequest, async (req, res) => {
     try {
@@ -342,9 +456,20 @@ router.post('/migrate', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/keys/:keyId/rotate
- * @desc Rotate cryptographic key
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/keys/{keyId}/rotate:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Rotate cryptographic key
+ *     parameters:
+ *       - in: path
+ *         name: keyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Key rotated
  */
 router.post('/keys/:keyId/rotate', async (req, res) => {
     try {
@@ -372,9 +497,20 @@ router.post('/keys/:keyId/rotate', async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/keys/:keyId/revoke
- * @desc Revoke cryptographic key
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/keys/{keyId}/revoke:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Revoke cryptographic key
+ *     parameters:
+ *       - in: path
+ *         name: keyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Key revoked
  */
 router.post('/keys/:keyId/revoke', async (req, res) => {
     try {
@@ -398,9 +534,14 @@ router.post('/keys/:keyId/revoke', async (req, res) => {
 });
 
 /**
- * @route GET /api/quantum-encryption/health
- * @desc Get quantum encryption system health status
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/health:
+ *   get:
+ *     tags: [Quantum Encryption]
+ *     summary: Get quantum encryption system health status
+ *     responses:
+ *       '200':
+ *         description: Health status retrieved
  */
 router.get('/health', async (req, res) => {
     try {
@@ -421,9 +562,14 @@ router.get('/health', async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/agility-test
- * @desc Perform cryptographic agility test
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/agility-test:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Perform cryptographic agility test
+ *     responses:
+ *       '200':
+ *         description: Agility test completed
  */
 router.post('/agility-test', validateRequest, async (req, res) => {
     try {
@@ -447,9 +593,14 @@ router.post('/agility-test', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/compatibility-test
- * @desc Perform encryption compatibility test
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/compatibility-test:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Perform encryption compatibility test
+ *     responses:
+ *       '200':
+ *         description: Compatibility test completed
  */
 router.post('/compatibility-test', validateRequest, async (req, res) => {
     try {
@@ -473,9 +624,23 @@ router.post('/compatibility-test', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/security-analysis
- * @desc Analyze encryption security level
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/security-analysis:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Analyze encryption security level
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               encryptedPackage:
+ *                 type: object
+ *     responses:
+ *       '200':
+ *         description: Security analysis completed
  */
 router.post('/security-analysis', validateRequest, async (req, res) => {
     try {
@@ -506,9 +671,14 @@ router.post('/security-analysis', validateRequest, async (req, res) => {
 });
 
 /**
- * @route GET /api/quantum-encryption/threats/alerts
- * @desc Get active security alerts
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/threats/alerts:
+ *   get:
+ *     tags: [Quantum Encryption]
+ *     summary: Get active security alerts
+ *     responses:
+ *       '200':
+ *         description: Alerts retrieved
  */
 router.get('/threats/alerts', async (req, res) => {
     try {
@@ -537,9 +707,20 @@ router.get('/threats/alerts', async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/threats/alerts/:alertId/acknowledge
- * @desc Acknowledge security alert
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/threats/alerts/{alertId}/acknowledge:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Acknowledge security alert
+ *     parameters:
+ *       - in: path
+ *         name: alertId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Alert acknowledged
  */
 router.post('/threats/alerts/:alertId/acknowledge', async (req, res) => {
     try {
@@ -564,9 +745,14 @@ router.post('/threats/alerts/:alertId/acknowledge', async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/threats/scan
- * @desc Perform threat scan
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/threats/scan:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Perform threat scan
+ *     responses:
+ *       '200':
+ *         description: Threat scan completed
  */
 router.post('/threats/scan', async (req, res) => {
     try {
@@ -588,9 +774,14 @@ router.post('/threats/scan', async (req, res) => {
 });
 
 /**
- * @route GET /api/quantum-encryption/migration/plans
- * @desc List migration plans
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/migration/plans:
+ *   get:
+ *     tags: [Quantum Encryption]
+ *     summary: List migration plans
+ *     responses:
+ *       '200':
+ *         description: Migration plans listed
  */
 router.get('/migration/plans', async (req, res) => {
     try {
@@ -619,9 +810,14 @@ router.get('/migration/plans', async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/migration/plans
- * @desc Create migration plan
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/migration/plans:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Create migration plan
+ *     responses:
+ *       '200':
+ *         description: Migration plan created
  */
 router.post('/migration/plans', validateRequest, async (req, res) => {
     try {
@@ -659,9 +855,20 @@ router.post('/migration/plans', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/migration/plans/:migrationId/execute
- * @desc Execute migration
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/migration/plans/{migrationId}/execute:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Execute migration
+ *     parameters:
+ *       - in: path
+ *         name: migrationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Migration executed
  */
 router.post('/migration/plans/:migrationId/execute', async (req, res) => {
     try {
@@ -686,9 +893,14 @@ router.post('/migration/plans/:migrationId/execute', async (req, res) => {
 });
 
 /**
- * @route GET /api/quantum-encryption/migration/readiness
- * @desc Check migration readiness
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/migration/readiness:
+ *   get:
+ *     tags: [Quantum Encryption]
+ *     summary: Check migration readiness
+ *     responses:
+ *       '200':
+ *         description: Migration readiness retrieved
  */
 router.get('/migration/readiness', async (req, res) => {
     try {
@@ -709,9 +921,14 @@ router.get('/migration/readiness', async (req, res) => {
 });
 
 /**
- * @route POST /api/quantum-encryption/audit
- * @desc Perform security audit
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/audit:
+ *   post:
+ *     tags: [Quantum Encryption]
+ *     summary: Perform security audit
+ *     responses:
+ *       '200':
+ *         description: Security audit completed
  */
 router.post('/audit', validateRequest, async (req, res) => {
     try {
@@ -745,9 +962,20 @@ router.post('/audit', validateRequest, async (req, res) => {
 });
 
 /**
- * @route GET /api/quantum-encryption/compliance/:framework
- * @desc Get compliance report
- * @access Private
+ * @openapi
+ * /api/quantum-encryption/compliance/{framework}:
+ *   get:
+ *     tags: [Quantum Encryption]
+ *     summary: Get compliance report
+ *     parameters:
+ *       - in: path
+ *         name: framework
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Compliance report retrieved
  */
 router.get('/compliance/:framework', async (req, res) => {
     try {
@@ -774,9 +1002,14 @@ router.get('/compliance/:framework', async (req, res) => {
 });
 
 /**
- * @route GET /api/quantum-encryption/algorithms
- * @desc Get supported quantum-resistant algorithms
- * @access Public
+ * @openapi
+ * /api/quantum-encryption/algorithms:
+ *   get:
+ *     tags: [Quantum Encryption]
+ *     summary: Get supported quantum-resistant algorithms
+ *     responses:
+ *       '200':
+ *         description: Algorithms retrieved
  */
 router.get('/algorithms', (req, res) => {
     try {

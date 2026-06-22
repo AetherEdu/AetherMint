@@ -34,7 +34,8 @@ pub struct ConsciousnessMarketplaceItem {
     pub verification_required: bool,
 }
 
-#[contract]
+// Contract attribute disabled - this is a module used by main contract in lib.rs
+// #[contract]
 pub struct ConsciousnessContract;
 
 #[contractimpl]
@@ -117,7 +118,8 @@ impl ConsciousnessContract {
 
         if let Some(consciousness_data) = consciousness_map.get(consciousness_id) {
             // Verify neural hash matches
-            consciousness_data.neural_hash == verification_hash
+            let verification_hash_bytes: BytesN<32> = verification_hash.into();
+            consciousness_data.neural_hash == verification_hash_bytes
         } else {
             false
         }

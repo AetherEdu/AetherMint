@@ -10,6 +10,7 @@ interface KeyboardNavOptions {
   onArrowLeft?: KeyHandler;
   onArrowRight?: KeyHandler;
   onSpace?: KeyHandler;
+  preventDefaultKeys?: string[];
 }
 
 export const useKeyboardNavigation = (options: KeyboardNavOptions, isActive: boolean = true) => {
@@ -17,6 +18,10 @@ export const useKeyboardNavigation = (options: KeyboardNavOptions, isActive: boo
     if (!isActive) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (options.preventDefaultKeys?.includes(e.key)) {
+        e.preventDefault();
+      }
+
       switch (e.key) {
         case 'Enter':
           options.onEnter?.(e);
@@ -37,6 +42,7 @@ export const useKeyboardNavigation = (options: KeyboardNavOptions, isActive: boo
           options.onArrowRight?.(e);
           break;
         case ' ':
+        case 'Spacebar':
           options.onSpace?.(e);
           break;
       }

@@ -54,7 +54,8 @@ pub struct Dispute {
     pub status: u32, // 0: Open, 1: Resolved, 2: Cancelled
 }
 
-#[contract]
+// Contract attribute disabled - this is a module used by main contract in lib.rs
+// #[contract]
 pub struct MarketplaceContract;
 
 #[contractimpl]

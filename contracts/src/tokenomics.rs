@@ -37,7 +37,8 @@ pub struct Proposal {
     pub status: u32, // 0: Open, 1: Passed, 2: Rejected, 3: Executed
 }
 
-#[contract]
+// Contract attributes disabled - see lib.rs for main contract
+// #[contract]
 pub struct TokenomicsContract;
 
 #[contractimpl]
@@ -57,7 +58,7 @@ impl TokenomicsContract {
         // recipient.require_auth(); // No auth needed as we are the "minter" or we'd check admin
         
         let token_type = 0u32; // Reward Token
-        let balance = Self::balance_of(env.clone(), recipient.clone(), token_type);
+        let balance = Self::get_token_balance(env.clone(), recipient.clone(), token_type);
         env.storage()
             .persistent()
             .set(&TokenomicsKey::TokenBalance(recipient.clone(), token_type), &(balance + amount));
@@ -76,7 +77,7 @@ impl TokenomicsContract {
         staker.require_auth();
 
         // Burn or transfer reward tokens to the stake pool
-        let balance = Self::balance_of(env.clone(), staker.clone(), 0u32);
+        let balance = Self::get_token_balance(env.clone(), staker.clone(), 0u32);
         if balance < amount {
             panic!("Insufficient balance");
         }
@@ -129,7 +130,7 @@ impl TokenomicsContract {
         let total_return = stake.amount + reward;
         
         // Mint reward tokens and give back original stake (simplified)
-        let balance = Self::balance_of(env.clone(), staker.clone(), 0u32);
+        let balance = Self::get_token_balance(env.clone(), staker.clone(), 0u32);
         env.storage()
             .persistent()
             .set(&TokenomicsKey::TokenBalance(staker.clone(), 0u32), &(balance + total_return));
@@ -149,7 +150,7 @@ impl TokenomicsContract {
     pub fn vote_on_proposal(env: Env, voter: Address, proposal_id: u64, votes_power: u64, approve: bool) {
         voter.require_auth();
 
-        let gov_balance = Self::balance_of(env.clone(), voter.clone(), 1u32); // Governance token
+        let gov_balance = Self::get_token_balance(env.clone(), voter.clone(), 1u32); // Governance token
         let cost = votes_power * votes_power; // Quadratic cost
         
         if gov_balance < cost {
@@ -199,7 +200,7 @@ impl TokenomicsContract {
         id
     }
 
-    pub fn balance_of(env: Env, user: Address, token_type: u32) -> u64 {
+    pub fn get_token_balance(env: Env, user: Address, token_type: u32) -> u64 {
         env.storage()
             .persistent()
             .get(&TokenomicsKey::TokenBalance(user, token_type))

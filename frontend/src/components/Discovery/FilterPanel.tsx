@@ -33,6 +33,7 @@ const facetSection = (
             key={item.value}
             className={`rounded-full px-3 py-1.5 text-sm transition ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
             onClick={() => onToggle(item.value)}
+            aria-pressed={active}
           >
             {item.value} · {item.count}
           </button>
@@ -66,12 +67,13 @@ export const FilterPanel: React.FC<{
   const handleViewChange = (view: ViewMode) => onChange({ view });
 
   return (
-    <aside className="space-y-6">
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+    <aside className="space-y-6" aria-label="Discovery filters and saved searches">
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="discovery-filters-title">
         <div className="text-sm uppercase tracking-[0.18em] text-slate-500">
           Filters
         </div>
         <h2
+          id="discovery-filters-title"
           className="mt-1 text-2xl font-semibold text-slate-900"
           style={{ fontFamily: 'Space Grotesk, IBM Plex Sans, sans-serif' }}
         >
@@ -120,6 +122,7 @@ export const FilterPanel: React.FC<{
               onChange={(event) =>
                 onChange({ minRating: Number(event.target.value), page: 1 })
               }
+              aria-valuetext={`${filters.minRating.toFixed(1)} stars and above`}
             />
             <div className="mt-1 text-xs text-slate-500">
               {filters.minRating.toFixed(1)} and above
@@ -138,6 +141,7 @@ export const FilterPanel: React.FC<{
               onChange={(event) =>
                 onChange({ maxPrice: Number(event.target.value), page: 1 })
               }
+              aria-valuetext={`Up to ${filters.maxPrice} dollars`}
             />
             <div className="mt-1 text-xs text-slate-500">
               Up to ${filters.maxPrice}
@@ -156,6 +160,7 @@ export const FilterPanel: React.FC<{
               onChange={(event) =>
                 onChange({ maxDuration: Number(event.target.value), page: 1 })
               }
+              aria-valuetext={`Up to ${filters.maxDuration} hours`}
             />
             <div className="mt-1 text-xs text-slate-500">
               Up to {filters.maxDuration} hours
@@ -206,6 +211,7 @@ export const FilterPanel: React.FC<{
                   key={view}
                   className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${filters.view === view ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
                   onClick={() => handleViewChange(view)}
+                  aria-pressed={filters.view === view}
                 >
                   {view}
                 </button>

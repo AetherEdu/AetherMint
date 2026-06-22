@@ -13,7 +13,7 @@ const Results: React.FC<ResultsProps> = ({ score, totalQuestions, onRetry, onCon
   const isPassing = percentage >= 70;
 
   return (
-    <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 text-center max-w-md mx-auto">
+    <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 text-center max-w-md mx-auto" role="status" aria-live="polite">
       <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 ${
         isPassing ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'
       }`}>
@@ -28,7 +28,14 @@ const Results: React.FC<ResultsProps> = ({ score, totalQuestions, onRetry, onCon
         You scored <span className="font-bold text-gray-900 dark:text-white">{score}</span> out of <span className="font-bold text-gray-900 dark:text-white">{totalQuestions}</span>
       </p>
 
-      <div className="w-full bg-gray-200 rounded-full h-4 mb-8 overflow-hidden">
+      <div
+        className="w-full bg-gray-200 rounded-full h-4 mb-8 overflow-hidden"
+        role="progressbar"
+        aria-label="Quiz score"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percentage}
+      >
         <div 
           className={`h-full rounded-full ${isPassing ? 'bg-green-500' : 'bg-yellow-500'}`}
           style={{ width: `${percentage}%` }}

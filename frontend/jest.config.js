@@ -8,9 +8,11 @@ const createJestConfig = nextJest({
 // Add any custom config to be passed to Jest
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  moduleNameMapping: {
+  moduleNameMapper: {
     // Handle module aliases (this will be automatically configured for you based on your tsconfig.json paths)
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Stub for @creit.tech/stellar-wallets-kit which has broken dependency chain
+    '^@creit.tech/stellar-wallets-kit$': '<rootDir>/src/stubs/stellar-wallets-kit.ts',
   },
   testEnvironment: 'jest-environment-jsdom',
   collectCoverageFrom: [

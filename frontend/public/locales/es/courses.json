@@ -1,0 +1,64 @@
+{
+  "title": "Cursos",
+  "description": "Explora nuestros cursos completos de blockchain y criptomonedas",
+  "overview": {
+    "title": "Resumen del Curso",
+    "description": "Comienza con el desarrollo de blockchain en Stellar",
+    "duration": "{{duration}} horas",
+    "lessons": "{{count}} lecciones",
+    "lessons_one": "{{count}} lección",
+    "lessons_other": "{{count}} lecciones",
+    "students": "{{count}} estudiantes inscritos",
+    "students_one": "{{count}} estudiante inscrito",
+    "students_other": "{{count}} estudiantes inscritos",
+    "rating": "{{rating}} de 5",
+    "level": "{{level}}",
+    "language": "{{language}}",
+    "subtitles": "Subtítulos disponibles",
+    "certificate": "Certificado de finalización",
+    "access": "Acceso de por vida",
+    "updates": "Actualizaciones del curso incluidas",
+    "support": "Soporte del instructor",
+    "mobile": "Acceso móvil",
+    "offline": "Descargas sin conexión"
+  },
+  "curriculum": {
+    "title": "Plan de Estudios",
+    "description": "Lo que aprenderás en este curso",
+    "modules": "{{count}} módulos",
+    "modules_one": "{{count}} módulo",
+    "modules_other": "{{count}} módulos",
+    "lessons": "{{count}} lecciones",
+    "lessons_one": "{{count}} lección",
+    "lessons_other": "{{count}} lecciones",
+    "quizzes": "{{count}} cuestionarios",
+    "quizzes_one": "{{count}} cuestionario",
+    "quizzes_other": "{{count}} cuestionarios",
+    "assignments": "{{count}} tareas",
+    "assignments_one": "{{count}} tarea",
+    "assignments_other": "{{count}} tareas"
+  },
+  "lessons": {
+    "title": "Lección {{number}}: {{title}}",
+    "duration": "{{duration}} minutos",
+    "completed": "Completada",
+    "inProgress": "En Progreso",
+    "notStarted": "Sin Comenzar",
+    "locked": "Bloqueada"
+  },
+  "quizzes": {
+    "questions": "{{count}} preguntas",
+    "questions_one": "{{count}} pregunta",
+    "questions_other": "{{count}} preguntas",
+    "score": "Tu Puntuación: {{score}}%",
+    "passed": "¡Felicidades! Aprobaste el cuestionario.",
+    "failed": "No aprobaste esta vez. ¡Inténtalo de nuevo!"
+  },
+  "progress": {
+    "title": "Tu Progreso",
+    "completed": "{{percentage}}% Completo",
+    "lessons": "{{completed}}/{{total}} lecciones completadas",
+    "resume": "Continuar Aprendiendo",
+    "congratulations": "¡Felicidades! Has completado el curso."
+  }
+}

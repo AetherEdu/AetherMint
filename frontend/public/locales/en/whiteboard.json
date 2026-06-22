@@ -1,0 +1,63 @@
+{
+  "whiteboard": {
+    "savedBoardsTitle": "Saved boards",
+    "newBoard": "New board",
+    "listError": "Failed to load sessions",
+    "confirmDelete": "Delete this saved board? This cannot be undone.",
+    "deleteError": "Failed to delete session",
+    "emptyState": "No saved boards yet. Draw on the canvas and click Save to keep one.",
+    "opsLabel": "ops",
+    "openSessionList": "Browse saved boards",
+    "deleteAria": "Delete saved board",
+    "noThumbnail": "No preview available",
+    "sessionListAria": "Saved boards",
+
+    "toolPen": "Pen",
+    "toolEraser": "Eraser",
+    "toolLine": "Line",
+    "toolRectangle": "Rectangle",
+    "toolCircle": "Circle",
+    "toolText": "Text",
+
+    "colorPickerAria": "Pick color",
+    "sizeLabel": "Size",
+    "sizeAria": "Stroke size",
+    "canvasAria": "Collaborative whiteboard canvas",
+
+    "saveNow": "Save",
+    "saveAsNew": "Save as new",
+    "lastSaved": "Last saved {{relative}}",
+    "neverSaved": "never",
+
+    "share": "Share",
+    "shareDialogTitle": "Share board",
+    "shareDialogCopy": "Anyone with this link can view this board. The link is read-only — viewers cannot edit or download state.",
+    "shareUrlAria": "Share URL",
+    "generateShare": "Generate read-only link",
+    "revokeShare": "Revoke link",
+    "copied": "Copied!",
+
+    "export": "Export",
+    "exportPng": "Download PNG",
+    "exportSvg": "Download SVG",
+
+    "conflict": {
+      "title": "Newer version detected",
+      "body": "Someone else saved this board after you started editing. Reload the latest version to continue.",
+      "loadLatest": "Load latest",
+      "forceOverwrite": "Overwrite with mine"
+    },
+
+    "autoSave": {
+      "saved": "Auto-saved {{relative}}",
+      "failed": "Auto-save failed",
+      "retrying": "Retrying…"
+    },
+
+    "shared": {
+      "title": "Shared board (read-only)",
+      "expired": "This share link is invalid or has been revoked.",
+      "loading": "Loading shared board…"
+    }
+  }
+}

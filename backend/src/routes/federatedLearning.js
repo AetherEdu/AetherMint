@@ -1,117 +1,111 @@
-const express = require('express');
+/**
+ * @openapi
+ * tags:
+ *   - name: Federated Learning
+ *     description: Federated learning model training and management
+ */
+
+const express = require("express");
 const router = express.Router();
-const FederatedLearningController = require('../controllers/federatedLearningController');
-const auth = require('../middleware/auth');
-const rateLimit = require('express-rate-limit');
+const { authenticate, authorize } = require("../middleware/auth");
+const federatedLearningController = require("../controllers/federatedLearningController");
 
-// Initialize controller
-const flController = new FederatedLearningController();
+router.use(authenticate, authorize("admin"));
 
-// Rate limiting for sensitive operations
-const sensitiveOperationLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 requests per windowMs
-  message: {
-    error: 'Too many requests, please try again later'
-  }
-});
+/**
+ * @openapi
+ * /api/federated-learning/train:
+ *   post:
+ *     tags: [Federated Learning]
+ *     summary: Start federated training session
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Training session started
+ */
+router.post("/train", federatedLearningController.startTraining);
 
-const modelUpdateLimit = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 30, // limit each IP to 30 model updates per minute
-  message: {
-    error: 'Too many model updates, please try again later'
-  }
-});
+/**
+ * @openapi
+ * /api/federated-learning/aggregate:
+ *   post:
+ *     tags: [Federated Learning]
+ *     summary: Aggregate model updates
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Model aggregated
+ */
+router.post("/aggregate", federatedLearningController.aggregateUpdates);
 
-// Session Management Routes
-router.post('/sessions', auth, async (req, res) => {
-  await flController.initializeSession(req, res);
-});
+/**
+ * @openapi
+ * /api/federated-learning/clients:
+ *   get:
+ *     tags: [Federated Learning]
+ *     summary: List federated clients
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Clients listed
+ */
+router.get("/clients", federatedLearningController.listClients);
 
-router.get('/sessions/:sessionId/status', auth, async (req, res) => {
-  await flController.getSessionStatus(req, res);
-});
+/**
+ * @openapi
+ * /api/federated-learning/clients/register:
+ *   post:
+ *     tags: [Federated Learning]
+ *     summary: Register federated client
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Client registered
+ */
+router.post("/clients/register", federatedLearningController.registerClient);
 
-// Participant Management Routes
-router.post('/participants', auth, async (req, res) => {
-  await flController.registerParticipant(req, res);
-});
+/**
+ * @openapi
+ * /api/federated-learning/models/{modelId}:
+ *   get:
+ *     tags: [Federated Learning]
+ *     summary: Get model details
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: modelId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Model details retrieved
+ */
+router.get("/models/:modelId", federatedLearningController.getModel);
 
-router.get('/participants', auth, async (req, res) => {
-  await flController.getParticipants(req, res);
-});
-
-// Round Management Routes
-router.post('/rounds', auth, sensitiveOperationLimit, async (req, res) => {
-  await flController.startRound(req, res);
-});
-
-router.post('/participants/:participantId/updates', auth, modelUpdateLimit, async (req, res) => {
-  await flController.submitModelUpdate(req, res);
-});
-
-router.get('/rounds/history', auth, async (req, res) => {
-  await flController.getRoundHistory(req, res);
-});
-
-// Model Management Routes
-router.get('/models/versions', auth, async (req, res) => {
-  await flController.getModelVersions(req, res);
-});
-
-router.post('/models/rollback/:versionId', auth, sensitiveOperationLimit, async (req, res) => {
-  await flController.rollbackModel(req, res);
-});
-
-router.get('/models/compare', auth, async (req, res) => {
-  await flController.compareModels(req, res);
-});
-
-// Analytics Routes
-router.get('/analytics', auth, async (req, res) => {
-  await flController.getAnalytics(req, res);
-});
-
-router.get('/analytics/export', auth, async (req, res) => {
-  await flController.exportAnalytics(req, res);
-});
-
-// Privacy Management Routes
-router.get('/privacy/status', auth, async (req, res) => {
-  await flController.getPrivacyStatus(req, res);
-});
-
-router.post('/privacy/reset-budget', auth, sensitiveOperationLimit, async (req, res) => {
-  await flController.resetPrivacyBudget(req, res);
-});
-
-// Validation Routes
-router.post('/validation/validate', auth, async (req, res) => {
-  await flController.validateModel(req, res);
-});
-
-router.get('/validation/stats', auth, async (req, res) => {
-  await flController.getValidationStats(req, res);
-});
-
-// System Health Routes
-router.get('/health', async (req, res) => {
-  await flController.getSystemHealth(req, res);
-});
-
-router.post('/shutdown', auth, sensitiveOperationLimit, async (req, res) => {
-  await flController.shutdown(req, res);
-});
-
-// Error handling middleware
-router.use((error, req, res, next) => {
-  console.error('Federated Learning Route Error:', error);
-  
-  res.status(error.status || 500).json({
-    error: error.message || 'Internal server error',
-    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-  });
-});
+/**
+ * @openapi
+ * /api/federated-learning/metrics/{sessionId}:
+ *   get:
+ *     tags: [Federated Learning]
+ *     summary: Get training metrics for session
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Metrics retrieved
+ */
+router.get("/metrics/:sessionId", federatedLearningController.getTrainingMetrics);
 
 module.exports = router;

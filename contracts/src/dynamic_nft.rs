@@ -1,5 +1,9 @@
 use soroban_sdk::{contracttype, Address, Bytes, Env, String, Vec, Symbol};
 use crate::utils::storage::{StorageUtils, EntityType};
+use crate::utils::validation::{
+    validate_distinct_addresses, validate_non_zero_address, validate_optional_string_length,
+    validate_string_length, MAX_METADATA_LENGTH, MAX_URI_LENGTH,
+};
 
 /// Contract version for upgradeable pattern
 #[contracttype]
@@ -266,6 +270,11 @@ pub fn mint_dynamic_nft(
 ) -> u64 {
     creator.require_auth();
 
+    // Validate inputs before any state access (issue #117).
+    validate_non_zero_address(env, &recipient);
+    validate_string_length(env, &base_uri, MAX_URI_LENGTH);
+    validate_optional_string_length(env, &initial_metadata, MAX_METADATA_LENGTH);
+
     let admin: Address = env.storage().instance()
         .get(&Symbol::new(env, "admin"))
         .unwrap_or_else(|| panic!("Admin not set"));
@@ -330,6 +339,9 @@ pub fn evolve_nft(
     achievement_id: u64,
     new_metadata: String,
 ) -> bool {
+    // Validate inputs before any state access (issue #117).
+    validate_optional_string_length(env, &new_metadata, MAX_METADATA_LENGTH);
+
     let mut nft: DynamicNFT = env.storage().persistent()
         .get(&DynamicNFTKey::Token(token_id))
         .unwrap_or_else(|| panic!("NFT not found"));
@@ -397,6 +409,12 @@ pub fn fuse_nfts(
     token2_id: u64,
     recipient: Address,
 ) -> u64 {
+    // Validate inputs before any state access (issue #117).
+    validate_non_zero_address(env, &recipient);
+    if token1_id == token2_id {
+        panic!("Cannot fuse an NFT with itself");
+    }
+
     let nft1: DynamicNFT = env.storage().persistent()
         .get(&DynamicNFTKey::Token(token1_id))
         .unwrap_or_else(|| panic!("NFT 1 not found"));
@@ -465,6 +483,10 @@ pub fn fuse_nfts(
 /// Transfer NFT to new owner
 pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
     from.require_auth();
+
+    // Validate inputs before any state access (issue #117).
+    validate_non_zero_address(env, &to);
+    validate_distinct_addresses(env, &from, &to);
 
     let mut nft: DynamicNFT = env.storage().persistent()
         .get(&DynamicNFTKey::Token(token_id))

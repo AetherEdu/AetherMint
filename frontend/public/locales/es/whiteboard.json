@@ -1,0 +1,63 @@
+{
+  "whiteboard": {
+    "savedBoardsTitle": "Pizarras guardadas",
+    "newBoard": "Nueva pizarra",
+    "listError": "Error al cargar sesiones",
+    "confirmDelete": "¿Eliminar esta pizarra guardada? Esta acción no se puede deshacer.",
+    "deleteError": "Error al eliminar la sesión",
+    "emptyState": "Aún no hay pizarras guardadas. Dibuja en el lienzo y haz clic en Guardar para conservar una.",
+    "opsLabel": "operaciones",
+    "openSessionList": "Explorar pizarras guardadas",
+    "deleteAria": "Eliminar pizarra guardada",
+    "noThumbnail": "Sin vista previa disponible",
+    "sessionListAria": "Pizarras guardadas",
+
+    "toolPen": "Lápiz",
+    "toolEraser": "Borrador",
+    "toolLine": "Línea",
+    "toolRectangle": "Rectángulo",
+    "toolCircle": "Círculo",
+    "toolText": "Texto",
+
+    "colorPickerAria": "Elegir color",
+    "sizeLabel": "Tamaño",
+    "sizeAria": "Tamaño del trazo",
+    "canvasAria": "Lienzo de pizarra colaborativa",
+
+    "saveNow": "Guardar",
+    "saveAsNew": "Guardar como nueva",
+    "lastSaved": "Guardado por última vez {{relative}}",
+    "neverSaved": "nunca",
+
+    "share": "Compartir",
+    "shareDialogTitle": "Compartir pizarra",
+    "shareDialogCopy": "Cualquier persona con este enlace puede ver esta pizarra. El enlace es de solo lectura — los espectadores no pueden editar ni descargar.",
+    "shareUrlAria": "URL para compartir",
+    "generateShare": "Generar enlace de solo lectura",
+    "revokeShare": "Revocar enlace",
+    "copied": "¡Copiado!",
+
+    "export": "Exportar",
+    "exportPng": "Descargar PNG",
+    "exportSvg": "Descargar SVG",
+
+    "conflict": {
+      "title": "Se detectó una versión más reciente",
+      "body": "Alguien guardó esta pizarra después de que empezaste a editar. Recarga la versión más reciente para continuar.",
+      "loadLatest": "Cargar la más reciente",
+      "forceOverwrite": "Sobrescribir con la mía"
+    },
+
+    "autoSave": {
+      "saved": "Guardado automáticamente {{relative}}",
+      "failed": "Error al autoguardar",
+      "retrying": "Reintentando…"
+    },
+
+    "shared": {
+      "title": "Pizarra compartida (solo lectura)",
+      "expired": "Este enlace para compartir no es válido o ha sido revocado.",
+      "loading": "Cargando pizarra compartida…"
+    }
+  }
+}

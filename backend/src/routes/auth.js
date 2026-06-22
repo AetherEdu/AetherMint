@@ -7,6 +7,13 @@ const { authLimiter } = require('../middleware/rateLimiter');
 const securityService = require('../services/securityService');
 const router = express.Router();
 
+/**
+ * @openapi
+ * tags:
+ *   - name: Authentication
+ *     description: User authentication and profile management
+ */
+
 // Mock user database - replace with actual database implementation
 const users = new Map();
 
@@ -29,8 +36,72 @@ function generateToken(user) {
 }
 
 /**
- * Register new user
- * POST /api/auth/register
+ * @openapi
+ * /api/auth/register:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Register a new user
+ *     description: Create a new user account with username, email, and password
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - email
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: johndoe
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: john@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: securePass123
+ *               role:
+ *                 type: string
+ *                 enum: [student, educator, admin]
+ *                 default: student
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                 token:
+ *                   type: string
+ *       400:
+ *         description: Missing required fields or invalid role
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: User already exists
  */
 router.post('/register', authLimiter, async (req, res) => {
   try {
@@ -106,8 +177,56 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 /**
- * User login
- * POST /api/auth/login
+ * @openapi
+ * /api/auth/login:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Authenticate user
+ *     description: Login with username/email and password to get JWT token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: johndoe
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: securePass123
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *                 token:
+ *                   type: string
+ *       400:
+ *         description: Missing credentials
+ *       401:
+ *         description: Invalid credentials
  */
 router.post('/login', authLimiter, async (req, res) => {
   try {
@@ -166,8 +285,70 @@ router.post('/login', authLimiter, async (req, res) => {
 });
 
 /**
- * Get current user profile
- * GET /api/auth/profile
+ * @openapi
+ * /api/auth/profile:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Get current user profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *       404:
+ *         description: User not found
+ *   put:
+ *     tags: [Authentication]
+ *     summary: Update user profile
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: User not found
  */
 router.get('/profile', authenticateToken, (req, res) => {
   const user = users.get(req.user.id);
@@ -282,8 +463,39 @@ router.put('/profile', authenticateToken, async (req, res) => {
 });
 
 /**
- * Assign role to user (Admin only)
- * PUT /api/auth/assign-role/:userId
+ * @openapi
+ * /api/auth/assign-role/{userId}:
+ *   put:
+ *     tags: [Authentication]
+ *     summary: Assign role to user (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [student, educator, admin]
+ *     responses:
+ *       200:
+ *         description: Role assigned successfully
+ *       400:
+ *         description: Invalid role
+ *       404:
+ *         description: User not found
  */
 router.put('/assign-role/:userId', 
   authenticateToken, 
@@ -337,8 +549,43 @@ router.put('/assign-role/:userId',
 );
 
 /**
- * Get all users (Admin only)
- * GET /api/auth/users
+ * @openapi
+ * /api/auth/users:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Get all users (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [student, educator, admin]
+ *     responses:
+ *       200:
+ *         description: Users retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
  */
 router.get('/users', 
   authenticateToken, 
@@ -389,8 +636,26 @@ router.get('/users',
 );
 
 /**
- * Delete user (Admin only)
- * DELETE /api/auth/users/:userId
+ * @openapi
+ * /api/auth/users/{userId}:
+ *   delete:
+ *     tags: [Authentication]
+ *     summary: Delete user (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *       400:
+ *         description: Cannot delete self
+ *       404:
+ *         description: User not found
  */
 router.delete('/users/:userId', 
   authenticateToken, 

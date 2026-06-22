@@ -1,3 +1,7 @@
+// NOTE: This module intentionally only imports *type* and *runtime* APIs that
+// are safe in both server and client bundles. Avoid importing heavy modules
+// (three, recharts, d3, wagmi, etc.) at the top level — they would otherwise
+// be hoisted into every page that touches this file.
 import { performanceReporting, BundleAnalysis } from './performance-reporting';
 
 export interface OptimizationSuggestion {
@@ -332,3 +336,34 @@ class PerformanceOptimizationService {
 }
 
 export const performanceOptimization = new PerformanceOptimizationService();
+
+/* -------------------------------------------------------------------------- */
+/*  Lazy-loading pattern (issue #141)                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * This module is the *runtime* performance-audit service; helpers that
+ * touch JSX live in `frontend/src/lib/lazy.tsx` (a `.tsx` module) so that
+ * `performance-optimization.ts` remains a plain `.ts` and can be safely
+ * imported from node-side tooling (e.g. `performance-reporting.ts`).
+ *
+ * The convention used by the routes that ship heaviest bundles is:
+ *
+ *   1. The App Router page is a **server component** so `metadata` works.
+ *      It only renders a tiny `*Client.tsx` wrapper.
+ *   2. The wrapper is `'use client'` and uses `next/dynamic` with
+ *      `ssr: false` + a `<LoadingFallback message=...>` placeholder.
+ *   3. The wrapper's children may continue to use `next/dynamic`
+ *      internally so the 3D / physics dependencies inside
+ *      `VirtualScienceLab` (LabScene3D, LabReactionSim) and
+ *      `MetaverseCampus` (CampusScene) land in *additional* chunks.
+ *
+ * Existing examples:
+ *   - `frontend/src/app/lab/LabClient.tsx` + `VirtualScienceLabSkeleton.tsx`
+ *   - `frontend/src/app/campus/CampusClient.tsx`
+ *
+ * Pages-router pages (`src/pages/*`) don't need the wrapper because the
+ * whole module is already client-rendered; they call `next/dynamic`
+ * directly inline (see `pages/demo-features.tsx`, `pages/bci-dashboard.tsx`,
+ * `pages/ConsciousnessPage.tsx`).
+ */

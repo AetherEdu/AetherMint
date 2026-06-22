@@ -1,219 +1,127 @@
-const express = require('express');
+/**
+ * @openapi
+ * tags:
+ *   - name: Autonomous Agents
+ *     description: Multi-agent system for task automation
+ */
+
+const express = require("express");
 const router = express.Router();
-const AutonomousAgentController = require('../services/autonomousAgents/AutonomousAgentController');
-const logger = require('../../utils/logger');
+const { authenticate } = require("../middleware/auth");
+const autonomousAgentsController = require("../controllers/autonomousAgentsController");
 
-// Initialize controller
-let agentController;
-
-try {
-  agentController = new AutonomousAgentController({
-    enableCustomerService: true,
-    enablePerformanceOptimization: true,
-    enableSecurityMonitoring: true,
-    enableSelfHealing: true,
-    humanOversightEnabled: true
-  });
-  logger.info('Autonomous agent controller initialized');
-} catch (error) {
-  logger.error('Failed to initialize autonomous agent controller:', error);
-}
+router.use(authenticate);
 
 /**
- * @route GET /api/autonomous-agents/status
- * @desc Get overall system status and metrics
+ * @openapi
+ * /api/autonomous-agents/execute:
+ *   post:
+ *     tags: [Autonomous Agents]
+ *     summary: Execute autonomous agent task
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Task executed
  */
-router.get('/status', async (req, res) => {
-  try {
-    const report = agentController.getSystemReport();
-    
-    res.json({
-      success: true,
-      data: report
-    });
-  } catch (error) {
-    logger.error('Error getting system status:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+router.post("/execute", autonomousAgentsController.execute);
 
 /**
- * @route POST /api/autonomous-agents/support/ticket
- * @desc Submit support ticket for autonomous handling
+ * @openapi
+ * /api/autonomous-agents/status/{taskId}:
+ *   get:
+ *     tags: [Autonomous Agents]
+ *     summary: Get autonomous task status
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Task status retrieved
  */
-router.post('/support/ticket', async (req, res) => {
-  try {
-    const { userId, title, description, priority, category } = req.body;
-
-    if (!userId || !title || !description) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: userId, title, description'
-      });
-    }
-
-    const ticket = {
-      id: `ticket_${Date.now()}`,
-      userId,
-      title,
-      description,
-      priority: priority || 'normal',
-      category: category || 'general',
-      createdAt: new Date(),
-      status: 'open'
-    };
-
-    const result = await agentController.handleSupportTicket(ticket);
-
-    res.status(result.resolved ? 200 : 202).json({
-      success: true,
-      data: {
-        ticketId: ticket.id,
-        resolved: result.resolved,
-        action: result.action,
-        requiresHumanAgent: result.requiresHumanAgent,
-        resolutionTime: result.resolutionTime
-      }
-    });
-  } catch (error) {
-    logger.error('Error handling support ticket:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+router.get("/status/:taskId", autonomousAgentsController.getStatus);
 
 /**
- * @route POST /api/autonomous-agents/performance/optimize
- * @desc Trigger performance optimization
+ * @openapi
+ * /api/autonomous-agents/agents:
+ *   get:
+ *     tags: [Autonomous Agents]
+ *     summary: List available agents
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Agents listed
  */
-router.post('/performance/optimize', async (req, res) => {
-  try {
-    const result = await agentController.optimizePerformance();
-
-    res.json({
-      success: true,
-      data: result
-    });
-  } catch (error) {
-    logger.error('Error optimizing performance:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+router.get("/agents", autonomousAgentsController.getAgents);
 
 /**
- * @route GET /api/autonomous-agents/security/status
- * @desc Get current security posture
+ * @openapi
+ * /api/autonomous-agents/agents/register:
+ *   post:
+ *     tags: [Autonomous Agents]
+ *     summary: Register new agent
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Agent registered
  */
-router.get('/security/status', async (req, res) => {
-  try {
-    const status = await agentController.checkSecurityStatus();
-
-    res.json({
-      success: true,
-      data: status
-    });
-  } catch (error) {
-    logger.error('Error getting security status:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+router.post("/agents/register", autonomousAgentsController.registerAgent);
 
 /**
- * @route PUT /api/autonomous-agents/oversight
- * @desc Enable/disable human oversight
+ * @openapi
+ * /api/autonomous-agents/agents/{agentId}:
+ *   get:
+ *     tags: [Autonomous Agents]
+ *     summary: Get agent details
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: agentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Agent details retrieved
+ *   put:
+ *     tags: [Autonomous Agents]
+ *     summary: Update agent configuration
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: agentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Agent updated
+ *   delete:
+ *     tags: [Autonomous Agents]
+ *     summary: Delete agent
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: agentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Agent deleted
  */
-router.put('/oversight', async (req, res) => {
-  try {
-    const { enabled } = req.body;
-
-    if (typeof enabled !== 'boolean') {
-      return res.status(400).json({
-        success: false,
-        error: 'enabled must be a boolean'
-      });
-    }
-
-    agentController.setHumanOversight(enabled);
-
-    res.json({
-      success: true,
-      message: `Human oversight ${enabled ? 'enabled' : 'disabled'}`
-    });
-  } catch (error) {
-    logger.error('Error toggling human oversight:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-/**
- * @route GET /api/autonomous-agents/metrics
- * @desc Get detailed performance metrics
- */
-router.get('/metrics', async (req, res) => {
-  try {
-    const report = agentController.getSystemReport();
-    
-    res.json({
-      success: true,
-      data: {
-        systemMetrics: report.systemMetrics,
-        autonomyRate: report.autonomyRate,
-        targetAchieved: parseFloat(report.autonomyRate) >= 80,
-        agents: report.agents
-      }
-    });
-  } catch (error) {
-    logger.error('Error getting metrics:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-/**
- * @route GET /api/autonomous-agents/agents/:type
- * @desc Get specific agent status and metrics
- */
-router.get('/agents/:type', async (req, res) => {
-  try {
-    const { type } = req.params;
-    const report = agentController.getSystemReport();
-    
-    const agentReport = report.agents[type];
-    
-    if (!agentReport) {
-      return res.status(404).json({
-        success: false,
-        error: `Agent type ${type} not found`
-      });
-    }
-
-    res.json({
-      success: true,
-      data: agentReport
-    });
-  } catch (error) {
-    logger.error('Error getting agent status:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+router.get("/agents/:agentId", autonomousAgentsController.getAgentById);
+router.put("/agents/:agentId", autonomousAgentsController.updateAgent);
+router.delete("/agents/:agentId", autonomousAgentsController.deleteAgent);
 
 module.exports = router;

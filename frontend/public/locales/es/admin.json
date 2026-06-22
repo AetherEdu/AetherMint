@@ -1,0 +1,64 @@
+{
+  "title": "Panel de Administración",
+  "description": "Gestiona la plataforma AetherMint Educación",
+  "dashboard": {
+    "title": "Resumen del Panel",
+    "welcome": "Bienvenido al Panel de Administración",
+    "overview": "Resumen de la Plataforma",
+    "statistics": "Estadísticas",
+    "quickActions": "Acciones Rápidas",
+    "recentActivity": "Actividad Reciente",
+    "alerts": "Alertas del Sistema",
+    "notifications": "Notificaciones",
+    "systemHealth": "Estado del Sistema",
+    "performance": "Métricas de Rendimiento",
+    "users": "Usuarios Totales",
+    "courses": "Cursos Totales",
+    "enrollments": "Inscripciones Totales",
+    "revenue": "Ingresos Totales"
+  },
+  "users": {
+    "title": "Gestión de Usuarios",
+    "description": "Gestiona los usuarios de la plataforma",
+    "allUsers": "Todos los Usuarios",
+    "activeUsers": "Usuarios Activos",
+    "inactiveUsers": "Usuarios Inactivos",
+    "newUsers": "Usuarios Nuevos",
+    "instructors": "Instructores",
+    "students": "Estudiantes",
+    "admins": "Administradores",
+    "moderators": "Moderadores",
+    "createUser": "Crear Usuario",
+    "editUser": "Editar Usuario",
+    "deleteUser": "Eliminar Usuario",
+    "searchUsers": "Buscar Usuarios",
+    "banUser": "Banear Usuario",
+    "verifyUser": "Verificar Usuario"
+  },
+  "courses": {
+    "title": "Gestión de Cursos",
+    "description": "Gestiona los cursos de la plataforma",
+    "allCourses": "Todos los Cursos",
+    "publishedCourses": "Cursos Publicados",
+    "draftCourses": "Cursos en Borrador",
+    "createCourse": "Crear Curso",
+    "editCourse": "Editar Curso",
+    "deleteCourse": "Eliminar Curso",
+    "publishCourse": "Publicar Curso",
+    "searchCourses": "Buscar Cursos"
+  },
+  "analytics": {
+    "title": "Analíticas",
+    "description": "Ver analíticas e informes de la plataforma",
+    "overview": "Resumen de Analíticas",
+    "reports": "Informes",
+    "metrics": "Métricas"
+  },
+  "settings": {
+    "title": "Configuración",
+    "description": "Gestiona la configuración de la plataforma",
+    "general": "Configuración General",
+    "security": "Configuración de Seguridad",
+    "language": "Configuración de Idioma"
+  }
+}

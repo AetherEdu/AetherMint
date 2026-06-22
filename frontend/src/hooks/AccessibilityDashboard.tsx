@@ -11,6 +11,11 @@ interface AuditResult {
 export const AccessibilityDashboard: React.FC = () => {
   const [isAuditing, setIsAuditing] = useState(false);
   const [results, setResults] = useState<AuditResult[]>([]);
+  const statusMessage = isAuditing
+    ? 'Accessibility audit is running.'
+    : results.length > 0
+      ? `Accessibility audit complete. ${results.length} checks returned.`
+      : 'Accessibility audit has not been run.';
 
   const runAudit = () => {
     setIsAuditing(true);
@@ -29,20 +34,25 @@ export const AccessibilityDashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md" role="region" aria-label="Accessibility Audit Dashboard">
+    <div className="p-6 max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md" role="region" aria-labelledby="accessibility-dashboard-title">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Accessibility Audit Dashboard</h2>
+        <h2 id="accessibility-dashboard-title" className="text-2xl font-bold text-gray-900 dark:text-white">Accessibility Audit Dashboard</h2>
         <button
           onClick={runAudit}
           disabled={isAuditing}
           className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50 transition-all"
           aria-busy={isAuditing}
+          aria-describedby="accessibility-dashboard-status"
         >
           {isAuditing ? 'Running Audit...' : 'Run WCAG Audit'}
         </button>
       </div>
 
-      <div className="space-y-4" aria-live="polite">
+      <p id="accessibility-dashboard-status" className="sr-only" aria-live="polite">
+        {statusMessage}
+      </p>
+
+      <div className="space-y-4" aria-live="polite" role="list" aria-label="Accessibility audit results">
         {results.length === 0 && !isAuditing && (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">No audit results yet. Click "Run WCAG Audit" to scan the interface.</p>
         )}
@@ -50,6 +60,7 @@ export const AccessibilityDashboard: React.FC = () => {
         {results.map(result => (
           <div 
             key={result.id} 
+            role="listitem"
             className={`p-4 rounded-lg border-l-4 ${
               result.status === 'passed' ? 'border-green-500 bg-green-50 dark:bg-green-900/20' :
               result.status === 'failed' ? 'border-red-500 bg-red-50 dark:bg-red-900/20' :
@@ -59,7 +70,7 @@ export const AccessibilityDashboard: React.FC = () => {
             <div className="flex items-start">
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 dark:text-white capitalize">
-                  {result.category} - {result.status}
+                  {result.category} - <span className="sr-only">Status: </span>{result.status}
                 </h3>
                 <p className="text-gray-700 dark:text-gray-300 mt-1">{result.message}</p>
                 {result.element && (

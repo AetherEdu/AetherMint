@@ -75,7 +75,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           : 'bg-blue-50 hover:bg-blue-100 border-l-blue-500'
         }
       `}
-      onClick={handleClick}
+      role="listitem"
     >
       {/* Remove button */}
       <button
@@ -87,13 +87,25 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       </button>
 
       {/* Notification content */}
-      <div className="flex gap-3">
+      <div
+        className="flex gap-3"
+        role="button"
+        tabIndex={0}
+        aria-label={`${notification.isRead ? 'Read' : 'Unread'} ${notification.priority} priority ${notification.category} notification: ${notification.title}`}
+        onClick={handleClick}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleClick();
+          }
+        }}
+      >
         {/* Category icon */}
         <div className={`
           flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
           ${categoryColor}
         `}>
-          <Icon size={18} />
+          <Icon size={18} aria-hidden="true" />
         </div>
 
         {/* Message content */}
@@ -116,7 +128,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-3 text-xs text-gray-500">
               <div className="flex items-center gap-1">
-                <Clock size={12} />
+                <Clock size={12} aria-hidden="true" />
                 <span>{formatTimestamp(notification.timestamp)}</span>
               </div>
               <span className={`
@@ -128,7 +140,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             </div>
             
             {!notification.isRead && (
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-blue-500 rounded-full" aria-label="Unread"></div>
             )}
           </div>
         </div>
@@ -137,7 +149,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       {/* Priority indicator for high priority */}
       {notification.priority === 'high' && (
         <div className="absolute top-2 left-2">
-          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" aria-label="High priority"></div>
         </div>
       )}
     </div>

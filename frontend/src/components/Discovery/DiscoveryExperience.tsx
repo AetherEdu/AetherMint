@@ -387,7 +387,7 @@ export const DiscoveryExperience: React.FC = () => {
         </section>
 
         {bannerMessage ? (
-          <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status" aria-live="polite">
             {bannerMessage}
           </div>
         ) : null}
@@ -442,6 +442,7 @@ export const DiscoveryExperience: React.FC = () => {
                     className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                     disabled={isSavingSearch}
                     onClick={handleSaveSearch}
+                    aria-busy={isSavingSearch}
                   >
                     {isSavingSearch ? 'Saving…' : 'Save search'}
                   </button>
@@ -449,18 +450,20 @@ export const DiscoveryExperience: React.FC = () => {
                     className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                     disabled={isCreatingAlert}
                     onClick={handleCreateAlert}
+                    aria-busy={isCreatingAlert}
                   >
                     {isCreatingAlert ? 'Creating…' : 'Create alert'}
                   </button>
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3" role="list" aria-busy={isLoadingSearch} aria-label="Course search results">
                 {isLoadingSearch
                   ? Array.from({ length: 6 }).map((_, index) => (
                       <div
                         key={index}
                         className="h-72 animate-pulse rounded-[24px] bg-slate-100"
+                        aria-hidden="true"
                       />
                     ))
                   : searchData?.results.map((course) => (
@@ -516,6 +519,7 @@ export const DiscoveryExperience: React.FC = () => {
                       key={course.id}
                       className="flex w-full items-center gap-4 rounded-2xl border border-slate-200 p-3 text-left transition hover:border-slate-400"
                       onClick={() => handleSelectCourse(course)}
+                      aria-label={`Preview trending course ${course.title}`}
                     >
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
                         {index + 1}
@@ -618,6 +622,7 @@ export const DiscoveryExperience: React.FC = () => {
                           key={course.id}
                           className="flex w-full items-center justify-between rounded-2xl bg-white px-3 py-2 text-left text-sm transition hover:bg-amber-50"
                           onClick={() => handleSelectCourse(course)}
+                          aria-label={`Preview curator pick ${course.title}`}
                         >
                           <span className="pr-3 font-medium text-slate-800">
                             {course.title}
@@ -727,6 +732,7 @@ export const DiscoveryExperience: React.FC = () => {
                     key={course.id}
                     className="w-full rounded-2xl border border-slate-200 p-3 text-left transition hover:border-slate-400"
                     onClick={() => handleSelectCourse(course)}
+                    aria-label={`Preview similar course ${course.title}`}
                   >
                     <div className="text-sm font-semibold text-slate-900">
                       {course.title}

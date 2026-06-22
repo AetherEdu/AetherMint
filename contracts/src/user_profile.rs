@@ -72,7 +72,8 @@ pub struct Achievement {
     pub badge_hash: u64, // Hash of badge URL
 }
 
-#[contract]
+// Contract attribute disabled - this is a module used by main contract in lib.rs
+// #[contract]
 pub struct UserProfileContract;
 
 /// Add a credential to user's profile with optimized storage

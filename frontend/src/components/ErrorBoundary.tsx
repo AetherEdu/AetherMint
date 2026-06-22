@@ -1,11 +1,24 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { ErrorFallback, ErrorVariant } from './ErrorFallback';
 
 interface Props {
   children: ReactNode;
+  /** Custom fallback UI. If not provided, uses ErrorFallback component. */
   fallback?: ReactNode;
+  /** Variant of the error fallback UI */
+  variant?: ErrorVariant;
+  /** Custom error title */
+  errorTitle?: string;
+  /** Custom error message */
+  errorMessage?: string;
+  /** Callback invoked when an error is caught. Useful for error monitoring services. */
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  /** When this key changes, the boundary resets. Useful for external retry triggers. */
+  resetKey?: number | string;
+  /** Whether to show error details in the fallback (development only) */
+  showErrorDetails?: boolean;
 }
 
 interface State {
@@ -14,9 +27,50 @@ interface State {
   errorInfo?: ErrorInfo;
 }
 
+/**
+ * Logs an error to the console and optionally to a monitoring service.
+ * Extend this function to integrate with Sentry, Datadog, etc.
+ */
+function logError(error: Error, errorInfo: ErrorInfo) {
+  // Console logging (always)
+  console.error('[ErrorBoundary] Uncaught error:', {
+    error: error.toString(),
+    componentStack: errorInfo.componentStack,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Structured error logging for monitoring services
+  const errorPayload = {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+    componentStack: errorInfo.componentStack,
+    timestamp: new Date().toISOString(),
+    url: typeof window !== 'undefined' ? window.location.href : undefined,
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+  };
+
+  // Attempt to send to a monitoring endpoint (fire-and-forget)
+  if (process.env.NEXT_PUBLIC_ERROR_MONITORING_ENDPOINT) {
+    try {
+      fetch(process.env.NEXT_PUBLIC_ERROR_MONITORING_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(errorPayload),
+        // Use keepalive so the request completes even if the page navigates away
+        keepalive: true,
+      }).catch(() => {
+        // Silently ignore monitoring failures
+      });
+    } catch {
+      // Ignore monitoring send failures
+    }
+  }
+}
+
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
-    hasError: false
+    hasError: false,
   };
 
   public static getDerivedStateFromError(error: Error): State {
@@ -24,58 +78,43 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
-    this.setState({
-      error,
-      errorInfo
-    });
+    // Invoke the external onError callback (e.g., for Sentry)
+    this.props.onError?.(error, errorInfo);
+
+    // Log to console and monitoring service
+    logError(error, errorInfo);
+
+    this.setState({ error, errorInfo });
   }
 
   private handleRetry = () => {
     this.setState({ hasError: false, error: undefined, errorInfo: undefined });
   };
 
+  public componentDidUpdate(prevProps: Props) {
+    // Reset the boundary when resetKey changes
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.handleRetry();
+    }
+  }
+
   public render() {
     if (this.state.hasError) {
+      // Use custom fallback if provided
       if (this.props.fallback) {
         return this.props.fallback;
       }
 
       return (
-        <div className="min-h-[200px] flex items-center justify-center">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
-              <h3 className="text-lg font-semibold text-red-900 dark:text-red-300">
-                Something went wrong
-              </h3>
-            </div>
-            
-            <p className="text-red-600 dark:text-red-400 mb-4">
-              An unexpected error occurred. Please try refreshing the page or contact support if the problem persists.
-            </p>
-
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details className="mb-4">
-                <summary className="text-sm text-red-800 dark:text-red-200 cursor-pointer">
-                  Error Details
-                </summary>
-                <pre className="mt-2 text-xs text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 p-2 rounded overflow-auto">
-                  {this.state.error.toString()}
-                  {this.state.errorInfo && this.state.errorInfo.componentStack}
-                </pre>
-              </details>
-            )}
-
-            <button
-              onClick={this.handleRetry}
-              className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Try Again
-            </button>
-          </div>
-        </div>
+        <ErrorFallback
+          error={this.state.error}
+          errorInfo={this.state.errorInfo}
+          onRetry={this.handleRetry}
+          variant={this.props.variant ?? 'default'}
+          title={this.props.errorTitle}
+          message={this.props.errorMessage}
+          showDetails={this.props.showErrorDetails}
+        />
       );
     }
 

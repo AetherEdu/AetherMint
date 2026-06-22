@@ -1,3 +1,10 @@
+/**
+ * @openapi
+ * tags:
+ *   - name: Content
+ *     description: IPFS content management
+ */
+
 const express = require('express');
 const multer = require('multer');
 const router = express.Router();
@@ -31,8 +38,34 @@ const upload = multer({
 });
 
 /**
- * Upload a single file to IPFS
- * POST /api/content/upload
+ * @openapi
+ * /api/content/upload:
+ *   post:
+ *     tags: [Content]
+ *     summary: Upload a single file to IPFS
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               metadata:
+ *                 type: string
+ *               includeMetadata:
+ *                 type: string
+ *               wrapWithDirectory:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: File uploaded successfully
+ *       400:
+ *         description: Upload failed
  */
 router.post('/upload', 
   requirePermission(PERMISSIONS.CONTENT_CREATE),

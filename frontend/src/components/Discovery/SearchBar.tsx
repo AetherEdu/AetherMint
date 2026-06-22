@@ -81,7 +81,7 @@ export const SearchBar: React.FC<{
   };
 
   return (
-    <div>
+    <div role="search" aria-label="Course search">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search
@@ -93,6 +93,7 @@ export const SearchBar: React.FC<{
             className="w-full rounded-[18px] border border-slate-200 bg-white py-4 pl-12 pr-12 text-base text-slate-900 outline-none transition focus:border-slate-400"
             placeholder="Search courses, skills, reviews, or learning paths"
             value={value}
+            aria-describedby="course-search-result-count course-search-suggestions-label"
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
@@ -104,8 +105,9 @@ export const SearchBar: React.FC<{
             <button
               className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
               onClick={() => onChange('')}
+              aria-label="Clear course search"
             >
-              <X size={16} />
+              <X size={16} aria-hidden="true" />
             </button>
           ) : null}
         </div>
@@ -113,8 +115,9 @@ export const SearchBar: React.FC<{
         <button
           className="inline-flex items-center justify-center gap-2 rounded-[18px] bg-slate-900 px-5 py-4 text-sm font-medium text-white transition hover:bg-slate-700"
           onClick={() => onSubmit(value.trim())}
+          aria-label="Submit course search"
         >
-          <Sparkles size={16} />
+          <Sparkles size={16} aria-hidden="true" />
           Search
         </button>
 
@@ -122,26 +125,33 @@ export const SearchBar: React.FC<{
           className="inline-flex items-center justify-center gap-2 rounded-[18px] border border-slate-200 px-5 py-4 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
           disabled={!recognitionRef.current || isListening}
           onClick={handleStartVoice}
+          aria-busy={isListening}
+          aria-label={isListening ? 'Voice search is listening' : 'Start voice search'}
+          aria-pressed={isListening}
         >
-          <Mic size={16} />
+          <Mic size={16} aria-hidden="true" />
           {isListening ? 'Listening…' : 'Voice'}
         </button>
       </div>
 
       <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-2">
+        <div id="course-search-suggestions-label" className="sr-only">
+          Search suggestions
+        </div>
+        <div className="flex flex-wrap gap-2" role="list" aria-labelledby="course-search-suggestions-label">
           {suggestions.map((suggestion) => (
             <button
               key={suggestion}
               className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-amber-100 hover:text-amber-950"
               onClick={() => onSelectSuggestion(suggestion)}
+              aria-label={`Search for ${suggestion}`}
             >
               {suggestion}
             </button>
           ))}
         </div>
 
-        <div className="text-sm text-slate-500">{resultCountLabel}</div>
+        <div id="course-search-result-count" className="text-sm text-slate-500" aria-live="polite">{resultCountLabel}</div>
       </div>
     </div>
   );

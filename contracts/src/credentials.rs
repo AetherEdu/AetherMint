@@ -1,3 +1,6 @@
+use crate::credential_events::{
+    publish_credential_event, CredentialLifecycleEvent,
+};
 use crate::utils::storage::{EntityType, StorageUtils};
 use soroban_sdk::{contracttype, Address, Env, String, Vec};
 
@@ -11,7 +14,11 @@ pub enum CredentialKey {
     CredentialRevocations(u64), // Separate revocation tracking
 }
 
-/// Optimized credential with packed verification status
+/// Optimized credential with packed verification status.
+///
+/// `timestamp` uses bit 0 as a revocation flag and bits 1..=63 for the
+/// ledger timestamp at issuance. Use [`Credential::is_revoked`] to
+/// extract the flag and [`Credential::issued_at`] to extract the timestamp.
 #[contracttype]
 pub struct Credential {
     pub id: u64,
@@ -22,6 +29,19 @@ pub struct Credential {
     pub course_id: String,
     pub timestamp: u64, // Packed completion_date and revocation status
     pub ipfs_hash: String,
+}
+
+impl Credential {
+    /// Returns `true` if the credential has been revoked.
+    /// Revocation is tracked in bit 0 of the `timestamp` field.
+    pub fn is_revoked(&self) -> bool {
+        (self.timestamp & 1) != 0
+    }
+
+    /// Returns the ledger timestamp at issuance (bit 0 stripped).
+    pub fn issued_at(&self) -> u64 {
+        self.timestamp >> 1
+    }
 }
 
 /// Issue a new credential with optimized storage
@@ -79,19 +99,42 @@ pub fn issue_credential(
         .instance()
         .set(&CredentialKey::CredentialCount, &credential_id);
 
+    // Emit lifecycle event (publishes on-chain event + records for queryability)
+    publish_credential_event(
+        env,
+        CredentialLifecycleEvent::Issued,
+        credential_id,
+        issuer,
+    );
+
     credential_id
 }
 
-/// Verify a credential using packed timestamp
-pub fn verify_credential(env: &Env, credential_id: u64) -> bool {
+/// Verify a credential using packed timestamp.
+///
+/// The `verifier` address is recorded as the actor that performed the
+/// verification so a complete audit trail is preserved. Anyone can verify
+/// a credential - the verifier is captured for indexing purposes, not
+/// for access control.
+pub fn verify_credential(env: &Env, credential_id: u64, verifier: Address) -> bool {
+    verifier.require_auth();
+
     let credential: Credential = env
         .storage()
         .persistent()
         .get(&CredentialKey::Credential(credential_id))
         .unwrap_or_else(|| panic!("Credential not found"));
 
+    // Emit lifecycle event so verifications are recorded/indexable.
+    publish_credential_event(
+        env,
+        CredentialLifecycleEvent::Verified,
+        credential_id,
+        verifier,
+    );
+
     // Check revocation bit (bit 0)
-    if (credential.timestamp & 1) != 0 {
+    if credential.is_revoked() {
         return false; // Credential is revoked
     }
 
@@ -123,6 +166,14 @@ pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) {
     env.storage().instance().set(
         &CredentialKey::CredentialRevocations(credential_id),
         &revocation_time,
+    );
+
+    // Emit lifecycle event so revocations are recorded/indexable.
+    publish_credential_event(
+        env,
+        CredentialLifecycleEvent::Revoked,
+        credential_id,
+        revoker,
     );
 }
 

@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const path = require('path');
 const { i18n } = require('./next-i18next.config');
+// `next-bundle-analyzer` is the npm package wired into package.json's
+// devDependencies (un-scoped — different from `@next/bundle-analyzer`,
+// which is not installed in this repo). Setting `ANALYZE=true` next to
+// `next build` (already wired into package.json's `analyze` script)
+// triggers an HTML/JSON breakdown of every cache group.
+const withBundleAnalyzer = require('next-bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
 
 // Validate environment variables at build time.
 // This ensures missing/invalid vars are caught early with a clear error message.
@@ -53,17 +61,10 @@ const nextConfig = {
     ];
   },
   // Performance monitoring configuration
-  webpack: (config, { isServer }) => {
-    // Enable bundle analysis in production
-    if (process.env.ANALYZE === 'true') {
-      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-      config.plugins.push(
-        new BundleAnalyzerPlugin({
-          analyzerMode: 'static',
-          openAnalyzer: false,
-        })
-      );
-    }
+  webpack: (config) => {
+    // Bundle analysis is wired through `withBundleAnalyzer(...)` at the
+    // bottom of this file. The analyser is no longer pushed manually here
+    // to avoid registering it twice.
 
   // Performance optimizations
     // Stub native-only modules and broken packages that can't run in browser/build
@@ -74,18 +75,95 @@ const nextConfig = {
     };
 
 
+    // Issue #141: more granular split groups so the initial chunk does not
+    // eagerly ship very large vendor modules (three, recharts, wagmi…)
+    // that are only used on specific routes. Each cache group produces a
+    // separate long-cacheable chunk that is loaded on-demand by the pages
+    // that actually use it.
     config.optimization.splitChunks = {
       chunks: 'all',
+      maxInitialRequests: 32,
+      minSize: 20000,
       cacheGroups: {
-        vendor: {
-          test: /[\\/]node_modules[\\/]/,
-          name: 'vendors',
+        default: false,
+        defaultVendors: false,
+        framework: {
+          name: 'framework',
           chunks: 'all',
+          test: /[\\/]node_modules[\\/](react|react-dom|scheduler|next)[\\/]/,
+          priority: 40,
+          enforce: true,
+        },
+        three: {
+          name: 'three',
+          test: /[\\/]node_modules[\\/](three|@react-three[\\/](?:fiber|drei))[\\/]/,
+          chunks: 'all',
+          priority: 35,
+          enforce: true,
+        },
+        charts: {
+          name: 'charts',
+          test: /[\\/]node_modules[\\/](recharts|d3-shape|d3-scale|d3-array|victory-vendor)[\\/]/,
+          chunks: 'all',
+          priority: 30,
+          enforce: true,
+        },
+        wallet: {
+          name: 'wallet',
+          test: /[\\/]node_modules[\\/](wagmi|viem|ethers|@walletconnect|connectkit|@creit\\.tech)[\\/]/,
+          chunks: 'all',
+          priority: 25,
+          enforce: true,
+        },
+        tensorflow: {
+          name: 'tensorflow',
+          test: /[\\/]node_modules[\\/](@tensorflow[\\/]tfjs|@tensorflow[\\/]tfjs-core|@tensorflow[\\/]tfjs-converter|@tensorflow[\\/]tfjs-backend|@tensorflow[\\/]tfjs-layers)[\\/]/,
+          chunks: 'async',
+          priority: 20,
+          enforce: true,
+        },
+        pyodide: {
+          name: 'pyodide',
+          test: /[\\/]node_modules[\\/](pyodide)[\\/]/,
+          chunks: 'async',
+          priority: 19,
+          enforce: true,
+        },
+        monaco: {
+          name: 'monaco',
+          test: /[\\/]node_modules[\\/](monaco-editor|@monaco-editor[\\/]react)[\\/]/,
+          chunks: 'async',
+          priority: 18,
+          enforce: true,
+        },
+        framerMotion: {
+          name: 'framer-motion',
+          test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
+          chunks: 'all',
+          priority: 15,
+          enforce: true,
+        },
+        stellar: {
+          name: 'stellar',
+          test: /[\\/]node_modules[\\/](@stellar[\\/]stellar-sdk|stellar-base)([\\/]|$)/,
+          chunks: 'async',
+          priority: 12,
+          enforce: true,
+        },
+        // Generic vendor catch-all — only emits after the groups above so
+        // they always win when they match.
+        vendors: {
+          name: 'vendors',
+          test: /[\\/]node_modules[\\/]/,
+          chunks: 'all',
+          priority: 5,
         },
         common: {
           name: 'common',
           minChunks: 2,
           chunks: 'all',
+          priority: 1,
+          reuseExistingChunk: true,
           enforce: true,
         },
       },
@@ -121,8 +199,33 @@ const nextConfig = {
           },
         ],
       },
+      // Service-worker headers — ensure the browser accepts `/sw.js` as a
+      // top-level worker (Service-Worker-Allowed: '/') and never serves it
+      // from an HTTP cache (penalising immediate SW updates).
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Service-Worker-Allowed',
+            value: '/',
+          },
+          {
+            key: 'Content-Type',
+            value: 'application/javascript; charset=utf-8',
+          },
+        ],
+      },
     ];
   },
 };
 
-module.exports = nextConfig;
+// `withBundleAnalyzer` is a no-op when `ANALYZE` is not 'true'; when it
+// is, it returns a wrapper around `nextConfig` that injects the official
+// Webpack Bundle Analyzer plugin. This replaces the previous manual
+// `config.plugins.push(new BundleAnalyzerPlugin(...))` so the plugin is
+// registered exactly once.
+module.exports = withBundleAnalyzer(nextConfig);

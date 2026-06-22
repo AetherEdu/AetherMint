@@ -1,9 +1,22 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { GetServerSideProps, NextPage } from 'next';
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { ChatAssistant } from '@/components/Chat/ChatAssistant';
 import { useCourseStore } from '@/store/courseStore';
 
-const ChatAssistantPage: React.FC = () => {
-  const { currentCourse, loadAvailableCourses, setCurrentCourse } = useCourseStore();
+export const getServerSideProps: GetServerSideProps = async ({ locale }) => ({
+  props: {
+    ...(await serverSideTranslations(locale ?? 'en', [
+      'common',
+      'navigation',
+    ])),
+  },
+});
+
+const ChatAssistantPage: NextPage = () => {
+  const { t } = useTranslation(['common']);
+  const { loadAvailableCourses, setCurrentCourse } = useCourseStore();
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -30,7 +43,9 @@ const ChatAssistantPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">AI Learning Assistant</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {t('chat.title', 'AI Learning Assistant')}
+              </h1>
             </div>
             
             {/* Mobile menu button */}
@@ -51,8 +66,10 @@ const ChatAssistantPage: React.FC = () => {
           {/* Course Selection Sidebar */}
           <aside className={`${isMobileMenuOpen ? 'block' : 'hidden'} lg:block lg:col-span-1`}>
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Course</h2>
-              
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                {t('chat.selectCourse', 'Select Course')}
+              </h2>
+
               <div className="space-y-2">
                 <button
                   onClick={() => {
@@ -66,7 +83,7 @@ const ChatAssistantPage: React.FC = () => {
                       : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
-                  General Chat
+                  {t('chat.generalChat', 'General Chat')}
                 </button>
                 
                 {availableCourses.map((course) => (
@@ -87,16 +104,22 @@ const ChatAssistantPage: React.FC = () => {
 
               {/* Study Stats */}
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Your Progress</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                {t('chat.yourProgress', 'Your Progress')}
+              </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Study Streak</span>
+                    <span className="text-gray-600">
+                      {t('chat.studyStreak', 'Study Streak')}
+                    </span>
                     <span className="font-medium text-gray-900">
                       {useCourseStore.getState().studyStreak} days
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total Study Time</span>
+                    <span className="text-gray-600">
+                      {t('chat.totalStudyTime', 'Total Study Time')}
+                    </span>
                     <span className="font-medium text-gray-900">
                       {Math.floor(useCourseStore.getState().totalStudyTime / 60)}h {useCourseStore.getState().totalStudyTime % 60}m
                     </span>

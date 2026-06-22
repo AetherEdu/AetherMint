@@ -71,7 +71,8 @@ pub struct CommitmentData {
     pub created_at: u64,
 }
 
-#[contract]
+// Contract attributes disabled - see lib.rs for main contract
+// #[contract]
 pub struct VRFSystem;
 
 #[contractimpl]
