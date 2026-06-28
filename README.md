@@ -129,6 +129,22 @@ cd ../frontend
 npm run dev
 ```
 
+## 📐 Architecture Decision Records
+
+Significant architectural decisions are documented as Architecture Decision Records (ADRs) in [`docs/adr/`](docs/adr/).
+
+| ADR | Decision | Status |
+|-----|----------|--------|
+| [001](docs/adr/001-stellar-soroban-choice.md) | Stellar/Soroban over Ethereum/EVM | Accepted |
+| [002](docs/adr/002-dual-database-strategy.md) | Dual database (PostgreSQL + MongoDB) | Accepted |
+| [003](docs/adr/003-ipfs-storage.md) | IPFS for decentralized content storage | Accepted |
+| [004](docs/adr/004-federated-learning.md) | Federated learning for AI/ML features | Accepted |
+| [005](docs/adr/005-quantum-resistant-crypto.md) | Quantum-resistant cryptography | Proposed |
+| [006](docs/adr/006-architecture-style.md) | Microservices-lite architecture | Accepted |
+| [007](docs/adr/007-typescript-strategy.md) | TypeScript gradual migration | Accepted |
+
+See the [ADR index](docs/adr/README.md) for details.
+
 ## 📁 Project Structure
 
 ```
