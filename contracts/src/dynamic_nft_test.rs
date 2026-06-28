@@ -287,7 +287,7 @@ fn test_transfer_nft_emits_event() {
         String::from_str(&env, "QmInitial"),
     );
 
-    transfer_nft(&env, owner, new_owner, token_id);
+    transfer_nft(&env, owner, new_owner.clone(), token_id);
 
     // Verify transfer succeeded
     assert_eq!(owner_of(&env, token_id), new_owner);
@@ -462,7 +462,7 @@ fn test_rarity_tier_progression() {
 
     // Add many achievements to potentially change rarity
     for i in 1..=50 {
-        evolve_nft(&env, token_id, i, String::from_str(&env, &alloc::format!("QmMetadata{}", i)));
+        evolve_nft(&env, token_id, i, String::from_str(&env, &fmt_metadata(i as u64)));
     }
 
     let evolved_nft = get_nft(&env, token_id);
@@ -487,7 +487,7 @@ fn test_evolution_stage_progression() {
 
     // Add achievements to progress evolution
     for i in 1..=30 {
-        evolve_nft(&env, token_id, i, String::from_str(&env, &alloc::format!("QmMetadata{}", i)));
+        evolve_nft(&env, token_id, i, String::from_str(&env, &fmt_metadata(i as u64)));
     }
 
     let evolved_nft = get_nft(&env, token_id);
@@ -512,7 +512,7 @@ fn test_experience_points_accumulation() {
 
     // Add achievements
     for i in 1..=10 {
-        evolve_nft(&env, token_id, i, String::from_str(&env, &alloc::format!("QmMetadata{}", i)));
+        evolve_nft(&env, token_id, i, String::from_str(&env, &fmt_metadata(i as u64)));
     }
 
     let evolved_nft = get_nft(&env, token_id);
@@ -557,6 +557,6 @@ fn test_multiple_transfers() {
     transfer_nft(&env, owner1.clone(), owner2.clone(), token_id);
     assert_eq!(owner_of(&env, token_id), owner2);
 
-    transfer_nft(&env, owner2, owner3, token_id);
+    transfer_nft(&env, owner2, owner3.clone(), token_id);
     assert_eq!(owner_of(&env, token_id), owner3);
 }

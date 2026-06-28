@@ -183,7 +183,7 @@ fn test_multiple_credentials_same_user() {
     let cred3 = issue_credential(
         &env,
         admin,
-        recipient,
+        recipient.clone(),
         String::from_str(&env, "Course 3"),
         String::from_str(&env, "Desc 3"),
         String::from_str(&env, "course-003"),

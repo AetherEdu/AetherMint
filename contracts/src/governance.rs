@@ -402,7 +402,7 @@ impl Governance {
         let now = env.ledger().timestamp();
         env.events().publish(
             (symbol_short!("govern"), symbol_short!("deposit")),
-            (from, amount, new_balance, now),
+            (amount, new_balance, now),
         );
     }
 
