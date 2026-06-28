@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   AreaChart,
   Area,
@@ -14,6 +14,8 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Download } from 'lucide-react';
+import { exportData, ExportFormat } from '@/utils/dataExport';
 
 interface ChartData {
   date: string;
@@ -33,6 +35,48 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
   credentialData,
   loading
 }) => {
+  const [exportMenu, setExportMenu] = useState<string | null>(null);
+
+  const handleChartExport = (chartName: string, chartData: ChartData[], format: ExportFormat) => {
+    setExportMenu(null);
+    if (chartData.length === 0) return;
+    exportData({
+      data: chartData.map((d) => ({ Date: d.date, Value: d.value })),
+      format,
+      filename: chartName.toLowerCase().replace(/\s+/g, '-'),
+    });
+  };
+
+  const renderExportMenu = (chartName: string, chartData: ChartData[]) => (
+    <div className="relative">
+      <button
+        onClick={() => setExportMenu(exportMenu === chartName ? null : chartName)}
+        className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 transition-colors"
+        aria-label={`Export ${chartName} data`}
+      >
+        <Download className="w-4 h-4" />
+      </button>
+      {exportMenu === chartName && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setExportMenu(null)} />
+          <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50 py-1">
+            <button
+              onClick={() => handleChartExport(chartName, chartData, 'csv')}
+              className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-700"
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={() => handleChartExport(chartName, chartData, 'json')}
+              className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-700"
+            >
+              Export JSON
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
   const renderTableFallback = (data: ChartData[], title: string) => (
     <div className="sr-only">
       <h4>{title} Data Table</h4>
@@ -73,7 +117,10 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
       {/* User Growth Chart */}
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>User Growth</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>User Growth</CardTitle>
+            {renderExportMenu('User Growth', userGrowthData)}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-[300px] w-full">
@@ -108,7 +155,10 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
       {/* Course Enrollments Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Course Enrollments</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Course Enrollments</CardTitle>
+            {renderExportMenu('Course Enrollments', enrollmentData)}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-[300px] w-full">
@@ -130,7 +180,10 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
       {/* Credential Issuances Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Credential Issuances</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Credential Issuances</CardTitle>
+            {renderExportMenu('Credential Issuances', credentialData)}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-[300px] w-full">

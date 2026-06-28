@@ -3,11 +3,11 @@
 import { useState, useMemo } from 'react';
 import { Credential } from '../types/profile';
 import { useProfile } from '../hooks/useProfile';
-import { 
-  Award, 
-  CheckCircle, 
-  Clock, 
-  XCircle, 
+import {
+  Award,
+  CheckCircle,
+  Clock,
+  XCircle,
   AlertCircle,
   ExternalLink,
   Download,
@@ -18,8 +18,9 @@ import {
   Building,
   Tag,
   FileText,
-  Shield
+  Shield,
 } from 'lucide-react';
+import { ExportButton } from '../Analytics/ExportButton';
 
 interface CredentialListProps {
   credentials?: Credential[];
@@ -137,6 +138,22 @@ export function CredentialList({
     return { total, verified, pending, expired };
   }, [credentials]);
 
+  // Prepare data for export
+  const exportData = useMemo(() => {
+    return (credentials || []).map((cred) => ({
+      Title: cred.title,
+      Issuer: cred.issuer,
+      Type: cred.type,
+      Status: cred.verificationStatus,
+      'Issue Date': new Date(cred.issueDate).toLocaleDateString(),
+      'Expiry Date': cred.expiryDate
+        ? new Date(cred.expiryDate).toLocaleDateString()
+        : 'N/A',
+      Skills: cred.skills.join('; '),
+      'Verification URL': cred.verificationUrl || '',
+    }));
+  }, [credentials]);
+
   const handleVerifyCredential = async (credentialId: string) => {
     await updateCredentialStatus(credentialId, 'pending');
   };
@@ -198,15 +215,22 @@ export function CredentialList({
             <Award className="h-6 w-6 text-blue-500" />
             Credentials
           </h2>
-          {showAddButton && (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Credential
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <ExportButton
+              data={exportData}
+              filename="credentials"
+              variant="outline"
+            />
+            {showAddButton && (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Credential
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats Grid */}
