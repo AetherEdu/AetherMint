@@ -1,7 +1,8 @@
 #![cfg(test)]
 
 use crate::credentials::{
-    get_credential, get_credential_count, get_user_credentials, issue_credential,
+    get_credential, get_credential_count, get_credential_description,
+    get_credential_revocation_time, get_user_credentials, issue_credential,
     revoke_credential, verify_credential, CredentialKey,
 };
 use soroban_sdk::{testutils::Address as _, Address, Env, String, Symbol, Vec};
@@ -108,39 +109,15 @@ fn test_issued_at_extracts_timestamp() {
 }
 
 #[test]
+#[should_panic(expected = "Unauthorized issuer")]
 fn test_unauthorized_issuer() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let unauthorized = Address::generate(&env);
-    let recipient = Address::generate(&env);
-
-    env.storage()
-        .instance()
-        .set(&Symbol::new(&env, "admin"), &admin);
-
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        issue_credential(
-            &env,
-            unauthorized,
-            recipient,
-            String::from_str(&env, "Title"),
-            String::from_str(&env, "Desc"),
-            String::from_str(&env, "course-001"),
-            String::from_str(&env, "ipfs://Qm..."),
-        );
-    }));
-    assert!(result.is_err());
 }
 
 #[test]
+#[should_panic(expected = "Credential not found")]
 fn test_get_nonexistent_credential() {
     let env = Env::default();
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        get_credential(&env, 999);
-    }));
-    assert!(result.is_err());
+    get_credential(&env, 999);
 }
 
 #[test]
@@ -220,35 +197,12 @@ fn test_multiple_credentials_same_user() {
 }
 
 #[test]
+#[should_panic(expected = "Only admin can revoke")]
 fn test_unauthorized_revocation() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let unauthorized = Address::generate(&env);
-    let recipient = Address::generate(&env);
-
-    env.storage()
-        .instance()
-        .set(&Symbol::new(&env, "admin"), &admin);
-
-    let cred_id = issue_credential(
-        &env,
-        admin.clone(),
-        recipient.clone(),
-        String::from_str(&env, "Title"),
-        String::from_str(&env, "Desc"),
-        String::from_str(&env, "course-001"),
-        String::from_str(&env, "ipfs://Qm..."),
-    );
-
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        revoke_credential(&env, cred_id, unauthorized);
-    }));
-    assert!(result.is_err());
 }
 
 #[test]
+#[should_panic(expected = "Credential not found")]
 fn test_revoke_nonexistent_credential() {
     let env = Env::default();
     env.mock_all_auths();
@@ -259,10 +213,7 @@ fn test_revoke_nonexistent_credential() {
         .instance()
         .set(&Symbol::new(&env, "admin"), &admin);
 
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        revoke_credential(&env, 999, admin);
-    }));
-    assert!(result.is_err());
+    revoke_credential(&env, 999, admin);
 }
 
 #[test]

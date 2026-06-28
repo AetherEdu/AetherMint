@@ -4,6 +4,15 @@ use crate::{AetherMintContract, AetherMintContractClient};
 use crate::utils::pause::{PausedEvent, UnpausedEvent};
 use soroban_sdk::{testutils::{Address as _, Ledger, Events}, symbol_short, Address, Env, String, IntoVal};
 
+fn count_events(env: &Env) -> usize {
+    let mut count = 0;
+    let events = env.events().all();
+    for _ in events {
+        count += 1;
+    }
+    count
+}
+
 fn setup_test() -> (Env, AetherMintContractClient, Address) {
     let env = Env::default();
     env.mock_all_auths();
@@ -88,13 +97,11 @@ fn test_events_emitted_correctly() {
 
     client.pause(&admin);
 
-    let events = env.events().all();
-    assert!(events.len() > 0);
+    assert!(count_events(&env) > 0);
 
     client.unpause(&admin);
     
-    let events = env.events().all();
-    assert!(events.len() > 0);
+    assert!(count_events(&env) > 0);
 }
 
 #[test]
