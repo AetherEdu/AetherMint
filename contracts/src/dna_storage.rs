@@ -1,3 +1,37 @@
+//! # DNA Storage Module
+//!
+//! Biomimetic credential storage inspired by DNA encoding. Encodes credentials
+//! as synthetic DNA sequences with error correction, indexing primers, and
+//! integrity verification. Supports multiple storage protocols and checkpoint/
+//! rollback functionality.
+//!
+//! ## Key Features
+//!
+//! - **DNA encoding**: Converts binary credential data to nucleotide sequences
+//!   (2 bits per base: A=00, C=01, G=10, T=11).
+//! - **Error correction**: Supports None, Basic (parity), Reed-Solomon, and
+//!   Hybrid (parity + Reed-Solomon) levels.
+//! - **Storage protocols**: Standard, Indexed (with primers), Redundant, and
+//!   Hybrid (DNA + blockchain reference).
+//! - **Integrity verification**: SHA-256 hashes and sequence checksums.
+//! - **Checkpoints**: Up to [`MAX_CHECKPOINTS`] snapshots with rollback capability.
+//!
+//! ## Nucleotide Encoding
+//!
+//! | Bits | Base |
+//! |---|---|
+//! | 00 | Adenine (A) |
+//! | 01 | Cytosine (C) |
+//! | 10 | Guanine (G) |
+//! | 11 | Thymine (T) |
+//!
+//! ## Checkpoint System
+//!
+//! The checkpoint system (exposed via [`create_checkpoint`], [`restore_checkpoint`],
+//! [`list_checkpoints`], and [`delete_checkpoint`]) captures full DNA storage state
+//! snapshots limited to [`MAX_CHECKPOINTS`] entries. Each snapshot is integrity-verified
+//! on creation and restoration.
+
 use crate::credentials::CredentialKey;
 use soroban_sdk::{contracttype, panic_with_error, Address, Env, String, Symbol, Vec};
 
@@ -120,7 +154,17 @@ pub enum DNAEvent {
     Decoded(u64),     // credential_id
 }
 
-/// Encode digital data to DNA sequence
+/// Encode arbitrary binary data into a DNA nucleotide sequence with the
+/// specified error correction level and storage protocol.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `data` - Binary data to encode.
+/// * `error_correction` - Error correction level for the encoding.
+/// * `protocol` - Storage protocol to apply.
+///
+/// # Returns
+/// The encoded [`DNASequence`] with metadata.
 pub fn encode_to_dna(
     env: &Env,
     data: &Vec<u8>,
@@ -190,7 +234,17 @@ pub fn encode_to_dna(
     }
 }
 
-/// Decode DNA sequence back to digital data
+/// Decode a DNA sequence back to the original binary data.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `dna_sequence` - The DNA sequence to decode.
+///
+/// # Panics
+/// Panics if the sequence checksum verification fails.
+///
+/// # Returns
+/// The decoded binary data.
 pub fn decode_from_dna(env: &Env, dna_sequence: &DNASequence) -> Vec<u8> {
     // Verify checksum
     let calculated_checksum = calculate_dna_checksum(env, &dna_sequence.sequence);
@@ -233,7 +287,19 @@ pub fn decode_from_dna(env: &Env, dna_sequence: &DNASequence) -> Vec<u8> {
     remove_error_correction(env, &decoded_data, error_level)
 }
 
-/// Store credential in DNA format
+/// Store a credential in DNA-encoded format with advanced error correction.
+///
+/// # Parameters
+/// * `credential_id` - The credential to encode and store.
+/// * `issuer` - Must authorize the call.
+/// * `recipient` - The credential recipient.
+/// * `title` - Credential title.
+/// * `description` - Credential description.
+/// * `course_id` - Associated course.
+/// * `ipfs_hash` - IPFS content hash.
+///
+/// # Returns
+/// The credential ID.
 pub fn store_credential_in_dna(
     env: &Env,
     credential_id: u64,
@@ -332,7 +398,10 @@ pub fn store_credential_in_dna(
     credential_id
 }
 
-/// Verify DNA-stored credential
+/// Verify a DNA-stored credential by decoding and checking the integrity hash.
+///
+/// # Returns
+/// `true` if the credential decodes successfully and the integrity hash matches.
 pub fn verify_dna_credential(env: &Env, credential_id: u64) -> bool {
     let dna_credential: DNACredential = env
         .storage()
@@ -359,7 +428,10 @@ pub fn verify_dna_credential(env: &Env, credential_id: u64) -> bool {
     }
 }
 
-/// Retrieve credential from DNA storage
+/// Retrieve a credential from DNA storage, decoding it back to binary data.
+///
+/// # Returns
+/// The decoded binary credential data.
 pub fn retrieve_credential_from_dna(env: &Env, credential_id: u64) -> Vec<u8> {
     let dna_credential: DNACredential = env
         .storage()
@@ -379,7 +451,7 @@ pub fn retrieve_credential_from_dna(env: &Env, credential_id: u64) -> Vec<u8> {
     decoded_data
 }
 
-/// Get user's DNA-stored credentials
+/// Get all DNA-stored credential IDs for a user.
 pub fn get_user_dna_credentials(env: &Env, user: Address) -> Vec<u64> {
     env.storage()
         .persistent()

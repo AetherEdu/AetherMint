@@ -1,5 +1,34 @@
-use soroban_sdk::{contracttype, Address, Env, String, Vec, Symbol, Map};
+//! # Governance Module
+//!
+//! DAO-style on-chain governance with proposal creation, quadratic voting,
+//! timelock execution, and treasury management.
+//!
+//! ## Key Features
+//!
+//! - **Quadratic voting**: Voting power is computed as `sqrt(token_balance) +
+//!   reputation`, rewarding broad participation.
+//! - **Timelock**: Succeeded proposals must wait through a configurable timelock
+//!   before execution, giving stakeholders time to react.
+//! - **Expiry window**: Proposals that are not executed within the expiry window
+//!   after their end time are marked expired.
+//! - **Delegation**: Token holders may delegate their voting power to another
+//!   address.
+//! - **Treasury**: A simple on-chain treasury with deposit and withdrawal.
+//!
+//! ## Default Constants
+//!
+//! | Constant | Value | Description |
+//! |---|---|---|
+//! | `DEFAULT_TIMELOCK_DELAY` | 86,400s (1 day) | Default delay before execution |
+//! | `MIN_VOTING_PERIOD` | 3,600s (1 hour) | Shortest allowed voting period |
+//! | `MAX_VOTING_PERIOD` | 2,592,000s (30 days) | Longest allowed voting period |
+//! | `EXPIRY_WINDOW` | 604,800s (7 days) | Time after end_time before expiry |
+
+use soroban_sdk::{contracttype, symbol_short, Address, Bytes, Env, String, Vec, Symbol, Map};
 use crate::utils::pause::PauseUtils;
+use crate::utils::validation::{
+    validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH,
+};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -69,6 +98,15 @@ const EXPIRY_WINDOW: u64 = 604_800;
 pub struct Governance;
 
 impl Governance {
+    /// Calculate a voter's governance power using quadratic voting.
+    ///
+    /// `voting_power = sqrt(token_balance) + reputation`
+    ///
+    /// # Parameters
+    /// * `env` - Soroban environment.
+    /// * `voter` - The address whose power is being computed.
+    /// * `token` - The governance token contract address.
+    /// * `reputation` - The voter's on-chain reputation score.
     pub fn get_voting_power(env: &Env, voter: Address, token: Address, reputation: u64) -> i128 {
         let token_client = soroban_sdk::token::Client::new(env, &token);
         let token_balance = token_client.balance(&voter);
@@ -80,6 +118,18 @@ impl Governance {
         sqrt_balance + reputation_power
     }
 
+    /// Create a new governance proposal.
+    ///
+    /// # Parameters
+    /// * `proposer` - The address creating the proposal.
+    /// * `title` - Proposal title.
+    /// * `description` - Longer description.
+    /// * `action_data` - Encoded action to execute if the proposal passes.
+    /// * `voting_period` - Duration in seconds (between MIN and MAX).
+    /// * `quorum` - Minimum total votes required.
+    ///
+    /// # Returns
+    /// The newly assigned proposal ID.
     pub fn create_proposal(
         env: Env,
         proposer: Address,
@@ -145,6 +195,13 @@ impl Governance {
         id
     }
 
+    /// Cast a vote on a proposal.
+    ///
+    /// # Parameters
+    /// * `voter` - Address casting the vote.
+    /// * `proposal_id` - The proposal to vote on.
+    /// * `support` - 0=Against, 1=For, 2=Abstain.
+    /// * `voting_power` - The voter's power (computed via `get_voting_power`).
     pub fn cast_vote(
         env: Env,
         voter: Address,
@@ -201,6 +258,10 @@ impl Governance {
         );
     }
 
+    /// Execute a succeeded proposal after its timelock delay.
+    ///
+    /// The proposal must be in Succeeded or Queued state with an elapsed
+    /// timelock and within the expiry window.
     pub fn execute_proposal(env: Env, proposal_id: u64) {
         PauseUtils::require_not_paused(&env);
         let mut proposal: Proposal = env.storage().instance()
@@ -292,6 +353,7 @@ impl Governance {
         }
     }
 
+    /// Get the full [`Proposal`] struct by ID.
     pub fn get_proposal(env: &Env, proposal_id: u64) -> Proposal {
         env.storage()
             .instance()
@@ -299,6 +361,7 @@ impl Governance {
             .unwrap_or_else(|| panic!("Proposal not found"))
     }
 
+    /// Delegate voting power from one address to another.
     pub fn delegate(env: Env, from: Address, to: Address) {
         PauseUtils::require_not_paused(&env);
         from.require_auth();
@@ -317,6 +380,7 @@ impl Governance {
         );
     }
 
+    /// Get the delegate for a voter, or the voter itself if no delegate is set.
     pub fn get_delegate(env: &Env, voter: Address) -> Address {
         env.storage()
             .instance()
@@ -324,6 +388,7 @@ impl Governance {
             .unwrap_or(voter)
     }
 
+    /// Deposit funds into the governance treasury.
     pub fn deposit_to_treasury(env: Env, amount: i128) {
         PauseUtils::require_not_paused(&env);
         let current: i128 = env.storage().instance()
@@ -341,6 +406,8 @@ impl Governance {
         );
     }
 
+    /// Withdraw funds from the governance treasury. Should only be called
+    /// during proposal execution.
     pub fn withdraw_from_treasury(env: Env, amount: i128, recipient: Address) {
         // This should only be called by the contract itself during proposal execution
         PauseUtils::require_not_paused(&env);

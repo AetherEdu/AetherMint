@@ -1,9 +1,25 @@
-//! Proctoring session lifecycle and result verification.
+//! # Proctoring Module
 //!
-//! This module records the on-chain state for proctored exams so a later
-//! credential issuance can be linked back to the verified session. It is kept
-//! as a free-function module and surfaced through `AetherMintContract`
-//! wrappers in `lib.rs`.
+//! Proctoring session lifecycle and result verification for high-stakes exams.
+//! Records on-chain state so credential issuance can be linked back to verified
+//! proctoring sessions.
+//!
+//! ## Flow
+//!
+//! 1. [`start_proctoring_session`] — Student and proctor both authorize a new session.
+//! 2. [`submit_proctoring_result`] — Proctor submits the result with a cryptographic signature.
+//! 3. (*Optional*) [`challenge_proctoring_result`] — A challenger disputes the result.
+//! 4. (*Optional*) [`resolve_challenge`] — Admin resolves the challenge (Upheld / Overturned).
+//! 5. [`register_proctored_credential`] — Link a completed (or upheld) session to a credential.
+//!
+//! ## Storage
+//!
+//! Sessions and results are stored in persistent storage. Session count is kept
+//! in instance storage. The `ProctoringKey` enum provides type-safe storage keys.
+//!
+//! ## Error Handling
+//!
+//! All errors use typed [`ProctoringError`] variants via [`soroban_sdk::panic_with_error`].
 
 use crate::credential_registry;
 use crate::utils::validation::{
@@ -15,6 +31,7 @@ use soroban_sdk::{
 };
 use crate::utils::pause::PauseUtils;
 
+/// Typed proctoring errors.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -31,6 +48,7 @@ pub enum ProctoringError {
     AdminNotSet = 10,
 }
 
+/// Proctoring session lifecycle states.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProctoringStatus {
@@ -41,13 +59,17 @@ pub enum ProctoringStatus {
     Resolved,
 }
 
+/// Resolution outcome for a challenged proctoring result.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ChallengeResolution {
+    /// Exam result remains valid.
     Upheld,
+    /// Exam result is invalidated.
     Overturned,
 }
 
+/// On-chain representation of a proctoring session.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProctoringSession {
@@ -63,91 +85,108 @@ pub struct ProctoringSession {
     pub linked_credential_id: Option<u64>,
 }
 
+/// A submitted proctoring result with proctor signature.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProctoringResult {
     pub session_id: u64,
-    pub timestamp: u64,
-    pub event_type: String,
-    pub data_hash: BytesN<32>, // Hash of encrypted behavioral data
+    pub result_data: String,
+    pub proctor_signature: BytesN<64>,
+    pub submitted_at: u64,
 }
 
-// Contract attribute disabled - this is a module used by main contract in lib.rs
-// #[contract]
-pub struct ProctoringContract;
-
-#[contractimpl]
-impl ProctoringContract {
-    /// Initialize a new assessment session
-    pub fn start_session(
-        env: Env,
-        student: Address,
-        assessment_id: String,
-        identity_hash: BytesN<32>,
-    ) -> u64 {
-        PauseUtils::require_not_paused(&env);
-        student.require_auth();
-
-        let session_id = env
-            .storage()
-            .instance()
-            .get(&ProctoringKey::SessionCount)
-            .unwrap_or(0u64)
-            + 1;
-
-        let session = AssessmentSession {
-            id: session_id,
-            student: student.clone(),
-            assessment_id,
-            start_time: env.ledger().timestamp(),
-            end_time: None,
-            identity_hash,
-            status: 1, // Active
-        };
-
-        env.storage()
-            .instance()
-            .set(&ProctoringKey::Session(session_id), &session);
-        env.storage()
-            .instance()
-            .set(&ProctoringKey::SessionCount, &session_id);
-
-        env.events().publish(
-            (symbol_short!("proctor"), symbol_short!("start")),
-            (session_id, student),
-        );
-
-        session_id
-    }
+/// A challenge filed against a proctoring result.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProctoringChallenge {
+    pub session_id: u64,
+    pub challenger: Address,
+    pub evidence: String,
+    pub challenged_at: u64,
 }
 
-    /// Log a behavioral event for the audit trail
-    pub fn log_behavioral_event(
-        env: Env,
-        session_id: u64,
-        event_type: String,
-        data_hash: BytesN<32>,
-    ) {
-        PauseUtils::require_not_paused(&env);
-        let session: AssessmentSession = env
-            .storage()
-            .instance()
-            .get(&ProctoringKey::Session(session_id))
-            .unwrap_or_else(|| panic!("Session not found"));
+/// Record of an admin's resolution of a challenge.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProctoringResolutionRecord {
+    pub session_id: u64,
+    pub admin: Address,
+    pub resolution: ChallengeResolution,
+    pub resolved_at: u64,
+}
 
-        session.student.require_auth();
+/// Type-safe storage keys for the proctoring module.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ProctoringKey {
+    SessionCount,
+    Session(u64),
+    SessionResult(u64),
+    SessionChallenge(u64),
+    SessionResolution(u64),
+    SessionCredential(u64),
+}
 
-        if session.status != 1 {
-            panic!("Session is not active");
-        }
+// ===== Internal Helpers =====
 
+/// Retrieve a session by ID, panicking if not found.
+fn require_session(env: &Env, session_id: u64) -> ProctoringSession {
+    env.storage()
+        .persistent()
+        .get(&ProctoringKey::Session(session_id))
+        .unwrap_or_else(|| panic_with_error!(env, ProctoringError::SessionNotFound))
+}
+
+/// Store (or update) a session in persistent storage.
+fn store_session(env: &Env, session: &ProctoringSession) {
+    env.storage()
+        .persistent()
+        .set(&ProctoringKey::Session(session.id), session);
+}
+
+/// Return the most recently assigned session ID (0 if none).
+fn latest_session_id(env: &Env) -> u64 {
+    env.storage()
+        .instance()
+        .get(&ProctoringKey::SessionCount)
+        .unwrap_or(0)
+}
+
+/// Set the session count in instance storage.
 fn set_session_count(env: &Env, session_id: u64) {
     env.storage()
         .instance()
         .set(&ProctoringKey::SessionCount, &session_id);
 }
 
-/// Initiate a new proctoring session for an exam.
+/// Require that `caller` is the contract admin.
+fn require_admin(env: &Env, admin: &Address) {
+    let actual_admin: Address = env
+        .storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .unwrap_or_else(|| panic_with_error!(env, ProctoringError::AdminNotSet));
+
+    if admin != &actual_admin {
+        panic_with_error!(env, ProctoringError::Unauthorized);
+    }
+    admin.require_auth();
+}
+
+// ===== Public Free Functions =====
+
+/// Start a new proctoring session for an exam.
+///
+/// Both the student and proctor must authorize the call.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `exam_id` - Unique identifier for the exam.
+/// * `student` - The address being proctored.
+/// * `proctor` - The proctor supervising the session.
+///
+/// # Returns
+/// The newly assigned session ID.
 pub fn start_proctoring_session(
     env: &Env,
     exam_id: String,
@@ -186,7 +225,16 @@ pub fn start_proctoring_session(
     session_id
 }
 
-/// Record the proctor's submitted result for a session.
+/// Submit the proctoring result for a session.
+///
+/// Only the session's proctor may submit. The session must be in Pending or
+/// InProgress state.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `session_id` - The session to submit results for.
+/// * `result_data` - Encoded proctoring result data.
+/// * `proctor_signature` - Cryptographic signature from the proctor.
 pub fn submit_proctoring_result(
     env: &Env,
     session_id: u64,
@@ -204,23 +252,15 @@ pub fn submit_proctoring_result(
         panic_with_error!(env, ProctoringError::InvalidSessionState);
     }
 
-    /// Complete the session and lock the result
-    pub fn complete_session(env: Env, session_id: u64, result_hash: BytesN<32>) {
-        PauseUtils::require_not_paused(&env);
-        let mut session: AssessmentSession = env
-            .storage()
-            .instance()
-            .get(&ProctoringKey::Session(session_id))
-            .unwrap_or_else(|| panic!("Session not found"));
-
     session.status = ProctoringStatus::InProgress;
     store_session(env, &session);
 
+    let now = env.ledger().timestamp();
     let result = ProctoringResult {
         session_id,
         result_data: result_data.clone(),
         proctor_signature,
-        submitted_at: env.ledger().timestamp(),
+        submitted_at: now,
     };
 
     env.storage()
@@ -228,7 +268,7 @@ pub fn submit_proctoring_result(
         .set(&ProctoringKey::SessionResult(session_id), &result);
 
     session.status = ProctoringStatus::Completed;
-    session.completed_at = Some(result.submitted_at);
+    session.completed_at = Some(now);
     store_session(env, &session);
 
     env.events().publish(
@@ -237,7 +277,13 @@ pub fn submit_proctoring_result(
     );
 }
 
-/// File a challenge against a completed proctoring result.
+/// Challenge a completed proctoring result with evidence.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `session_id` - The session to challenge.
+/// * `challenger` - Address filing the challenge (must authorize).
+/// * `evidence` - Evidence supporting the challenge.
 pub fn challenge_proctoring_result(
     env: &Env,
     session_id: u64,
@@ -253,27 +299,6 @@ pub fn challenge_proctoring_result(
     if session.linked_credential_id.is_some() {
         panic_with_error!(env, ProctoringError::CredentialAlreadyLinked);
     }
-
-    /// Proctor attestation for high-stakes exams
-    pub fn attest_session(
-        env: Env,
-        proctor: Address,
-        session_id: u64,
-        flagged: bool,
-        notes_hash: BytesN<32>,
-    ) {
-        PauseUtils::require_not_paused(&env);
-        proctor.require_auth();
-
-        let mut session: AssessmentSession = env
-            .storage()
-            .instance()
-            .get(&ProctoringKey::Session(session_id))
-            .unwrap_or_else(|| panic!("Session not found"));
-
-        if flagged {
-            session.status = 3; // Flagged
-        }
 
     if env
         .storage()
@@ -292,11 +317,12 @@ pub fn challenge_proctoring_result(
         panic_with_error!(env, ProctoringError::ChallengeAlreadyFiled);
     }
 
+    let now = env.ledger().timestamp();
     let challenge = ProctoringChallenge {
         session_id,
         challenger: challenger.clone(),
         evidence: evidence.clone(),
-        challenged_at: env.ledger().timestamp(),
+        challenged_at: now,
     };
 
     env.storage()
@@ -304,7 +330,7 @@ pub fn challenge_proctoring_result(
         .set(&ProctoringKey::SessionChallenge(session_id), &challenge);
 
     session.status = ProctoringStatus::Challenged;
-    session.challenged_at = Some(challenge.challenged_at);
+    session.challenged_at = Some(now);
     store_session(env, &session);
 
     env.events().publish(
@@ -313,7 +339,16 @@ pub fn challenge_proctoring_result(
     );
 }
 
-/// Resolve a challenge. `Upheld` means the exam result remains valid.
+/// Resolve a pending proctoring challenge as the admin.
+///
+/// `ChallengeResolution::Upheld` means the exam result remains valid.
+/// `ChallengeResolution::Overturned` means the exam result is invalidated.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `session_id` - The challenged session.
+/// * `resolution` - The admin's resolution.
+/// * `admin` - Must be the stored contract admin.
 pub fn resolve_challenge(
     env: &Env,
     session_id: u64,
@@ -345,11 +380,12 @@ pub fn resolve_challenge(
         panic_with_error!(env, ProctoringError::ResolutionAlreadyRecorded);
     }
 
+    let now = env.ledger().timestamp();
     let resolution_record = ProctoringResolutionRecord {
         session_id,
         admin: admin.clone(),
         resolution: resolution.clone(),
-        resolved_at: env.ledger().timestamp(),
+        resolved_at: now,
     };
 
     env.storage()
@@ -357,7 +393,7 @@ pub fn resolve_challenge(
         .set(&ProctoringKey::SessionResolution(session_id), &resolution_record);
 
     session.status = ProctoringStatus::Resolved;
-    session.resolved_at = Some(resolution_record.resolved_at);
+    session.resolved_at = Some(now);
     store_session(env, &session);
 
     env.events().publish(
@@ -366,7 +402,15 @@ pub fn resolve_challenge(
     );
 }
 
-/// Link a proctored credential issuance to a verified session.
+/// Link a credential issuance to a verified proctoring session.
+///
+/// The session must be Completed, or Resolved with an Upheld resolution.
+/// The credential must already exist in the credential registry.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `session_id` - The verified proctoring session.
+/// * `credential_id` - The credential to link.
 pub fn register_proctored_credential(
     env: &Env,
     session_id: u64,
@@ -416,6 +460,10 @@ pub fn register_proctored_credential(
     );
 }
 
+/// Check whether a proctoring session is eligible for credential issuance.
+///
+/// # Returns
+/// `true` if the session is Completed, or Resolved with an Upheld resolution.
 pub fn proctored_credential_is_eligible(env: &Env, session_id: u64) -> bool {
     let session = require_session(env, session_id);
     match session.status {
@@ -435,22 +483,26 @@ pub fn proctored_credential_is_eligible(env: &Env, session_id: u64) -> bool {
     }
 }
 
+/// Get the full details of a proctoring session by ID.
 pub fn get_proctoring_session(env: &Env, session_id: u64) -> ProctoringSession {
     require_session(env, session_id)
 }
 
+/// Get the proctoring result for a session, if submitted.
 pub fn get_proctoring_result(env: &Env, session_id: u64) -> Option<ProctoringResult> {
     env.storage()
         .persistent()
         .get(&ProctoringKey::SessionResult(session_id))
 }
 
+/// Get the pending challenge for a session, if one exists.
 pub fn get_proctoring_challenge(env: &Env, session_id: u64) -> Option<ProctoringChallenge> {
     env.storage()
         .persistent()
         .get(&ProctoringKey::SessionChallenge(session_id))
 }
 
+/// Get the challenge resolution record for a session, if resolved.
 pub fn get_proctoring_resolution(
     env: &Env,
     session_id: u64,
@@ -460,6 +512,7 @@ pub fn get_proctoring_resolution(
         .get(&ProctoringKey::SessionResolution(session_id))
 }
 
+/// Get the total number of proctoring sessions created.
 pub fn get_proctoring_session_count(env: &Env) -> u64 {
     latest_session_id(env)
 }

@@ -1,3 +1,20 @@
+//! # Credential Core Module
+//!
+//! Core credential lifecycle management: issuance, verification, and revocation.
+//! Uses packed storage with bit-packing for revocation status to minimize on-chain
+//! storage footprint.
+//!
+//! ## Key Design Decisions
+//!
+//! - **Packed timestamps**: The `timestamp` field uses bit 0 as a revocation flag
+//!   and bits 1..=63 for the ledger timestamp. See [`Credential::is_revoked`]
+//!   and [`Credential::issued_at`].
+//! - **Description hashing**: Descriptions are hashed to `u64` to avoid storing
+//!   large strings on-chain. The full description is stored in instance storage
+//!   separately.
+//! - **Event-driven**: Every state change publishes a [`CredentialLifecycleEvent`]
+//!   for off-chain indexing via [`credential_events`].
+
 use crate::credential_events::{
     publish_credential_event, CredentialLifecycleEvent,
 };
@@ -44,7 +61,22 @@ impl Credential {
     }
 }
 
-/// Issue a new credential with optimized storage
+/// Issue a new credential with packed storage.
+///
+/// The credential's `timestamp` is bit-packed: bits 1..=63 hold the ledger
+/// timestamp and bit 0 is reserved for the revocation flag (initially 0).
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `issuer` - Must match the stored admin address (`"admin"` key).
+/// * `recipient` - The credential recipient.
+/// * `title` - Credential title.
+/// * `description` - Full description (hashed for storage efficiency).
+/// * `course_id` - Associated course identifier.
+/// * `ipfs_hash` - IPFS content hash for off-chain metadata.
+///
+/// # Returns
+/// The newly assigned credential ID.
 pub fn issue_credential(
     env: &Env,
     issuer: Address,
@@ -114,12 +146,19 @@ pub fn issue_credential(
     credential_id
 }
 
-/// Verify a credential using packed timestamp.
+/// Verify a credential, checking revocation status and recording the
+/// verification event.
 ///
-/// The `verifier` address is recorded as the actor that performed the
-/// verification so a complete audit trail is preserved. Anyone can verify
-/// a credential - the verifier is captured for indexing purposes, not
-/// for access control.
+/// Anyone may call this — the `verifier` is recorded for audit purposes,
+/// not for access control.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `credential_id` - The credential to verify.
+/// * `verifier` - Address performing the verification (recorded in events).
+///
+/// # Returns
+/// `true` if the credential exists and is not revoked.
 pub fn verify_credential(env: &Env, credential_id: u64, verifier: Address) -> bool {
     verifier.require_auth();
 
@@ -146,7 +185,13 @@ pub fn verify_credential(env: &Env, credential_id: u64, verifier: Address) -> bo
     true
 }
 
-/// Revoke a credential using packed timestamp
+/// Revoke a credential by setting the revocation bit (bit 0) in the packed
+/// timestamp. Only the stored admin may revoke.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `credential_id` - The credential to revoke.
+/// * `revoker` - Must match the stored admin address.
 pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) {
     revoker.require_auth();
 
@@ -185,7 +230,10 @@ pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) {
     );
 }
 
-/// Get user credentials with optimized storage
+/// Get all credential IDs for a user.
+///
+/// # Returns
+/// A vector of credential IDs, or an empty vector if the user has none.
 pub fn get_user_credentials(env: &Env, user: Address) -> Vec<u64> {
     env.storage()
         .persistent()
@@ -193,7 +241,10 @@ pub fn get_user_credentials(env: &Env, user: Address) -> Vec<u64> {
         .unwrap_or_else(|| Vec::new(env))
 }
 
-/// Get credential details with optional description
+/// Get the full [`Credential`] struct by ID.
+///
+/// # Panics
+/// Panics if no credential exists with the given ID.
 pub fn get_credential(env: &Env, credential_id: u64) -> Credential {
     env.storage()
         .persistent()
@@ -201,21 +252,21 @@ pub fn get_credential(env: &Env, credential_id: u64) -> Credential {
         .unwrap_or_else(|| panic!("Credential not found"))
 }
 
-/// Get credential description if needed
+/// Get the original description string for a credential (stored separately).
 pub fn get_credential_description(env: &Env, credential_id: u64) -> Option<String> {
     env.storage()
         .instance()
         .get(&CredentialKey::CredentialMetadata(credential_id))
 }
 
-/// Get credential revocation time
+/// Get the revocation timestamp for a credential, if revoked.
 pub fn get_credential_revocation_time(env: &Env, credential_id: u64) -> Option<u64> {
     env.storage()
         .instance()
         .get(&CredentialKey::CredentialRevocations(credential_id))
 }
 
-    // Get credential count with optimized storage
+/// Get the total number of credentials issued.
 pub fn get_credential_count(env: &Env) -> u64 {
     env.storage()
         .instance()

@@ -1,3 +1,19 @@
+//! # User Profile Module
+//!
+//! Privacy-aware user profiles with packed storage for gas efficiency.
+//! Supports profile creation/updates, achievement tracking, credential
+//! linking, and privacy level controls.
+//!
+//! ## Key Features
+//!
+//! - **Packed storage**: Timestamps and flags are packed into `u128` and `u32`
+//!   respectively to minimize storage costs.
+//! - **Privacy levels**: Public, Private, and FriendsOnly visibility controls.
+//! - **Separate data storage**: Email, bio, and avatar are stored in separate
+//!   keys for efficient partial access.
+//! - **Achievement system**: Achievements with packed timestamp/verification status.
+//! - **Username uniqueness**: Username-to-address mapping prevents duplication.
+
 use crate::utils::storage::{PackedTimestamps, PackedUserFlags};
 use crate::utils::pause::PauseUtils;
 use soroban_sdk::{
@@ -77,7 +93,8 @@ pub struct Achievement {
 // #[contract]
 pub struct UserProfileContract;
 
-/// Add a credential to user's profile with optimized storage
+/// Add a credential ID to a user's profile, incrementing the credential count.
+/// Creates a minimal profile if one does not exist.
 pub fn add_credential(env: &Env, user: Address, credential_id: u64) {
     PauseUtils::require_not_paused(env);
     let mut profile = env
@@ -123,7 +140,7 @@ pub fn add_credential(env: &Env, user: Address, credential_id: u64) {
     }
 }
 
-/// Get all credential IDs for a user (fast path)
+/// Get all credential IDs for a user (fast path via dedicated storage key).
 pub fn get_user_credential_ids(env: &Env, user: Address) -> Vec<u64> {
     env.storage()
         .instance()

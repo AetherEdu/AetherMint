@@ -1,3 +1,17 @@
+//! # Course Metadata Module
+//!
+//! Course metadata management with packed storage, instructor profiles,
+//! completion tracking, and rating system.
+//!
+//! ## Key Features
+//!
+//! - **Packed storage**: Course status and flags are bit-packed for gas efficiency.
+//! - **Large data hashing**: Prerequisites, objectives, and tags are hashed to
+//!   minimize on-chain storage; full data is stored in separate keys.
+//! - **Instructor profiles**: Separate instructor storage with packed ratings.
+//! - **Completion tracking**: Student course completions with grade and skills.
+//! - **Ratings**: Packed rating storage with weighted average calculation.
+
 use crate::utils::storage::{PackedRating, PackedTimestamps};
 use soroban_sdk::{
     contract, contractimpl, contracttype, Address, Env, String, Vec,
@@ -139,7 +153,8 @@ pub struct UpdateCourseParams {
 pub struct CourseMetadataContract;
 
 impl CourseMetadataContract {
-    /// Initialize the contract with optimized storage
+    /// Initialize the course metadata contract with the admin address.
+    /// Resets all counters.
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&CourseMetadataKey::Admin) {
             panic!("Contract already initialized");
@@ -159,7 +174,12 @@ impl CourseMetadataContract {
             .set(&CourseMetadataKey::CompletionCount, &0u64);
     }
 
-    /// Create and store course metadata with optimized storage
+    /// Create and store course metadata, including prerequisites, learning
+    /// objectives, and tags. Automatically creates an instructor profile if
+    /// one doesn't exist.
+    ///
+    /// # Returns
+    /// The assigned course ID string.
     pub fn create_course_metadata(
         env: Env,
         instructor: Address,
@@ -273,7 +293,10 @@ impl CourseMetadataContract {
         course_id_str
     }
 
-    /// Update course metadata
+    /// Update course metadata fields. Only the course instructor may update.
+    ///
+    /// # Returns
+    /// `true` on success.
     pub fn update_course(
         env: Env,
         course_id: String,
@@ -339,7 +362,10 @@ impl CourseMetadataContract {
         true
     }
 
-    /// Verify course authenticity
+    /// Verify course authenticity by re-computing the verification hash.
+    ///
+    /// # Returns
+    /// `true` if the stored hash matches the re-computed hash.
     pub fn verify_course(env: Env, course_id: String) -> bool {
         let course_metadata: CourseMetadata = env
             .storage()
@@ -359,7 +385,7 @@ impl CourseMetadataContract {
         verification_data == course_metadata.verification_hash
     }
 
-    /// Get course metadata
+    /// Get course metadata by course ID.
     pub fn get_course(env: Env, course_id: String) -> CourseMetadata {
         env.storage()
             .instance()
@@ -367,7 +393,7 @@ impl CourseMetadataContract {
             .unwrap_or_else(|| panic!("Course not found"))
     }
 
-    /// Get instructor profile
+    /// Get an instructor profile by address.
     pub fn get_instructor_profile(env: Env, instructor: Address) -> InstructorProfile {
         env.storage()
             .instance()
@@ -427,7 +453,10 @@ impl CourseMetadataContract {
         u64_to_hex_string(hash)
     }
 
-    /// Record course completion
+    /// Record a student's course completion with grade and skills acquired.
+    ///
+    /// # Returns
+    /// The assigned completion ID string.
     pub fn record_completion(
         env: Env,
         course_id: String,
@@ -502,7 +531,7 @@ impl CourseMetadataContract {
         Vec::new(&env)
     }
 
-    /// Get total course count
+    /// Get the total number of courses stored.
     pub fn get_course_metadata_count(env: Env) -> u64 {
         env.storage()
             .instance()
@@ -510,7 +539,7 @@ impl CourseMetadataContract {
             .unwrap_or(0)
     }
 
-    /// Get total completion count
+    /// Get the total number of course completions recorded.
     pub fn get_completion_count(env: Env) -> u64 {
         env.storage()
             .instance()
@@ -518,7 +547,10 @@ impl CourseMetadataContract {
             .unwrap_or(0)
     }
 
-    /// Rate a course with packed rating storage
+    /// Rate a course (0-100) with weighted average calculation in packed storage.
+    ///
+    /// # Returns
+    /// `true` on success.
     pub fn rate_course(env: Env, course_id: String, _rater: Address, rating: u32) -> bool {
         if rating > 100 {
             panic!("Rating must be between 0 and 100");

@@ -1,3 +1,25 @@
+//! # Credential Registry Module
+//!
+//! Enhanced credential management with expiration support, renewal tracking,
+//! batch issuance (issue #118), and attestation count tracking (issue #122).
+//!
+//! ## Key Features
+//!
+//! - **Expiration**: Credentials carry a validity duration and are automatically
+//!   marked expired when queried after their `expires_at` timestamp.
+//! - **Renewal**: Expired or active credentials can be renewed by the admin or
+//!   the credential recipient, with full renewal history stored on-chain.
+//! - **Batch issuance**: Up to [`MAX_BATCH_SIZE`] credentials can be issued in
+//!   a single atomic transaction via [`issue_credentials_batch`].
+//! - **Proctored issuance**: Credentials can be linked to proctoring sessions
+//!   via [`issue_proctored_cred_with_exp`].
+//! - **Storage migration**: v1 → v2 migration seeds attestation count markers.
+//!
+//! ## Storage Layout
+//!
+//! All credentials are stored in persistent storage for durability. Counters
+//! and indices are kept in instance storage for gas efficiency.
+
 use crate::credential_events::{
     publish_credential_event, CredentialLifecycleEvent,
 };
@@ -91,7 +113,20 @@ pub enum CredentialEvent {
     StatusChanged(u64), // credential_id
 }
 
-/// Issue a new credential with expiration support
+/// Issue a new credential with an expiration timestamp.
+///
+/// # Parameters
+/// * `env` - Soroban environment.
+/// * `issuer` - Must match the stored admin address.
+/// * `recipient` - The credential recipient (non-zero address required).
+/// * `title` - Credential title.
+/// * `description` - Longer description.
+/// * `course_id` - Associated course identifier.
+/// * `ipfs_hash` - IPFS content hash for off-chain metadata.
+/// * `validity_duration` - Seconds from issuance until the credential expires.
+///
+/// # Returns
+/// The newly assigned credential ID.
 pub fn issue_credential_with_expiration(
     env: &Env,
     issuer: Address,
@@ -179,7 +214,14 @@ pub fn issue_credential_with_expiration(
     credential_id
 }
 
-/// Renew an existing credential
+/// Renew an existing credential, extending its expiration.
+///
+/// # Parameters
+/// * `renewer` - Must be either the admin or the credential recipient.
+/// * `extension_duration` - Seconds to add from the current ledger time.
+///
+/// # Returns
+/// `true` on success.
 pub fn renew_credential(
     env: &Env,
     credential_id: u64,
@@ -266,7 +308,10 @@ pub fn renew_credential(
     true
 }
 
-/// Check and update credential expiration status
+/// Check if a credential has expired and update its status.
+///
+/// # Returns
+/// The credential's current [`CredentialStatus`].
 pub fn check_credential_expiration(env: &Env, credential_id: u64) -> CredentialStatus {
     StorageVersion::require_compatible_version(env);
     let mut credential: CredentialRegistry = env
@@ -318,7 +363,10 @@ pub fn check_credential_expiration(env: &Env, credential_id: u64) -> CredentialS
     credential.status
 }
 
-/// Batch update expiration status for multiple credentials
+/// Update expiration status for multiple credentials at once.
+///
+/// # Returns
+/// The subset of credential IDs that are now in the Expired state.
 pub fn batch_update_expiration_status(env: &Env, credential_ids: Vec<u64>) -> Vec<u64> {
     let mut expired_credentials = Vec::new(env);
 
@@ -333,7 +381,7 @@ pub fn batch_update_expiration_status(env: &Env, credential_ids: Vec<u64>) -> Ve
     expired_credentials
 }
 
-/// Get credential with current status
+/// Get a credential with its current status (checks expiration first).
 pub fn get_credential(env: &Env, credential_id: u64) -> CredentialRegistry {
     // Version guard first: refuse reads on unknown layouts (issue #120).
     StorageVersion::require_compatible_version(env);
@@ -346,7 +394,7 @@ pub fn get_credential(env: &Env, credential_id: u64) -> CredentialRegistry {
         .unwrap_or_else(|| panic!("Credential not found"))
 }
 
-/// Get user credentials with current status
+/// Get all credential IDs for a user.
 pub fn get_user_credentials(env: &Env, user: Address) -> Vec<u64> {
     env.storage()
         .persistent()
@@ -354,7 +402,7 @@ pub fn get_user_credentials(env: &Env, user: Address) -> Vec<u64> {
         .unwrap_or_else(|| Vec::new(env))
 }
 
-/// Get expired credentials list
+/// Get the list of all expired credential IDs.
 pub fn get_expired_credentials(env: &Env) -> Vec<u64> {
     env.storage()
         .instance()
@@ -362,7 +410,7 @@ pub fn get_expired_credentials(env: &Env) -> Vec<u64> {
         .unwrap_or_else(|| Vec::new(env))
 }
 
-/// Get renewal history for a credential
+/// Get the full renewal history for a credential.
 pub fn get_renewal_history(env: &Env, credential_id: u64) -> Vec<RenewalRecord> {
     env.storage()
         .instance()
@@ -370,7 +418,10 @@ pub fn get_renewal_history(env: &Env, credential_id: u64) -> Vec<RenewalRecord> 
         .unwrap_or_else(|| Vec::new(env))
 }
 
-/// Revoke a credential
+/// Revoke a credential. Only the admin may revoke.
+///
+/// # Returns
+/// `true` on success.
 pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) -> bool {
     StorageVersion::require_compatible_version(env);
     revoker.require_auth();
@@ -409,7 +460,7 @@ pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) -> boo
     true
 }
 
-/// Get credential count
+/// Get the total number of credentials in the registry.
 pub fn get_credential_count(env: &Env) -> u64 {
     env.storage()
         .instance()
@@ -417,7 +468,7 @@ pub fn get_credential_count(env: &Env) -> u64 {
         .unwrap_or(0)
 }
 
-/// Check if a credential is currently valid
+/// Whether a credential is in the `Active` state.
 pub fn is_credential_valid(env: &Env, credential_id: u64) -> bool {
     let credential = get_credential(env, credential_id);
     matches!(credential.status, CredentialStatus::Active)
@@ -429,8 +480,6 @@ pub fn credential_exists(env: &Env, credential_id: u64) -> bool {
         .persistent()
         .has(&CredentialRegistryKey::Credential(credential_id))
 }
-
-// ===== Attestation tracking (issue #122 integration) =====
 
 /// Number of active attestations recorded against a credential.
 pub fn get_attestation_count(env: &Env, credential_id: u64) -> u32 {

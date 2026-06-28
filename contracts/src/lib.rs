@@ -1,3 +1,62 @@
+//! # AetherMint Education Smart Contracts
+//!
+//! A comprehensive suite of [Soroban](https://soroban.stellar.org) smart contracts for
+//! decentralized credential verification on the Stellar blockchain. This crate provides
+//! the core on-chain logic for issuing, verifying, revoking, and trading educational
+//! credentials as soul-bound dynamic NFTs.
+//!
+//! ## Architecture
+//!
+//! The contract suite is organized as a single `AetherMintContract` that delegates to
+//! specialized free-function modules:
+//!
+//! | Module | Responsibility |
+//! |---|---|
+//! | [`credentials`] | Core credential issuance, verification, and revocation |
+//! | [`credential_registry`] | Expiring credentials with renewal, batch issuance, attestation tracking |
+//! | [`dynamic_nft`] | Soul-bound dynamic NFTs that evolve with learner achievements |
+//! | [`attestation_protocol`] | Cross-institutional trust network via third-party attestations |
+//! | [`marketplace`] | List, buy, and escrow credentials with dynamic fees |
+//! | [`governance`] | DAO-style proposal creation, voting, and execution with timelock |
+//! | [`proctoring`] | Proctoring session management with challenge resolution |
+//! | [`user_profile`] | Privacy-aware user profiles with packed storage |
+//! | [`dynamic_fees`] | Fee calculation with volume-based discounts |
+//! | [`utils`] | Shared storage, validation, and pause utilities |
+//!
+//! ## Storage Versioning
+//!
+//! The contract implements **[upgradeable storage versioning]** (issue #120).
+//! Every write to persistent storage goes through
+//! [`StorageVersion::require_compatible_version`], which panics if the on-disk
+//! version is not compatible with the current binary. Admin-triggered migrations
+//! are supported via [`AetherMintContract::migrate_storage`].
+//!
+//! ## Events
+//!
+//! All state-changing operations emit Soroban events, including credential lifecycle
+//! events via [`credential_events`]. Off-chain indexers can reliably reconstruct
+//! the full history of every credential from these events.
+//!
+//! ## Soroban Concepts
+//!
+//! This crate targets [`soroban-sdk`] v26 and uses:
+//! - `Env` for ledger access (timestamps, storage, events)
+//! - [`Address::require_auth`] for authorization checks
+//! - Persistent storage for credential data; instance storage for counters
+//! - Contract events for off-chain indexing
+//!
+//! ## Quick Start
+//!
+//! ```ignore
+//! // Build for WASM target
+//! cargo build --target wasm32v1-none --release
+//!
+//! // Run tests
+//! cargo test
+//!
+//! // Generate documentation
+//! cargo doc --no-deps --open
+//! ```
 #![no_std]
 extern crate alloc;
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Symbol, Vec};
@@ -289,12 +348,25 @@ pub struct Profile {
     pub reputation: u64,
 }
 
+/// # AetherMintContract
+///
+/// The main entry point for the AetherMint education credential platform.
+/// All state-changing operations are gated by the pause mechanism (see
+/// [`crate::utils::pause::PauseUtils`]).
 #[contract]
 pub struct AetherMintContract;
 
 #[contractimpl]
 impl AetherMintContract {
-    /// Initialize the contract with optimized storage
+    /// Initialize the contract with the admin address and storage schema version.
+    ///
+    /// # Parameters
+    /// * `env` - The Soroban environment providing ledger access.
+    /// * `admin` - The address that will have administrative privileges.
+    ///
+    /// # Panics
+    /// Panics if the contract has already been initialized or if `admin` is a
+    /// zero address.
     pub fn initialize(env: Env, admin: Address) {
         validate_non_zero_address(&env, &admin);
 
@@ -314,7 +386,19 @@ impl AetherMintContract {
         StorageVersion::initialize(&env);
     }
 
-    /// Issue a new credential with optimized storage
+    /// Issue a new credential with packed storage for the given recipient.
+    ///
+    /// # Parameters
+    /// * `env` - Soroban environment.
+    /// * `issuer` - Must match the stored admin address.
+    /// * `recipient` - The credential recipient (non-zero address required).
+    /// * `title` - Credential title (max 100 chars).
+    /// * `description` - Longer description (max 500 chars).
+    /// * `course_id` - Identifier of the associated course (max 50 chars).
+    /// * `ipfs_hash` - IPFS content hash for off-chain metadata (max 100 chars).
+    ///
+    /// # Returns
+    /// The newly assigned credential ID.
     pub fn issue_credential(
         env: Env,
         issuer: Address,
@@ -369,27 +453,48 @@ impl AetherMintContract {
         credential_id
     }
 
-    /// Verify a credential using packed timestamp.
+    /// Verify a credential, checking its revocation status and recording the
+    /// verification event for auditability.
     ///
-    /// Accepts a `verifier` address so verifications are recorded in the
-    /// credential lifecycle event log for full auditability. This wrapper
-    /// delegates to [`crate::credentials::verify_credential`]; callers must
-    /// have issued the credential through the same `credentials` module
-    /// (which uses the `CredentialKey` / `"admin"` storage namespace) for
-    /// verification to succeed.
+    /// Delegates to [`crate::credentials::verify_credential`]. The `verifier`
+    /// address is captured for indexing purposes — anyone may verify any
+    /// credential.
+    ///
+    /// # Parameters
+    /// * `env` - Soroban environment.
+    /// * `credential_id` - The credential to verify.
+    /// * `verifier` - Address performing the verification (recorded in events).
+    ///
+    /// # Returns
+    /// `true` if the credential exists and is not revoked.
     pub fn verify_credential(env: Env, credential_id: u64, verifier: Address) -> bool {
         PauseUtils::require_not_paused(&env);
         crate::credentials::verify_credential(&env, credential_id, verifier)
     }
 
-    /// Get credential details
+    /// Retrieve a credential by its ID.
+    ///
+    /// # Returns
+    /// The [`Credential`] struct. Panics if no credential exists with the
+    /// given ID.
     pub fn get_credential(env: Env, credential_id: u64) -> Credential {
         env.storage().instance()
             .get(&DataKey::Credential(credential_id))
             .unwrap_or_else(|| panic!("Credential not found"))
     }
 
-    /// Create a new course with optimized storage
+    /// Create a new course with the given instructor, title, description, and
+    /// price.
+    ///
+    /// # Parameters
+    /// * `env` - Soroban environment.
+    /// * `instructor` - Must match the stored admin address.
+    /// * `title` - Course title (max 100 chars).
+    /// * `description` - Course description (max 500 chars).
+    /// * `price` - Course price in smallest unit (must be positive).
+    ///
+    /// # Returns
+    /// The newly assigned course ID.
     pub fn create_course(
         env: Env,
         instructor: Address,
@@ -441,7 +546,10 @@ impl AetherMintContract {
         course_id
     }
 
-    /// Get user profile with optimized storage
+    /// Get a simplified user profile by address.
+    ///
+    /// Returns a default [`Profile`] as a stub; full profile functionality is
+    /// provided by the [`user_profile`] module.
     pub fn get_profile(env: Env, user: Address) -> Profile {
         // Simplified - returns default profile (user_profile module disabled to avoid conflicts)
         Profile {
@@ -452,7 +560,7 @@ impl AetherMintContract {
         }
     }
 
-    /// Get total credential count
+    /// Return the total number of credentials issued through this contract.
     pub fn get_credential_count(env: Env) -> u64 {
         env.storage().instance()
             .get(&DataKey::CredentialCount)
@@ -470,14 +578,14 @@ impl AetherMintContract {
         // Disabled to avoid module conflicts
     }
 
-    /// Get total course count
+    /// Return the total number of courses created through this contract.
     pub fn get_course_count(env: Env) -> u64 {
         env.storage().instance()
             .get(&DataKey::CourseCount)
             .unwrap_or(0)
     }
 
-    /// Get total achievement count
+    /// Return the total number of achievements recorded.
     pub fn get_achievement_count(env: Env) -> u64 {
         env.storage().instance()
             .get(&DataKey::AchievementCount)
@@ -486,7 +594,15 @@ impl AetherMintContract {
 
     // ===== CredentialRegistry Integration =====
 
-    /// Issue a new credential with expiration support
+    /// Issue a new credential with an expiration timestamp.
+    ///
+    /// Delegates to [`credential_registry::issue_credential_with_expiration`].
+    ///
+    /// # Parameters
+    /// * `validity_duration` - Seconds from issuance until the credential expires.
+    ///
+    /// # Returns
+    /// The newly assigned credential ID.
     pub fn issue_credential_with_expiration(
         env: Env,
         issuer: Address,
@@ -503,7 +619,15 @@ impl AetherMintContract {
         )
     }
 
-    /// Issue a proctored credential and link it to a completed proctoring session.
+    /// Issue a proctored credential linked to a completed proctoring session.
+    ///
+    /// Combines credential issuance with proctoring linkage in one atomic call.
+    ///
+    /// # Parameters
+    /// * `session_id` - The completed proctoring session to link.
+    ///
+    /// # Returns
+    /// The newly assigned credential ID.
     pub fn issue_proctored_cred_with_exp(
         env: Env,
         issuer: Address,
@@ -528,7 +652,16 @@ impl AetherMintContract {
         )
     }
 
-    /// Renew an existing credential
+    /// Renew an expiring or expired credential, extending its validity.
+    ///
+    /// Delegates to [`credential_registry::renew_credential`]. The `renewer`
+    /// must be either the admin or the credential recipient.
+    ///
+    /// # Parameters
+    /// * `extension_duration` - Seconds to add to the credential's expiration.
+    ///
+    /// # Returns
+    /// `true` on success.
     pub fn renew_credential(
         env: Env,
         credential_id: u64,
@@ -539,62 +672,80 @@ impl AetherMintContract {
         credential_registry::renew_credential(&env, credential_id, renewer, extension_duration)
     }
 
-    /// Check and update credential expiration status
+    /// Check if a credential has expired and update its status accordingly.
+    ///
+    /// # Returns
+    /// The credential status as a `u32`: 0=Active, 1=Expired, 2=Revoked, 3=Pending.
     pub fn check_credential_expiration(env: Env, credential_id: u64) -> u32 {
         let status = credential_registry::check_credential_expiration(&env, credential_id);
         status.to_u8() as u32
     }
 
-    /// Get credential with current expiration status
+    /// Get a credential with its current expiration status (checks expiration
+    /// before returning).
     pub fn get_credential_with_status(env: Env, credential_id: u64) -> credential_registry::CredentialRegistry {
         credential_registry::get_credential(&env, credential_id)
     }
 
-    /// Get user credentials with current status
+    /// Get all credential IDs associated with the given user.
     pub fn get_user_credentials_with_status(env: Env, user: Address) -> Vec<u64> {
         credential_registry::get_user_credentials(&env, user)
     }
 
-    /// Get expired credentials list
+    /// Get the list of all expired credential IDs.
     pub fn get_expired_credentials(env: Env) -> Vec<u64> {
         credential_registry::get_expired_credentials(&env)
     }
 
-    /// Get renewal history for a credential
+    /// Get the full renewal history for a credential.
     pub fn get_credential_renewal_history(env: Env, credential_id: u64) -> Vec<credential_registry::RenewalRecord> {
         credential_registry::get_renewal_history(&env, credential_id)
     }
 
-    /// Revoke a credential (using registry)
+    /// Revoke a credential. Only the admin may revoke.
+    ///
+    /// # Returns
+    /// `true` on success.
     pub fn revoke_credential_registry(env: Env, credential_id: u64, revoker: Address) -> bool {
         PauseUtils::require_not_paused(&env);
         credential_registry::revoke_credential(&env, credential_id, revoker)
     }
 
-    /// Check if a credential is currently valid
+    /// Check whether a credential is in the `Active` state.
     pub fn is_credential_valid(env: Env, credential_id: u64) -> bool {
         credential_registry::is_credential_valid(&env, credential_id)
     }
 
-    /// Get credentials expiring within a time window
+    /// Get credentials that will expire within the given time window.
     pub fn get_credentials_expiring_soon(env: Env, within_seconds: u64) -> Vec<u64> {
         credential_registry::get_credentials_expiring_soon(&env, within_seconds)
     }
 
-    /// Batch update expiration status for multiple credentials
+    /// Update expiration status for a batch of credentials.
+    ///
+    /// # Returns
+    /// The subset of credential IDs that are now expired.
     pub fn batch_update_expiration_status(env: Env, credential_ids: Vec<u64>) -> Vec<u64> {
         PauseUtils::require_not_paused(&env);
         credential_registry::batch_update_expiration_status(&env, credential_ids)
     }
 
-    /// Whether a credential was issued through the proctored flow.
+    /// Check if a credential was issued through the proctored flow.
     pub fn is_proctored_credential(env: Env, credential_id: u64) -> bool {
         credential_registry::is_proctored_credential(&env, credential_id)
     }
 
     // ===== Proctoring =====
 
-    /// Start a proctoring session.
+    /// Start a new proctoring session for an exam.
+    ///
+    /// # Parameters
+    /// * `exam_id` - Unique identifier for the exam.
+    /// * `student` - The address being proctored.
+    /// * `proctor` - The proctor supervising the session.
+    ///
+    /// # Returns
+    /// The newly assigned session ID.
     pub fn start_proctoring_session(
         env: Env,
         exam_id: String,
@@ -604,7 +755,11 @@ impl AetherMintContract {
         proctoring::start_proctoring_session(&env, exam_id, student, proctor)
     }
 
-    /// Submit the proctoring result for a session.
+    /// Submit the proctoring result for a completed session.
+    ///
+    /// # Parameters
+    /// * `result_data` - Encoded proctoring result.
+    /// * `proctor_signature` - Cryptographic signature from the proctor.
     pub fn submit_proctoring_result(
         env: Env,
         session_id: u64,
@@ -614,7 +769,7 @@ impl AetherMintContract {
         proctoring::submit_proctoring_result(&env, session_id, result_data, proctor_signature)
     }
 
-    /// Challenge a completed proctoring result.
+    /// Challenge a completed proctoring result with evidence.
     pub fn challenge_proctoring_result(
         env: Env,
         session_id: u64,
@@ -624,7 +779,7 @@ impl AetherMintContract {
         proctoring::challenge_proctoring_result(&env, session_id, challenger, evidence)
     }
 
-    /// Resolve a proctoring challenge.
+    /// Resolve a pending proctoring challenge as the admin.
     pub fn resolve_challenge(
         env: Env,
         session_id: u64,
@@ -639,12 +794,12 @@ impl AetherMintContract {
         proctoring::register_proctored_credential(&env, session_id, credential_id)
     }
 
-    /// Check whether a session is eligible for a proctored credential.
+    /// Check whether a proctoring session is eligible for credential issuance.
     pub fn proctored_credential_is_eligible(env: Env, session_id: u64) -> bool {
         proctoring::proctored_credential_is_eligible(&env, session_id)
     }
 
-    /// Get a stored proctoring session.
+    /// Get the full details of a proctoring session.
     pub fn get_proctoring_session(
         env: Env,
         session_id: u64,
@@ -652,12 +807,12 @@ impl AetherMintContract {
         proctoring::get_proctoring_session(&env, session_id)
     }
 
-    /// Get a stored proctoring result.
+    /// Get the proctoring result for a session, if one has been submitted.
     pub fn get_proctoring_result(env: Env, session_id: u64) -> Option<proctoring::ProctoringResult> {
         proctoring::get_proctoring_result(&env, session_id)
     }
 
-    /// Get a stored challenge for a session.
+    /// Get the pending challenge for a session, if one exists.
     pub fn get_proctoring_challenge(
         env: Env,
         session_id: u64,
@@ -665,7 +820,7 @@ impl AetherMintContract {
         proctoring::get_proctoring_challenge(&env, session_id)
     }
 
-    /// Get a stored challenge resolution for a session.
+    /// Get the challenge resolution record for a session.
     pub fn get_proctoring_resolution(
         env: Env,
         session_id: u64,
@@ -673,14 +828,26 @@ impl AetherMintContract {
         proctoring::get_proctoring_resolution(&env, session_id)
     }
 
-    /// Get the number of proctoring sessions created so far.
+    /// Get the total number of proctoring sessions created.
     pub fn get_proctoring_session_count(env: Env) -> u64 {
         proctoring::get_proctoring_session_count(&env)
     }
 
     // ===== Dynamic NFT Functions =====
 
-    /// Mint a new dynamic NFT credential
+    /// Mint a new dynamic NFT credential that evolves as the learner earns
+    /// achievements.
+    ///
+    /// Delegates to [`dynamic_nft::mint_dynamic_nft`].
+    ///
+    /// # Parameters
+    /// * `creator` - Must match the stored admin address.
+    /// * `recipient` - The initial owner of the NFT.
+    /// * `base_uri` - Base URI for NFT metadata.
+    /// * `initial_metadata` - IPFS hash of initial metadata.
+    ///
+    /// # Returns
+    /// The newly assigned token ID.
     pub fn mint_dynamic_nft(
         env: Env,
         creator: Address,
@@ -692,7 +859,12 @@ impl AetherMintContract {
         dynamic_nft::mint_dynamic_nft(&env, creator, recipient, base_uri, initial_metadata)
     }
 
-    /// Evolve an NFT based on achievement
+    /// Evolve an NFT based on a new achievement, potentially advancing its
+    /// evolution stage and updating visual traits.
+    ///
+    /// # Returns
+    /// `true` if evolution occurred; `false` if the achievement was already
+    /// unlocked.
     pub fn evolve_nft(
         env: Env,
         token_id: u64,
@@ -703,7 +875,11 @@ impl AetherMintContract {
         dynamic_nft::evolve_nft(&env, token_id, achievement_id, new_metadata)
     }
 
-    /// Fuse two NFTs to create a new one
+    /// Fuse two NFTs owned by the recipient into a new, higher-level NFT.
+    /// The original NFTs are burned.
+    ///
+    /// # Returns
+    /// The newly created token ID.
     pub fn fuse_nfts(
         env: Env,
         token1_id: u64,
@@ -714,45 +890,48 @@ impl AetherMintContract {
         dynamic_nft::fuse_nfts(&env, token1_id, token2_id, recipient)
     }
 
-    /// Transfer NFT to new owner
+    /// Transfer an NFT from one address to another.
     pub fn transfer_nft(env: Env, from: Address, to: Address, token_id: u64) {
         PauseUtils::require_not_paused(&env);
         dynamic_nft::transfer_nft(&env, from, to, token_id)
     }
 
-    /// Get NFT details
+    /// Get the full [`dynamic_nft::DynamicNFT`] struct for a token.
     pub fn get_nft(env: Env, token_id: u64) -> dynamic_nft::DynamicNFT {
         dynamic_nft::get_nft(&env, token_id)
     }
 
-    /// Get all tokens owned by an address
+    /// Get all token IDs owned by an address.
     pub fn get_owner_tokens(env: Env, owner: Address) -> Vec<u64> {
         dynamic_nft::get_owner_tokens(&env, owner)
     }
 
-    /// Get NFT metadata URI
+    /// Get the metadata URI (IPFS hash) for a token.
     pub fn token_uri(env: Env, token_id: u64) -> String {
         dynamic_nft::token_uri(&env, token_id)
     }
 
-    /// Check if NFT exists
+    /// Check whether a token ID exists.
     pub fn nft_exists(env: Env, token_id: u64) -> bool {
         dynamic_nft::nft_exists(&env, token_id)
     }
 
-    /// Get owner of NFT
+    /// Get the current owner of a token.
     pub fn owner_of(env: Env, token_id: u64) -> Address {
         dynamic_nft::owner_of(&env, token_id)
     }
 
-    /// Get balance of owner
+    /// Get the number of tokens owned by an address.
     pub fn balance_of(env: Env, owner: Address) -> u64 {
         dynamic_nft::balance_of(&env, owner)
     }
 
     // ===== Attestation Protocol (issue #122) =====
 
-    /// Register a third-party verifier (attester).
+    /// Register a third-party verifier (attester) that can vouch for
+    /// credential validity.
+    ///
+    /// See [`attestation_protocol::register_attester`].
     pub fn register_attester(
         env: Env,
         attester_address: Address,
@@ -768,7 +947,15 @@ impl AetherMintContract {
         )
     }
 
-    /// Attest to a credential's validity as a registered attester.
+    /// Record an attestation for a credential as a registered attester.
+    ///
+    /// See [`attestation_protocol::attest_credential`].
+    ///
+    /// # Parameters
+    /// * `attester` - Must be registered and active.
+    /// * `credential_id` - Must exist and not already be attested by this attester.
+    /// * `signature` - Off-chain cryptographic signature over the credential.
+    /// * `metadata` - Free-form attestation metadata.
     pub fn attest_credential(
         env: Env,
         attester: Address,
@@ -780,7 +967,7 @@ impl AetherMintContract {
         attestation_protocol::attest_credential(&env, attester, credential_id, signature, metadata)
     }
 
-    /// Withdraw an attestation previously made by `attester`.
+    /// Withdraw a previously made attestation for a credential.
     pub fn revoke_attestation(env: Env, attester: Address, credential_id: u64) {
         PauseUtils::require_not_paused(&env);
         attestation_protocol::revoke_attestation(&env, attester, credential_id)
@@ -799,23 +986,23 @@ impl AetherMintContract {
         attestation_protocol::is_attested_by(&env, credential_id, attester)
     }
 
-    /// Get an attester's profile.
+    /// Get the full attester profile for an address.
     pub fn get_attester(env: Env, attester_address: Address) -> attestation_protocol::Attester {
         attestation_protocol::get_attester(&env, attester_address)
     }
 
-    /// Whether an address is a registered attester.
+    /// Check if an address is a registered attester.
     pub fn is_registered_attester(env: Env, attester_address: Address) -> bool {
         attestation_protocol::is_registered_attester(&env, attester_address)
     }
 
-    /// Admin-only: deactivate an attester.
+    /// Admin-only: deactivate an attester, preventing further attestations.
     pub fn deactivate_attester(env: Env, admin: Address, attester_address: Address) {
         PauseUtils::require_not_paused(&env);
         attestation_protocol::deactivate_attester(&env, admin, attester_address)
     }
 
-    /// Admin-only: re-activate a deactivated attester.
+    /// Admin-only: re-activate a previously deactivated attester.
     pub fn reactivate_attester(env: Env, admin: Address, attester_address: Address) {
         PauseUtils::require_not_paused(&env);
         attestation_protocol::reactivate_attester(&env, admin, attester_address)
@@ -826,11 +1013,14 @@ impl AetherMintContract {
         credential_registry::get_attestation_count(&env, credential_id)
     }
 
-    /// Issue multiple credentials in a single transaction (issue #118).
+    /// Issue multiple credentials in a single atomic transaction (issue #118).
     ///
-    /// Performs one authorization check for the issuer and stores every
-    /// credential atomically — if any validation fails the whole batch rolls
-    /// back. Returns the newly created credential IDs in input order.
+    /// Delegates to [`credential_registry::issue_credentials_batch`].
+    /// All credentials are stored atomically — if any validation fails the
+    /// whole batch rolls back.
+    ///
+    /// # Returns
+    /// The newly created credential IDs in input order.
     pub fn issue_credentials_batch(
         env: Env,
         issuer: Address,
@@ -840,23 +1030,25 @@ impl AetherMintContract {
         credential_registry::issue_credentials_batch(&env, issuer, params)
     }
 
-    /// Return the maximum number of credentials allowed in a single batch.
+    /// Return the maximum number of credentials allowed in a single batch
+    /// (currently [`MAX_BATCH_SIZE`]).
     pub fn max_batch_size(_env: Env) -> u32 {
         MAX_BATCH_SIZE
     }
 
     // ===== Storage Versioning (issue #120) =====
 
-    /// Return the current storage schema version. Equivalent to calling
-    /// [`StorageVersion::get_storage_version`].
+    /// Return the current on-disk storage schema version.
+    ///
+    /// See [`StorageVersion::get_storage_version`].
     pub fn storage_version(env: Env) -> u32 {
         StorageVersion::get_storage_version(&env)
     }
 
-    /// Admin-triggered migration to a newer storage layout. Performs the
-    /// version-to-version data transformation registered for the requested
-    /// `(current, new_version)` pair and appends a [`MigrationRecord`] to the
-    /// audit log. The caller must authorize as the contract admin.
+    /// Admin-triggered migration to a newer storage layout.
+    ///
+    /// Performs the version-to-version data transformation and appends a
+    /// [`MigrationRecord`] to the audit log.
     pub fn migrate_storage(env: Env, admin: Address, new_version: u32) {
         StorageVersion::migrate(&env, admin, new_version);
     }
@@ -869,7 +1061,8 @@ impl AetherMintContract {
 
     // ===== Governance Functions =====
 
-    /// Pause the contract (Admin only)
+    /// Pause the contract, preventing all state-changing operations.
+    /// Admin only.
     pub fn pause(env: Env, admin: Address) {
         let stored_admin: Address = env.storage().instance()
             .get(&DataKey::Admin)
@@ -877,7 +1070,7 @@ impl AetherMintContract {
         PauseUtils::pause(&env, admin, stored_admin);
     }
 
-    /// Unpause the contract (Admin only)
+    /// Unpause the contract, restoring normal operation. Admin only.
     pub fn unpause(env: Env, admin: Address) {
         let stored_admin: Address = env.storage().instance()
             .get(&DataKey::Admin)
@@ -885,7 +1078,7 @@ impl AetherMintContract {
         PauseUtils::unpause(&env, admin, stored_admin);
     }
 
-    /// Check if the contract is paused
+    /// Check if the contract is currently paused.
     pub fn is_paused(env: Env) -> bool {
         PauseUtils::is_paused(&env)
     }
@@ -893,6 +1086,14 @@ impl AetherMintContract {
     // ===== Marketplace Functions =====
 
     /// Create a marketplace listing for an item (credential, course, or NFT).
+    ///
+    /// # Parameters
+    /// * `item_id` - ID of the item to list.
+    /// * `price` - Listing price in smallest unit.
+    /// * `item_type` - 0=Credential, 1=Course, 2=NFT.
+    ///
+    /// # Returns
+    /// The newly assigned listing ID.
     pub fn list_item(
         env: Env,
         seller: Address,
@@ -903,12 +1104,13 @@ impl AetherMintContract {
         marketplace::list_item(&env, &seller, item_id, price, item_type)
     }
 
-    /// Buy an item — transfers ownership with escrow holding funds.
+    /// Buy an item — transfers ownership with escrow holding funds until
+    /// the seller releases them.
     pub fn buy_item(env: Env, buyer: Address, listing_id: u64) {
         marketplace::buy_item(&env, &buyer, listing_id)
     }
 
-    /// Cancel an active listing by the seller.
+    /// Cancel an active listing. Only the original seller may cancel.
     pub fn cancel_listing(env: Env, seller: Address, listing_id: u64) {
         marketplace::cancel_listing(&env, &seller, listing_id)
     }
@@ -918,17 +1120,17 @@ impl AetherMintContract {
         marketplace::release_escrow(&env, listing_id)
     }
 
-    /// Refund escrow to buyer on dispute or cancellation.
+    /// Refund escrow funds to the buyer on dispute or cancellation.
     pub fn refund_escrow(env: Env, listing_id: u64) {
         marketplace::refund_escrow(&env, listing_id)
     }
 
-    /// Get listing details.
+    /// Get the full listing details by listing ID.
     pub fn get_listing(env: Env, listing_id: u64) -> marketplace::ItemListing {
         marketplace::get_listing(&env, listing_id)
     }
 
-    /// Get escrow details.
+    /// Get the full escrow details by escrow ID.
     pub fn get_escrow(env: Env, escrow_id: u64) -> marketplace::Escrow {
         marketplace::get_escrow(&env, escrow_id)
     }

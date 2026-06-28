@@ -1,3 +1,30 @@
+//! # Dynamic NFT Module
+//!
+//! Soul-bound dynamic NFT credentials that evolve with learner achievements.
+//! NFTs track experience points, achievements, visual traits, and evolution
+//! stages — from Novice through Legendary.
+//!
+//! ## Key Features
+//!
+//! - **Soul-bound**: NFTs cannot be transferred away from their owner (transfer
+//!   enforced only by the contract's own `transfer_nft`, not at the protocol level).
+//! - **Evolution**: Earn achievements to evolve through six rarity tiers, each
+//!   with distinct visual traits.
+//! - **Fusion**: Combine two NFTs of the same owner to create a higher-level NFT.
+//! - **IPFS metadata**: Enhanced metadata with integrity verification.
+//! - **Upgradeable**: Storage versioning supports contract upgrades.
+//!
+//! ## Evolution Stages
+//!
+//! | XP Range | Stage | Rarity |
+//! |---|---|---|
+//! | 0–499 | Novice | Common |
+//! | 500–1,499 | Apprentice | Uncommon |
+//! | 1,500–2,999 | Expert | Rare |
+//! | 3,000–5,999 | Master | Epic |
+//! | 6,000–9,999 | Grandmaster | Legendary |
+//! | 10,000+ | Legendary | Mythic |
+
 use soroban_sdk::{contracttype, Address, Bytes, Env, String, Vec, Symbol};
 use crate::utils::storage::{EntityType, StorageUtils, StorageVersion};
 use crate::utils::validation::{
@@ -263,7 +290,19 @@ pub fn get_enhanced_metadata(env: &Env, _token_id: u64) -> Option<EnhancedMetada
         .get(&soroban_sdk::Symbol::new(env, "enhanced"))
 }
 
-/// Create a new dynamic NFT credential
+/// Create a new dynamic NFT credential.
+///
+/// Only the stored admin may mint. The recipient must be a non-zero address.
+/// The NFT starts at `EvolutionStage::Novice` with zero XP.
+///
+/// # Parameters
+/// * `creator` - Must match the stored admin.
+/// * `recipient` - The initial owner of the NFT.
+/// * `base_uri` - Base URI for NFT metadata.
+/// * `initial_metadata` - IPFS hash of initial metadata.
+///
+/// # Returns
+/// The newly assigned token ID.
 pub fn mint_dynamic_nft(
     env: &Env,
     creator: Address,
@@ -344,7 +383,18 @@ pub fn mint_dynamic_nft(
     token_id
 }
 
-/// Evolve NFT based on new achievement
+/// Evolve an NFT by unlocking a new achievement.
+///
+/// If the achievement was already unlocked, returns `false` with no state
+/// change. Otherwise adds XP and checks evolution thresholds.
+///
+/// # Parameters
+/// * `token_id` - The NFT to evolve.
+/// * `achievement_id` - The achievement being unlocked.
+/// * `new_metadata` - Updated IPFS metadata hash.
+///
+/// # Returns
+/// `true` if the achievement was newly unlocked and evolution may have occurred.
 pub fn evolve_nft(
     env: &Env,
     token_id: u64,
@@ -416,7 +466,11 @@ pub fn evolve_nft(
     true
 }
 
-/// Fuse two NFTs to create a new one
+/// Fuse two NFTs into a new, higher-level NFT. Both must be owned by the
+/// recipient. The original NFTs are burned.
+///
+/// # Returns
+/// The newly created token ID.
 pub fn fuse_nfts(
     env: &Env,
     token1_id: u64,
@@ -496,7 +550,8 @@ pub fn fuse_nfts(
     new_token_id
 }
 
-/// Transfer NFT to new owner
+/// Transfer an NFT from one address to another. The `from` address must
+/// authorize the transfer and own the token.
 pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
     // Reject writes against an unrecognized storage layout (issue #120).
     StorageVersion::require_compatible_version(env);
@@ -548,7 +603,7 @@ pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
     );
 }
 
-/// Get NFT details
+/// Get the full [`DynamicNFT`] struct by token ID.
 pub fn get_nft(env: &Env, token_id: u64) -> DynamicNFT {
     // Version guard before reading persistent layout (issue #120).
     StorageVersion::require_compatible_version(env);
@@ -557,14 +612,14 @@ pub fn get_nft(env: &Env, token_id: u64) -> DynamicNFT {
         .unwrap_or_else(|| panic!("NFT not found"))
 }
 
-/// Get all tokens owned by an address
+/// Get all token IDs owned by an address.
 pub fn get_owner_tokens(env: &Env, owner: Address) -> Vec<u64> {
     env.storage().persistent()
         .get(&DynamicNFTKey::OwnerTokens(owner))
         .unwrap_or_else(|| Vec::new(env))
 }
 
-/// Get total token count
+/// Get the total number of NFTs minted.
 pub fn get_total_supply(env: &Env) -> u64 {
     env.storage().instance()
         .get(&DynamicNFTKey::TokenCount)
@@ -682,24 +737,24 @@ fn burn_nft(env: &Env, token_id: u64) {
     env.storage().persistent().remove(&DynamicNFTKey::Token(token_id));
 }
 
-/// Get NFT metadata URI
+/// Get the metadata URI (IPFS hash) for a token.
 pub fn token_uri(env: &Env, token_id: u64) -> String {
     let nft = get_nft(env, token_id);
     nft.metadata_ipfs.clone()
 }
 
-/// Check if NFT exists
+/// Check whether a token ID exists.
 pub fn nft_exists(env: &Env, token_id: u64) -> bool {
     env.storage().persistent().has(&DynamicNFTKey::Token(token_id))
 }
 
-/// Get owner of NFT
+/// Get the current owner of a token.
 pub fn owner_of(env: &Env, token_id: u64) -> Address {
     let nft = get_nft(env, token_id);
     nft.owner
 }
 
-/// Get balance of owner
+/// Get the number of tokens owned by an address.
 pub fn balance_of(env: &Env, owner: Address) -> u64 {
     get_owner_tokens(env, owner).len() as u64
 }

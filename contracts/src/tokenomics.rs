@@ -1,3 +1,30 @@
+//! # Tokenomics Module
+//!
+//! Reward, staking, and governance token economics for the AetherMint
+//! education platform. Supports three token types: Reward, Governance,
+//! and Utility.
+//!
+//! ## Token Types
+//!
+//! | Type | ID | Purpose |
+//! |---|---|---|
+//! | Reward | 0 | Earned for learning achievements |
+//! | Governance | 1 | Used for proposal voting (quadratic cost) |
+//! | Utility | 2 | Reserved for platform utilities |
+//!
+//! ## Staking
+//!
+//! Users can stake reward tokens for variable APY based on lock duration:
+//! - 1 week: 5% APY
+//! - 1 month: 10% APY
+//! - 1 year: 50% APY
+//!
+//! ## Governance
+//!
+//! Uses quadratic voting — the cost to vote with power `n` is `n²` governance
+//! tokens. Voting power is `sqrt(reward_balance) + governance_balance +
+//! stake_amount / 100`.
+
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec,
 };
@@ -44,7 +71,8 @@ pub struct TokenomicsContract;
 
 #[contractimpl]
 impl TokenomicsContract {
-    /// Initialize tokenomics system
+    /// Initialize the tokenomics system, resetting proposal and stake pool
+    /// counters.
     pub fn initialize(env: Env, admin: Address) {
         admin.require_auth();
         env.storage()
@@ -53,7 +81,11 @@ impl TokenomicsContract {
         env.storage().instance().set(&TokenomicsKey::StakePoolTotal, &0u64);
     }
 
-    /// Distribute rewards for learning achievements
+    /// Mint reward tokens for a learning achievement.
+    ///
+    /// # Parameters
+    /// * `recipient` - The address receiving the reward.
+    /// * `amount` - Number of reward tokens to mint.
     pub fn mint_reward(env: Env, recipient: Address, amount: u64) {
         PauseUtils::require_not_paused(&env);
         // In a real system, the caller would be the Proctoring or Course contract
@@ -74,7 +106,12 @@ impl TokenomicsContract {
         );
     }
 
-    /// Stake tokens for course quality / platform rewards
+    /// Stake reward tokens for variable APY based on lock duration.
+    ///
+    /// # Parameters
+    /// * `staker` - The address staking tokens.
+    /// * `amount` - Number of reward tokens to stake.
+    /// * `lock_duration` - Lock period in seconds (determines APY).
     pub fn stake_tokens(env: Env, staker: Address, amount: u64, lock_duration: u64) {
         PauseUtils::require_not_paused(&env);
         staker.require_auth();
@@ -115,7 +152,8 @@ impl TokenomicsContract {
         );
     }
 
-    /// Claim rewards from staking
+    /// Unstake tokens and claim accumulated rewards. The lock duration must
+    /// have elapsed.
     pub fn unstake_and_claim(env: Env, staker: Address) {
         PauseUtils::require_not_paused(&env);
         staker.require_auth();
@@ -150,7 +188,15 @@ impl TokenomicsContract {
         );
     }
 
-    /// Quadratic Voting for Governance Proposals
+    /// Vote on a governance proposal using quadratic voting.
+    ///
+    /// The cost in governance tokens is `votes_power²`.
+    ///
+    /// # Parameters
+    /// * `voter` - Address casting the vote.
+    /// * `proposal_id` - The proposal to vote on.
+    /// * `votes_power` - The voting power to apply (quadratic cost).
+    /// * `approve` - `true` for yes, `false` for no.
     pub fn vote_on_proposal(env: Env, voter: Address, proposal_id: u64, votes_power: u64, approve: bool) {
         PauseUtils::require_not_paused(&env);
         voter.require_auth();
@@ -183,7 +229,10 @@ impl TokenomicsContract {
         );
     }
 
-    /// Create a new proposal
+    /// Create a new governance proposal.
+    ///
+    /// # Returns
+    /// The newly assigned proposal ID.
     pub fn create_proposal(env: Env, creator: Address, title: String, description: String, duration_seconds: u64) -> u64 {
         PauseUtils::require_not_paused(&env);
         creator.require_auth();
@@ -217,8 +266,8 @@ impl TokenomicsContract {
         env.storage().instance().get(&TokenomicsKey::TotalSupply(token_type)).unwrap_or(0)
     }
 
-    /// Calculate voting power for governance based on token holdings and staking.
-    /// voting_power = sqrt(reward_balance) + governance_balance + stake_amount / 100
+    /// Calculate governance voting power from token holdings and staking:
+    /// `voting_power = sqrt(reward_balance) + governance_balance + stake_amount / 100`
     pub fn calculate_voting_power(env: Env, voter: Address) -> i128 {
         let reward_balance = Self::get_token_balance(env.clone(), voter.clone(), 0u32) as i128;
         let gov_balance = Self::get_token_balance(env.clone(), voter.clone(), 1u32) as i128;
