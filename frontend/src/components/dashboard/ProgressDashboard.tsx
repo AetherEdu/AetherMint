@@ -11,10 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  BookOpen, 
-  Clock, 
-  Trophy, 
+import {
+  BookOpen,
+  Clock,
+  Trophy,
   Target,
   TrendingUp,
   Calendar,
@@ -27,8 +27,9 @@ import {
   Play,
   Pause,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
+import { ExportButton } from '../Analytics/ExportButton';
 
 interface Enrollment {
   id: string;
@@ -89,6 +90,7 @@ export function ProgressDashboard({
   const [activities, setActivities] = useState<LearningActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState(timeRange);
+  const [activeTab, setActiveTab] = useState('enrollments');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -169,6 +171,30 @@ export function ProgressDashboard({
     });
   };
 
+  // Prepare enrollment data for export
+  const enrollmentExportData = enrollments.map((e) => ({
+    'Course Title': e.course.title,
+    Instructor: e.course.instructor.name,
+    Status: e.status,
+    Progress: `${e.progress}%`,
+    'Completed Lessons': e.completedLessons,
+    'Total Lessons': e.totalLessons,
+    'Time Spent (h)': e.timeSpent.toFixed(1),
+    Level: e.course.metadata.level,
+    Duration: `${e.course.metadata.duration}h`,
+    Enrolled: formatDate(e.enrolledAt),
+    'Last Accessed': formatDate(e.lastAccessed),
+    Certificate: e.certificateIssued ? 'Yes' : 'No',
+  }));
+
+  // Prepare activity data for export
+  const activityExportData = activities.map((a) => ({
+    Date: a.date,
+    'Hours Spent': a.hoursSpent.toFixed(1),
+    'Lessons Completed': a.lessonsCompleted,
+    'Courses Accessed': a.coursesAccessed.join('; '),
+  }));
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -234,7 +260,7 @@ export function ProgressDashboard({
       )}
 
       {/* Main Content */}
-      <Tabs defaultValue="enrollments" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="enrollments">My Enrollments</TabsTrigger>
@@ -243,6 +269,11 @@ export function ProgressDashboard({
           </TabsList>
 
           <div className="flex items-center gap-2">
+            <ExportButton
+              data={activeTab === 'activity' ? activityExportData : enrollmentExportData}
+              filename={activeTab === 'activity' ? 'learning-activity' : 'progress-enrollments'}
+              variant="outline"
+            />
             <select
               value={selectedTimeRange}
               onChange={(e) => setSelectedTimeRange(e.target.value as any)}
