@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { ErrorDisplay } from './LoadingFallback';
 import { ErrorFallback, ErrorVariant } from './ErrorFallback';
 
 interface Props {
@@ -69,6 +70,7 @@ function logError(error: Error, errorInfo: ErrorInfo) {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  public state: State = { hasError: false };
   public state: State = {
     hasError: false,
   };
@@ -78,6 +80,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo);
     // Invoke the external onError callback (e.g., for Sentry)
     this.props.onError?.(error, errorInfo);
 
@@ -100,6 +103,22 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      if (this.props.fallback) return this.props.fallback;
+
+      const details = this.state.error
+        ? [this.state.error.toString(), this.state.errorInfo?.componentStack].filter(Boolean).join('\n\n')
+        : undefined;
+
+      return (
+        <div className="min-h-[200px] flex items-center justify-center p-4">
+          <ErrorDisplay
+            title="Something went wrong"
+            message="An unexpected error occurred. Please try again or contact support if the problem persists."
+            details={details}
+            onRetry={this.handleRetry}
+            className="max-w-md w-full"
+          />
+        </div>
       // Use custom fallback if provided
       if (this.props.fallback) {
         return this.props.fallback;

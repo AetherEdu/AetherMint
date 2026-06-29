@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Achievement } from '../types/profile';
+import { EmptyState } from './LoadingFallback';
 import { 
   Trophy, 
   Star, 
@@ -137,6 +138,15 @@ export function AchievementDisplay({
   }, [achievements]);
 
   if (compact) {
+    if (filteredAchievements.length === 0) {
+      return (
+        <EmptyState
+          icon={<Trophy className="h-6 w-6" />}
+          title="No achievements yet"
+          description="Complete courses and reach milestones to earn achievements."
+        />
+      );
+    }
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {filteredAchievements.slice(0, 12).map((achievement) => {
@@ -376,15 +386,24 @@ export function AchievementDisplay({
 
       {/* No Results */}
       {filteredAchievements.length === 0 && (
-        <div className="text-center py-12">
-          <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">
-            {searchQuery || selectedCategory !== 'all' || selectedRarity !== 'all'
+        <EmptyState
+          icon={<Trophy className="h-8 w-8" />}
+          title={
+            searchQuery || selectedCategory !== 'all' || selectedRarity !== 'all'
               ? 'No achievements match your filters'
-              : 'No achievements available'
-            }
-          </p>
-        </div>
+              : 'No achievements yet'
+          }
+          description={
+            searchQuery || selectedCategory !== 'all' || selectedRarity !== 'all'
+              ? 'Try adjusting your search or filter criteria.'
+              : 'Complete courses and reach milestones to earn achievements.'
+          }
+          action={
+            searchQuery || selectedCategory !== 'all' || selectedRarity !== 'all'
+              ? { label: 'Clear filters', onClick: () => { setSearchQuery(''); setSelectedCategory('all'); setSelectedRarity('all'); } }
+              : undefined
+          }
+        />
       )}
     </div>
   );

@@ -6,7 +6,8 @@ import { AchievementDisplay } from '../../components/AchievementDisplay';
 import { CredentialList } from '../../components/CredentialList';
 import { ProfileStats } from '../../components/ProfileStats';
 import { useProfile } from '../../hooks/useProfile';
-import { testProfile, testAchievements, testCredentials, testStats } from '../../test-profile';
+import { ErrorDisplay, SkeletonCard, SkeletonList } from '../../components/LoadingFallback';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { 
   User, 
   Trophy, 
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function DemoPage() {
-  const { profile, achievements, credentials, stats } = useProfile();
+  const { profile, achievements, credentials, stats, loading, error, reloadProfile } = useProfile();
   const [activeDemo, setActiveDemo] = useState<'overview' | 'editor' | 'achievements' | 'credentials' | 'stats'>('overview');
   const [showEditor, setShowEditor] = useState(false);
 
@@ -250,6 +251,15 @@ export default function DemoPage() {
           </p>
         </div>
 
+        {/* Error banner */}
+        {error && (
+          <ErrorDisplay
+            message={error}
+            onRetry={reloadProfile}
+            className="mb-8"
+          />
+        )}
+
         {/* Demo Selection */}
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6 text-center">
@@ -292,7 +302,18 @@ export default function DemoPage() {
 
         {/* Demo Content */}
         <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-8">
-          {renderDemoContent()}
+          {loading ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} className="h-24 !p-0" />)}
+              </div>
+              <SkeletonList rows={3} />
+            </div>
+          ) : (
+            <ErrorBoundary>
+              {renderDemoContent()}
+            </ErrorBoundary>
+          )}
         </div>
 
         {/* Footer */}

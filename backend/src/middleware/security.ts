@@ -6,6 +6,29 @@ import * as securityService from '../services/securityService';
 import { sanitizeInput } from './sanitizer';
 
 /**
+ * Content Security Policy (CSP) Middleware
+ */
+export const cspMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' wss: ws:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+  );
+  next();
+};
+
+/**
+ * Additional Security Headers Middleware
+ */
+export const securityHeadersMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+};
+
+/**
  * DDoS Protection Middleware
  * Uses Redis to track request rates per IP and flags rapid bursts
  */
