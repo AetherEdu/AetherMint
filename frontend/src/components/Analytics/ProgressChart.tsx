@@ -5,6 +5,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { Skeleton, ErrorDisplay, EmptyState } from '../LoadingFallback';
+import { BarChart2 } from 'lucide-react';
 
 interface ProgressData {
   date: string;
@@ -61,11 +63,9 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
-        </div>
+      <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
@@ -73,15 +73,19 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="text-red-500 text-center">
-          <p>Error loading progress data: {error}</p>
-          <button 
-            onClick={fetchProgressData}
-            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Retry
-          </button>
-        </div>
+        <ErrorDisplay message={error} onRetry={fetchProgressData} />
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <EmptyState
+          icon={<BarChart2 className="h-8 w-8" />}
+          title="No progress data yet"
+          description="Start completing lessons to see your progress chart."
+        />
       </div>
     );
   }

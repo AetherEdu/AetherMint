@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Credential } from '../types/profile';
 import { useProfile } from '../hooks/useProfile';
+import { EmptyState } from './LoadingFallback';
 import { 
   Award, 
   CheckCircle, 
@@ -152,38 +153,44 @@ export function CredentialList({
   if (compact) {
     return (
       <div className="space-y-3">
-        {filteredCredentials.slice(0, 3).map((credential) => {
-          const statusConfig = VERIFICATION_STATUS_CONFIG[credential.verificationStatus];
-          const typeConfig = CREDENTIAL_TYPE_CONFIG[credential.type];
-          const StatusIcon = statusConfig.icon;
-          const TypeIcon = typeConfig.icon;
-
-          return (
-            <div
-              key={credential.id}
-              className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700"
-            >
-              <div className={`p-2 rounded-lg ${typeConfig.bgColor}`}>
-                <TypeIcon className={`h-5 w-5 ${typeConfig.color}`} />
+        {filteredCredentials.length === 0 ? (
+          <EmptyState
+            icon={<Award className="h-6 w-6" />}
+            title="No credentials yet"
+            description="Add credentials to showcase your achievements."
+            action={showAddButton ? { label: 'Add Credential', onClick: () => setShowAddForm(true) } : undefined}
+          />
+        ) : (
+          <>
+            {filteredCredentials.slice(0, 3).map((credential) => {
+              const statusConfig = VERIFICATION_STATUS_CONFIG[credential.verificationStatus];
+              const typeConfig = CREDENTIAL_TYPE_CONFIG[credential.type];
+              const StatusIcon = statusConfig.icon;
+              const TypeIcon = typeConfig.icon;
+              return (
+                <div
+                  key={credential.id}
+                  className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700"
+                >
+                  <div className={`p-2 rounded-lg ${typeConfig.bgColor}`}>
+                    <TypeIcon className={`h-5 w-5 ${typeConfig.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-gray-900 dark:text-white truncate">{credential.title}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{credential.issuer}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <StatusIcon className={`h-4 w-4 ${statusConfig.color}`} />
+                  </div>
+                </div>
+              );
+            })}
+            {credentials.length > 3 && (
+              <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                +{credentials.length - 3} more credentials
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-gray-900 dark:text-white truncate">
-                  {credential.title}
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {credential.issuer}
-                </p>
-              </div>
-              <div className="flex items-center gap-1">
-                <StatusIcon className={`h-4 w-4 ${statusConfig.color}`} />
-              </div>
-            </div>
-          );
-        })}
-        {credentials.length > 3 && (
-          <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-            +{credentials.length - 3} more credentials
-          </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -394,25 +401,27 @@ export function CredentialList({
         })}
       </div>
 
-      {/* No Results */}
       {filteredCredentials.length === 0 && (
-        <div className="text-center py-12">
-          <Award className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">
-            {searchQuery || selectedStatus !== 'all' || selectedType !== 'all'
+        <EmptyState
+          icon={<Award className="h-8 w-8" />}
+          title={
+            searchQuery || selectedStatus !== 'all' || selectedType !== 'all'
               ? 'No credentials match your filters'
-              : 'No credentials available'
-            }
-          </p>
-          {showAddButton && (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              Add Your First Credential
-            </button>
-          )}
-        </div>
+              : 'No credentials yet'
+          }
+          description={
+            searchQuery || selectedStatus !== 'all' || selectedType !== 'all'
+              ? 'Try adjusting your search or filter criteria.'
+              : 'Add your first credential to start building your verified portfolio.'
+          }
+          action={
+            !searchQuery && selectedStatus === 'all' && selectedType === 'all' && showAddButton
+              ? { label: 'Add Credential', onClick: () => setShowAddForm(true) }
+              : searchQuery || selectedStatus !== 'all' || selectedType !== 'all'
+              ? { label: 'Clear filters', onClick: () => { setSearchQuery(''); setSelectedStatus('all'); setSelectedType('all'); } }
+              : undefined
+          }
+        />
       )}
 
       {/* Add Credential Form Modal */}

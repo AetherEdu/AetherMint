@@ -8,16 +8,15 @@ import { CredentialList } from '../../components/CredentialList';
 import { ProfileStats } from '../../components/ProfileStats';
 import { ProfileHeader } from '../../components/Profile/ProfileHeader';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
+import { SkeletonProfile, ErrorDisplay, EmptyState } from '../../components/LoadingFallback';
 import { 
   User, 
   Trophy, 
   Award, 
   BarChart3, 
   Settings, 
-  Edit, 
-  X,
-  Loader2,
-  RefreshCw
+  Edit,
+  Loader2
 } from 'lucide-react';
 
 type ActiveTab = 'overview' | 'achievements' | 'credentials' | 'stats' | 'settings';
@@ -51,10 +50,9 @@ export default function ProfilePage() {
 
   if (loading && !profile) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading profile...</p>
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <SkeletonProfile />
         </div>
       </div>
     );
@@ -62,22 +60,13 @@ export default function ProfilePage() {
 
   if (error && !profile) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-6 border border-red-200 dark:border-red-800">
-            <h2 className="text-lg font-semibold text-red-900 dark:text-red-300 mb-2">
-              Error Loading Profile
-            </h2>
-            <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-            <button
-              onClick={reloadProfile}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 mx-auto"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Try Again
-            </button>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center p-4">
+        <ErrorDisplay
+          title="Error Loading Profile"
+          message={error}
+          onRetry={reloadProfile}
+          className="max-w-md w-full"
+        />
       </div>
     );
   }
@@ -85,9 +74,11 @@ export default function ProfilePage() {
   if (!profile) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600 dark:text-gray-400">No profile data available</p>
-        </div>
+        <EmptyState
+          icon={<User className="h-8 w-8" />}
+          title="No profile found"
+          description="Connect your wallet to load your profile."
+        />
       </div>
     );
   }
@@ -250,12 +241,12 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Loading Overlay */}
-      {loading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-900 rounded-lg p-6 flex items-center gap-3">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-            <span className="text-gray-900 dark:text-white">Updating...</span>
+      {/* Loading Overlay (background refetch) */}
+      {loading && profile && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-900 rounded-lg p-4 flex items-center gap-3 shadow-xl">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <span className="text-sm text-gray-900 dark:text-white">Updating...</span>
           </div>
         </div>
       )}
