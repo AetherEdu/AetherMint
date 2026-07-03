@@ -98,7 +98,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.1.0",
     "@types/natural": "^6.0.1",
-    "@types/node": "^20.5.1",
+    "@types/node": "^26.1.0",
     "@types/nodemailer": "^6.4.14",
     "@types/socket.io-client": "^3.0.0",
     "@types/supertest": "^2.0.12",
