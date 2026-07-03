@@ -47,7 +47,7 @@
     "express-validator": "^7.0.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
-    "firebase-admin": "^13.7.0",
+    "firebase-admin": "^14.1.0",
     "graphlib": "^2.1.8",
     "helmet": "^7.0.0",
     "ioredis": "^5.11.1",
