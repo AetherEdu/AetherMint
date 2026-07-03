@@ -62,7 +62,7 @@
     "wagmi": "^2.19.5",
     "web-vitals": "^3.5.2",
     "y-monaco": "^0.1.4",
-    "y-websocket": "^1.5.0",
+    "y-websocket": "^3.0.0",
     "yjs": "^13.6.7",
     "zod": "^3.23.8"
   },
