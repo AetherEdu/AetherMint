@@ -54,7 +54,7 @@
     "ipfs-http-client": "^60.0.1",
     "joi": "^17.9.2",
     "jsonwebtoken": "^9.0.2",
-    "libsodium-wrappers": "^0.7.13",
+    "libsodium-wrappers": "^0.8.4",
     "ml-kmeans": "^6.0.0",
     "ml-matrix": "^6.10.4",
     "mongoose": "^7.5.0",
