@@ -275,7 +275,6 @@ app.get('/api/health', (req, res) => {
 });
 
 // 404 catch-all — must come after all route definitions
-import { NotFoundError } from './utils/errors';
 app.use('*', (req: any, _res: any, next: any) => {
   next(new NotFoundError(`Endpoint not found: ${req.originalUrl}`));
 });

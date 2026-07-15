@@ -3,7 +3,7 @@
  * Handles HTTP endpoints for course discovery, search, and recommendations
  */
 
-import { Request, Response, Router } from "express";
+import { Request, Response, NextFunction, Router } from "express";
 import { validationResult, query, body } from "express-validator";
 import searchService from "../services/searchService";
 import recommendationService from "../services/recommendationService";
@@ -106,7 +106,7 @@ router.post(
       });
     } catch (error) {
       logger.error("Search error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -147,7 +147,7 @@ router.get(
       });
     } catch (error) {
       logger.error("Suggestions error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -181,7 +181,7 @@ router.get(
       });
     } catch (error) {
       logger.error("Trending courses error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -225,7 +225,7 @@ router.get(
       });
     } catch (error) {
       logger.error("Similar courses error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -289,7 +289,7 @@ router.post(
       });
     } catch (error) {
       logger.error("Recommendations error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -350,7 +350,7 @@ router.post(
       });
     } catch (error) {
       logger.error("Activity recording error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -368,16 +368,14 @@ router.get("/categories", async (req: Request, res: Response) => {
   try {
     logger.info("Categories request");
 
-    const categories = await searchService.getCategories();
-
-    return res.status(200).json({
+    const categories = await searchService.getCategories();      return res.status(200).json({
       success: true,
       message: "Categories retrieved successfully",
       data: categories,
     });
   } catch (error) {
       logger.error("Categories error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
 });
 
@@ -394,16 +392,14 @@ router.get("/categories/tree", async (req: Request, res: Response) => {
   try {
     logger.info("Category tree request");
 
-    const categories = await searchService.getCategoryTree();
-
-    return res.status(200).json({
+    const categories = await searchService.getCategoryTree();      return res.status(200).json({
       success: true,
       message: "Category tree retrieved successfully",
       data: categories,
     });
   } catch (error) {
       logger.error("Category tree error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
 });
 
@@ -478,7 +474,7 @@ router.post(
         }
       );
       logger.error("Category creation error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -547,7 +543,7 @@ router.put(
         }
       );
       logger.error("Category update error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -601,7 +597,7 @@ router.delete(
         }
       );
       logger.error("Category deletion error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -635,7 +631,7 @@ router.get(
       });
     } catch (error) {
       logger.error("Popular searches error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
   },
 );
@@ -656,16 +652,14 @@ router.get("/analytics/search/:query", async (req: Request, res: Response) => {
 
     logger.info(`Search analytics request - Query: ${query}`);
 
-    const analytics = await searchService.getSearchAnalytics(query);
-
-    return res.status(200).json({
+    const analytics = await searchService.getSearchAnalytics(query);      return res.status(200).json({
       success: true,
       message: "Search analytics retrieved successfully",
       data: analytics,
     });
   } catch (error) {
       logger.error("Search analytics error", error);
-      return next(error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
     }
 });
 

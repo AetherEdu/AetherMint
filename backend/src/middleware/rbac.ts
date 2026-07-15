@@ -4,10 +4,11 @@ import logger from '../utils/logger';
 import { getCachedPermissions, cachePermissions } from '../utils/redis';
 import { AuthError, ForbiddenError } from '../utils/errors';
 
-// Define User interface to include role and id
+// Define User interface to include role, id, and address
 interface User {
   id: string;
   role: string;
+  address?: string;
 }
 
 // Extend Express Request
