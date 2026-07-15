@@ -7,6 +7,66 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Verify lock file
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "Error: root package-lock.json is missing. Run 'npm install --package-lock-only' in the project root"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm ci -w backend
+
+      - name: Build backend
+        run: npm run build -w backend
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Verify lock file
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "Error: root package-lock.json is missing. Run 'npm install --package-lock-only' in the project root"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm ci -w frontend
+
+      - name: Build frontend
+        run: npm run build -w frontend
+        env:
+          NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: ${{ secrets.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA' }}
+
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
