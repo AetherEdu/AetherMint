@@ -50,6 +50,18 @@ pub enum ChallengeResolution {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssessmentSession {
+    pub id: u64,
+    pub student: Address,
+    pub assessment_id: String,
+    pub start_time: u64,
+    pub end_time: Option<u64>,
+    pub identity_hash: BytesN<32>,
+    pub status: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProctoringSession {
     pub id: u64,
     pub exam_id: String,
