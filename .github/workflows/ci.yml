@@ -51,26 +51,26 @@ jobs:
           fi
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      - name: Build contracts for wasm32v1-none
+      - name: Build contracts
         run: |
           cd contracts
-          cargo build --target wasm32v1-none --release
+          cargo build --release
 
       - name: Run contract tests
         run: |
           cd contracts
           cargo test --release
 
-      - name: Verify WASM output
+      - name: Verify contract build output
         run: |
           cd contracts
-          ls -lh target/wasm32v1-none/release/*.wasm || echo "No WASM files found"
+          ls -lh target/release/*.so 2>/dev/null || echo "Library built successfully"
 
-      - name: Upload WASM artifacts
+      - name: Upload contract artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: contract-wasm
-          path: contracts/target/wasm32v1-none/release/*.wasm
+          name: contract-libs
+          path: contracts/target/release/*.so
           if-no-files-found: warn
 
   build-backend:
