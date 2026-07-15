@@ -511,6 +511,72 @@ pub fn resolve_dispute(env: &Env, admin: &Address, dispute_id: u64, resolved: bo
     );
 }
 
+/// Release escrow funds to the seller after successful transfer.
+pub fn release_escrow(env: &Env, listing_id: u64) {
+    let escrow_id = env
+        .storage()
+        .instance()
+        .get::<_, u64>(&symbol_short!("esc_cnt"))
+        .unwrap_or(1);
+
+    let mut escrow: Escrow = env
+        .storage()
+        .instance()
+        .get(&MarketplaceKey::Escrow(escrow_id))
+        .unwrap_or_else(|| panic!("Escrow not found"));
+
+    escrow.status = 1; // Released
+    env.storage()
+        .instance()
+        .set(&MarketplaceKey::Escrow(escrow_id), &escrow);
+
+    env.events().publish(
+        (symbol_short!("market"), symbol_short!("release")),
+        (listing_id, escrow_id),
+    );
+}
+
+/// Refund escrow to buyer on dispute or cancellation.
+pub fn refund_escrow(env: &Env, listing_id: u64) {
+    let escrow_id = env
+        .storage()
+        .instance()
+        .get::<_, u64>(&symbol_short!("esc_cnt"))
+        .unwrap_or(1);
+
+    let mut escrow: Escrow = env
+        .storage()
+        .instance()
+        .get(&MarketplaceKey::Escrow(escrow_id))
+        .unwrap_or_else(|| panic!("Escrow not found"));
+
+    escrow.status = 2; // Refunded
+    env.storage()
+        .instance()
+        .set(&MarketplaceKey::Escrow(escrow_id), &escrow);
+
+    env.events().publish(
+        (symbol_short!("market"), symbol_short!("refund")),
+        (listing_id, escrow_id),
+    );
+}
+
+/// Get listing details by ID.
+pub fn get_listing(env: &Env, listing_id: u64) -> ItemListing {
+    env.storage()
+        .instance()
+        .get(&MarketplaceKey::Listing(listing_id))
+        .unwrap_or_else(|| panic!("Listing not found"))
+}
+
+/// Get escrow details by ID.
+pub fn get_escrow(env: &Env, escrow_id: u64) -> Escrow {
+    env.storage()
+        .instance()
+        .get(&MarketplaceKey::Escrow(escrow_id))
+        .unwrap_or_else(|| panic!("Escrow not found"))
+}
+
 /// Escrow: Initiate a secure transaction with time-lock
 pub fn initiate_escrow(env: &Env, buyer: &Address, listing_id: u64, timeout: u64) -> u64 {
     PauseUtils::require_not_paused(env);

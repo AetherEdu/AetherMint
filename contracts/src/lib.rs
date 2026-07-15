@@ -900,7 +900,7 @@ impl AetherMintContract {
         price: u64,
         item_type: u32,
     ) -> u64 {
-        marketplace::list_item(&env, &seller, item_id, price, item_type)
+        marketplace::list_item(&env, &seller, item_id, item_type, price)
     }
 
     /// Buy an item — transfers ownership with escrow holding funds.

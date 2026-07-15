@@ -1,5 +1,8 @@
-use soroban_sdk::{contracttype, Address, Env, String, Vec, Symbol, Map};
+use soroban_sdk::{contracttype, symbol_short, Address, Bytes, Env, String, Vec, Symbol, Map};
 use crate::utils::pause::PauseUtils;
+use crate::utils::validation::{
+    validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH,
+};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -324,7 +327,7 @@ impl Governance {
             .unwrap_or(voter)
     }
 
-    pub fn deposit_to_treasury(env: Env, amount: i128) {
+    pub fn deposit_to_treasury(env: Env, from: Address, amount: i128) {
         PauseUtils::require_not_paused(&env);
         let current: i128 = env.storage().instance()
             .get(&GovernanceDataKey::TreasuryBalance)

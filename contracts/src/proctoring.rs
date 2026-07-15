@@ -126,6 +126,18 @@ fn require_session(env: &Env, session_id: u64) -> ProctoringSession {
         .unwrap_or_else(|| panic_with_error!(env, ProctoringError::SessionNotFound))
 }
 
+/// Verify that the caller is the contract admin.
+fn require_admin(env: &Env, caller: &Address) {
+    let admin: Address = env
+        .storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .unwrap_or_else(|| panic_with_error!(env, ProctoringError::AdminNotSet));
+    if *caller != admin {
+        panic_with_error!(env, ProctoringError::Unauthorized);
+    }
+}
+
 fn latest_session_id(env: &Env) -> u64 {
     env.storage()
         .instance()
@@ -137,7 +149,6 @@ fn latest_session_id(env: &Env) -> u64 {
 // #[contract]
 pub struct ProctoringContract;
 
-#[contractimpl]
 impl ProctoringContract {
     /// Initialize a new assessment session
     pub fn start_session(
