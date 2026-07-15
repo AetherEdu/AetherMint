@@ -18,15 +18,6 @@ const MetaverseCampus = dynamic(
     ),
   }
 );
-import type { Metadata } from 'next';
-import CampusClient from './CampusClient';
-
-export const metadata: Metadata = {
-  title: 'Metaverse Campus — AetherMint',
-  description:
-    'Immersive virtual learning campus with classrooms, social spaces, and avatar interaction.',
-};
-
 /**
  * The /campus route renders a thin client-side wrapper so the heavy
  * `MetaverseCampus` bundle (Three.js, R3F/drei, campus scene state,
@@ -77,5 +68,4 @@ export default function CampusPage() {
   }
 
   return <MetaverseCampus />;
-  return <CampusClient />;
 }
