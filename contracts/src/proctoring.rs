@@ -67,9 +67,9 @@ pub struct ProctoringSession {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProctoringResult {
     pub session_id: u64,
-    pub timestamp: u64,
-    pub event_type: String,
-    pub data_hash: BytesN<32>, // Hash of encrypted behavioral data
+    pub result_data: String,
+    pub proctor_signature: BytesN<64>,
+    pub submitted_at: u64,
 }
 
 // Contract attribute disabled - this is a module used by main contract in lib.rs
@@ -121,25 +121,31 @@ impl ProctoringContract {
     }
 }
 
-    /// Log a behavioral event for the audit trail
-    pub fn log_behavioral_event(
-        env: Env,
-        session_id: u64,
-        event_type: String,
-        data_hash: BytesN<32>,
-    ) {
-        PauseUtils::require_not_paused(&env);
-        let session: AssessmentSession = env
-            .storage()
-            .instance()
-            .get(&ProctoringKey::Session(session_id))
-            .unwrap_or_else(|| panic!("Session not found"));
+/// Log a behavioral event for the audit trail
+pub fn log_behavioral_event(
+    env: Env,
+    session_id: u64,
+    event_type: String,
+    data_hash: BytesN<32>,
+) {
+    PauseUtils::require_not_paused(&env);
+    let session: AssessmentSession = env
+        .storage()
+        .instance()
+        .get(&ProctoringKey::Session(session_id))
+        .unwrap_or_else(|| panic!("Session not found"));
 
-        session.student.require_auth();
+    session.student.require_auth();
 
-        if session.status != 1 {
-            panic!("Session is not active");
-        }
+    if session.status != 1 {
+        panic!("Session is not active");
+    }
+
+    env.events().publish(
+        (symbol_short!("proctor"), symbol_short!("behavior")),
+        (session_id, event_type, data_hash),
+    );
+}
 
 fn set_session_count(env: &Env, session_id: u64) {
     env.storage()
@@ -204,15 +210,6 @@ pub fn submit_proctoring_result(
         panic_with_error!(env, ProctoringError::InvalidSessionState);
     }
 
-    /// Complete the session and lock the result
-    pub fn complete_session(env: Env, session_id: u64, result_hash: BytesN<32>) {
-        PauseUtils::require_not_paused(&env);
-        let mut session: AssessmentSession = env
-            .storage()
-            .instance()
-            .get(&ProctoringKey::Session(session_id))
-            .unwrap_or_else(|| panic!("Session not found"));
-
     session.status = ProctoringStatus::InProgress;
     store_session(env, &session);
 
@@ -253,27 +250,6 @@ pub fn challenge_proctoring_result(
     if session.linked_credential_id.is_some() {
         panic_with_error!(env, ProctoringError::CredentialAlreadyLinked);
     }
-
-    /// Proctor attestation for high-stakes exams
-    pub fn attest_session(
-        env: Env,
-        proctor: Address,
-        session_id: u64,
-        flagged: bool,
-        notes_hash: BytesN<32>,
-    ) {
-        PauseUtils::require_not_paused(&env);
-        proctor.require_auth();
-
-        let mut session: AssessmentSession = env
-            .storage()
-            .instance()
-            .get(&ProctoringKey::Session(session_id))
-            .unwrap_or_else(|| panic!("Session not found"));
-
-        if flagged {
-            session.status = 3; // Flagged
-        }
 
     if env
         .storage()
