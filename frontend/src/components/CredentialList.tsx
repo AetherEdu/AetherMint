@@ -20,7 +20,7 @@ import {
   FileText,
   Shield,
 } from 'lucide-react';
-import { ExportButton } from '../Analytics/ExportButton';
+import { ExportButton } from './Analytics/ExportButton';
 
 interface CredentialListProps {
   credentials?: Credential[];
