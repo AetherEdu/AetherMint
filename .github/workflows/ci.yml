@@ -42,10 +42,12 @@ jobs:
             echo "Soroban CLI already cached, skipping install"
           else
             echo "Installing Soroban CLI 26.1.0..."
-            curl -fsSL https://github.com/stellar/stellar-cli/releases/download/v26.1.0/stellar-cli-26.1.0-x86_64-unknown-linux-gnu.tar.gz -o /tmp/stellar.tar.gz
-            tar xzf /tmp/stellar.tar.gz -C /tmp
-            find /tmp -name 'stellar*' -type f -executable -exec mv {} ~/.cargo/bin/stellar \;
+            INSTALL_DIR=$(mktemp -d)
+            curl -fsSL https://github.com/stellar/stellar-cli/releases/download/v26.1.0/stellar-cli-26.1.0-x86_64-unknown-linux-gnu.tar.gz -o "$INSTALL_DIR/stellar.tar.gz"
+            tar xzf "$INSTALL_DIR/stellar.tar.gz" -C "$INSTALL_DIR"
+            find "$INSTALL_DIR" -name 'stellar*' -type f -executable -exec mv {} ~/.cargo/bin/stellar \;
             chmod +x ~/.cargo/bin/stellar 2>/dev/null || true
+            rm -rf "$INSTALL_DIR"
           fi
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
