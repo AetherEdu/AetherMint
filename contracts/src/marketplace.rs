@@ -31,6 +31,16 @@ pub enum ItemType {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Listing {
+    pub credential_id: u64,
+    pub seller: Address,
+    pub price: u64,
+    pub royalty_bps: u32,
+    pub active: bool,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ItemListing {
     pub seller: Address,
     pub price: u64,
@@ -81,6 +91,11 @@ pub struct Dispute {
     pub buyer: Address,
     pub reason: String,
     pub status: u32,
+}
+
+/// Calculate bonding curve price for a credential (placeholder)
+fn calculate_bonding_price(_env: &Env, _credential_id: u64) -> u64 {
+    100 // Default price placeholder
 }
 
 /// Initialize the marketplace
