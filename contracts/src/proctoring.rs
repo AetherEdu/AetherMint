@@ -72,6 +72,55 @@ pub struct ProctoringResult {
     pub submitted_at: u64,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ProctoringKey {
+    SessionCount,
+    Session(u64),
+    SessionResult(u64),
+    SessionChallenge(u64),
+    SessionResolution(u64),
+    SessionCredential(u64),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProctoringChallenge {
+    pub session_id: u64,
+    pub challenger: Address,
+    pub evidence: String,
+    pub challenged_at: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProctoringResolutionRecord {
+    pub session_id: u64,
+    pub admin: Address,
+    pub resolution: ChallengeResolution,
+    pub resolved_at: u64,
+}
+
+fn store_session(env: &Env, session: &ProctoringSession) {
+    env.storage()
+        .persistent()
+        .set(&ProctoringKey::Session(session.id), session);
+}
+
+fn require_session(env: &Env, session_id: u64) -> ProctoringSession {
+    env.storage()
+        .persistent()
+        .get(&ProctoringKey::Session(session_id))
+        .unwrap_or_else(|| panic_with_error!(env, ProctoringError::SessionNotFound))
+}
+
+fn latest_session_id(env: &Env) -> u64 {
+    env.storage()
+        .instance()
+        .get(&ProctoringKey::SessionCount)
+        .unwrap_or(0)
+}
+
 // Contract attribute disabled - this is a module used by main contract in lib.rs
 // #[contract]
 pub struct ProctoringContract;
