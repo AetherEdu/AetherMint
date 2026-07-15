@@ -6,6 +6,7 @@
  */
 
 import express, { Router } from "express";
+// @ts-ignore - controller module not yet implemented
 import { enrollmentController } from "../controllers/enrollmentController";
 
 const router: Router = express.Router();

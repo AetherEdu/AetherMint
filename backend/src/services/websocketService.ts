@@ -155,7 +155,7 @@ class WebsocketService {
       socket.on('disconnect', (reason) => {
         const state = this.connectionStates.get(socket.id);
         if (state) {
-          state.isReconnecting = reason !== 'io client disconnect';
+          state.isReconnecting = String(reason) !== 'io client disconnect';
           logger.info('User disconnected', { socketId: socket.id, reason, isReconnecting: state.isReconnecting });
         }
         

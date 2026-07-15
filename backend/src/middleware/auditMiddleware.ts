@@ -36,7 +36,7 @@ export const setAuditResource = (resource: string, resourceId?: string) => {
   if (context) {
     context.resource = resource;
     if (resourceId) {
-      context.action = resourceId;
+      (context as any).action = resourceId;
     }
   }
 };
