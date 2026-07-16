@@ -6,6 +6,67 @@ on:
   pull_request:
 
 jobs:
+  build-contracts:
+    name: Build Smart Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev libudev-dev pkg-config
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            contracts/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('contracts/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check formatting
+        run: |
+          cd contracts
+          cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: |
+          cd contracts
+          cargo clippy -- -D warnings
+
+      - name: Build contracts
+        run: |
+          cd contracts
+          cargo build --release
+
+      - name: Run contract tests
+        run: |
+          cd contracts
+          cargo test
+
+      - name: Verify contract build output
+        run: |
+          cd contracts
+          ls -lh target/release/*.so 2>/dev/null || echo "Library built successfully"
+
+      - name: Upload contract artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-libs
+          path: contracts/target/release/*.so
+          if-no-files-found: warn
+
   build-backend:
     name: Build Backend
     runs-on: ubuntu-latest

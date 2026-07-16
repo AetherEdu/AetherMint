@@ -104,7 +104,6 @@ prof/
 ehthumbs.db
 
 contracts/target
-contracts/Cargo.lock
 
 # Soroban-generated test snapshots
 contracts/test_snapshots/
