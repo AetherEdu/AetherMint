@@ -392,7 +392,7 @@ pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: S
         .unwrap_or_else(|| panic!("NFT not found"));
 
     // Check if achievement already unlocked
-    if nft.achievements.contains(&achievement_id) {
+    if nft.achievements.contains(achievement_id) {
         return false;
     }
 
@@ -403,14 +403,14 @@ pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: S
     let xp_reward = calculate_achievement_xp(env, achievement_id);
     nft.experience_points += xp_reward;
 
-    let old_stage = nft.evolution_stage.clone();
+    let old_stage = nft.evolution_stage;
     let timestamp = env.ledger().timestamp();
 
     // Check for evolution
     if let Some(new_stage) =
         check_evolution_requirements(env, nft.current_level, nft.experience_points)
     {
-        nft.evolution_stage = new_stage.clone();
+        nft.evolution_stage = new_stage;
         nft.current_level += 1;
         nft.last_evolved = timestamp;
 
@@ -421,7 +421,7 @@ pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: S
         let evolution_record = EvolutionRecord {
             timestamp,
             from_stage: old_stage,
-            to_stage: new_stage.clone(),
+            to_stage: new_stage,
             achievement_id,
             ipfs_hash: new_metadata.clone(),
         };
@@ -488,7 +488,7 @@ pub fn fuse_nfts(env: &Env, token1_id: u64, token2_id: u64, recipient: Address) 
     // Combine achievements
     let mut combined_achievements = nft1.achievements;
     for achievement in nft2.achievements {
-        if !combined_achievements.contains(&achievement) {
+        if !combined_achievements.contains(achievement) {
             combined_achievements.push_back(achievement);
         }
     }
@@ -569,7 +569,7 @@ pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
         panic!("Token not found in owner's list");
     }
     let index = found_idx;
-    from_tokens.remove(index as u32);
+    from_tokens.remove(index);
     env.storage()
         .persistent()
         .set(&DynamicNFTKey::OwnerTokens(from.clone()), &from_tokens);
@@ -642,7 +642,7 @@ fn check_evolution_requirements(
 
     for (threshold, stage) in xp_thresholds.iter().rev() {
         if xp >= *threshold {
-            return Some(stage.clone());
+            return Some(*stage);
         }
     }
 
@@ -705,9 +705,9 @@ fn fuse_visual_traits(traits1: &VisualTraits, traits2: &VisualTraits) -> VisualT
         glow_effect: (traits1.glow_effect + traits2.glow_effect) / 2,
         special_effects: fused_special_effects,
         rarity_tier: if traits1.rarity_tier as u8 >= traits2.rarity_tier as u8 {
-            traits1.rarity_tier.clone()
+            traits1.rarity_tier
         } else {
-            traits2.rarity_tier.clone()
+            traits2.rarity_tier
         },
     }
 }

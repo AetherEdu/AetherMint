@@ -2,7 +2,7 @@ use crate::utils::pause::PauseUtils;
 use crate::utils::validation::{
     validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH,
 };
-use soroban_sdk::{contracttype, symbol_short, Address, Bytes, Env, Map, String, Symbol, Vec};
+use soroban_sdk::{contracttype, symbol_short, Address, Bytes, Env, String};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]

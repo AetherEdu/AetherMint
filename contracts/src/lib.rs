@@ -1,4 +1,8 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
+#![allow(deprecated)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::manual_checked_ops)]
+#![allow(clippy::needless_range_loop)]
 extern crate alloc;
 use soroban_sdk::{
     contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Symbol, Vec,
@@ -6,7 +10,6 @@ use soroban_sdk::{
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
 use crate::utils::pause::PauseUtils;
-use crate::utils::storage::StorageKey;
 use crate::utils::storage::{MigrationRecord, StorageVersion};
 use crate::utils::validation::{
     validate_non_zero_address, validate_positive_u64, validate_string_length,
@@ -36,9 +39,7 @@ pub fn u64_to_string(env: &Env, num: u64, prefix: &str) -> String {
         let mut i = start;
         let mut j = pos - 1;
         while i < j {
-            let tmp = buf[i];
-            buf[i] = buf[j];
-            buf[j] = tmp;
+            buf.swap(i, j);
             i += 1;
             j -= 1;
         }
@@ -116,45 +117,6 @@ pub mod proctoring;
 pub mod dynamic_fees;
 pub mod marketplace;
 
-// #[cfg(test)]
-// mod time_lock_credential_test;
-// #[cfg(test)]
-// mod vrf_system_test;
-// #[cfg(test)]
-// mod progress_test;
-// #[cfg(test)]
-// mod event_logger_test;
-// #[cfg(test)]
-// mod user_profile_test;
-// #[cfg(test)]
-// mod analyticsStorage_test;
-// #[cfg(test)]
-// mod consciousness_test;
-// #[cfg(test)]
-// mod courseMetadata_test;
-// #[cfg(test)]
-// mod syncCoordination_test;
-
-pub mod governance;
-// Temporarily disabled: these test modules reference commented-out modules or have pre-existing issues
-// #[cfg(test)]
-// mod time_lock_credential_test;
-// #[cfg(test)]
-// mod vrf_system_test;
-// #[cfg(test)]
-// mod progress_test;
-// #[cfg(test)]
-// mod event_logger_test;
-// #[cfg(test)]
-// mod user_profile_test;
-// #[cfg(test)]
-// mod analyticsStorage_test;
-// #[cfg(test)]
-// mod consciousness_test;
-// #[cfg(test)]
-// mod courseMetadata_test;
-// #[cfg(test)]
-// mod syncCoordination_test;
 #[cfg(test)]
 mod marketplace_test;
 #[cfg(test)]
@@ -464,7 +426,7 @@ impl AetherMintContract {
     }
 
     /// Get user profile with optimized storage
-    pub fn get_profile(env: Env, user: Address) -> Profile {
+    pub fn get_profile(_env: Env, user: Address) -> Profile {
         // Simplified - returns default profile (user_profile module disabled to avoid conflicts)
         Profile {
             owner: user,

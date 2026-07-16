@@ -225,7 +225,7 @@ impl StorageUtils {
             .get(&key)
             .unwrap_or_else(|| Vec::new(env));
 
-        if !list.contains(&id) {
+        if !list.contains(id) {
             list.push_back(id);
             env.storage().instance().set(&key, &list);
         }

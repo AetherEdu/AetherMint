@@ -1,6 +1,5 @@
-use alloc::format;
 use alloc::vec;
-use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Vec};
+use soroban_sdk::{contracttype, Address, Env, String, Vec};
 
 #[contracttype]
 #[derive(Clone)]
@@ -117,7 +116,7 @@ pub enum FeeKey {
     RewardCount,
 }
 
-pub fn initialize(env: &Env, admin: &Address) {
+pub fn initialize(env: &Env, _admin: &Address) {
     if env.storage().instance().has(&FeeKey::Config) {
         panic!("Fee system already initialized");
     }
@@ -260,7 +259,7 @@ fn calculate_user_discount(env: &Env, metrics: &UserBehaviorMetrics) -> u64 {
     discount.min(50)
 }
 
-fn calculate_network_adjustment(config: &DynamicFeeConfig, metrics: &NetworkMetrics) -> u64 {
+fn calculate_network_adjustment(_config: &DynamicFeeConfig, metrics: &NetworkMetrics) -> u64 {
     let base_multiplier = match metrics.congestion_level {
         CongestionLevel::Low => 100u64,
         CongestionLevel::Medium => 150u64,
@@ -290,11 +289,8 @@ fn calculate_incentive_discount(env: &Env, user: &Address) -> u64 {
             .get::<_, IncentiveReward>(&FeeKey::Reward(reward_id))
         {
             if reward.user == *user && reward.expires_at > current_time {
-                match reward.reward_type {
-                    RewardType::FeeDiscount => {
-                        total_discount += reward.amount;
-                    }
-                    _ => {}
+                if let RewardType::FeeDiscount = reward.reward_type {
+                    total_discount += reward.amount;
                 }
             }
         }
@@ -352,7 +348,7 @@ fn calculate_reputation_score(metrics: &UserBehaviorMetrics) -> u64 {
     score += (metrics.streak_days as u64 * 2).min(100);
     score -= metrics.abuse_score / 10;
 
-    score.min(1000).max(0)
+    score.min(1000)
 }
 
 fn check_abuse_patterns(env: &Env, user: &Address, metrics: &UserBehaviorMetrics) {
@@ -418,10 +414,10 @@ fn store_fee_history(env: &Env, user: &Address, calculation: &FeeCalculation) {
 fn create_fee_breakdown(
     env: &Env,
     _config: &DynamicFeeConfig,
-    network_metrics: &NetworkMetrics,
+    _network_metrics: &NetworkMetrics,
     user_metrics: &UserBehaviorMetrics,
 ) -> String {
-    let success_rate = if user_metrics.transaction_count > 0 {
+    let _success_rate = if user_metrics.transaction_count > 0 {
         user_metrics.successful_transactions * 100 / user_metrics.transaction_count
     } else {
         0
@@ -440,12 +436,13 @@ fn boost_user_reputation(env: &Env, user: &Address, boost_amount: u64) {
         .set(&FeeKey::UserMetrics(user.clone()), &metrics);
 }
 
+#[allow(dead_code)]
 fn estimate_current_fee(env: &Env, user: &Address) -> u64 {
     let calculation = calculate_fee(env.clone(), user.clone(), 1000);
     calculation.final_fee
 }
 
-pub fn calculate_fee(env: Env, user: Address, transaction_value: u64) -> FeeCalculation {
+pub fn calculate_fee(env: Env, user: Address, _transaction_value: u64) -> FeeCalculation {
     let config: DynamicFeeConfig = env
         .storage()
         .instance()
@@ -580,19 +577,19 @@ pub fn issue_reward(
 }
 
 pub fn calculate_marketplace_fee(env: Env, seller: Address, price: u64) -> u64 {
-    let _config: DynamicFeeConfig = env
-        .storage()
-        .instance()
-        .get(&FeeKey::Config)
-        .unwrap_or_else(|| DynamicFeeConfig {
-            base_fee: 1000,
-            network_multiplier: 100,
-            volatility_factor: 50,
-            congestion_threshold: 100,
-            smoothing_factor: 80,
-            max_fee_increase: 200,
-            min_fee_decrease: 50,
-        });
+    let _config: DynamicFeeConfig =
+        env.storage()
+            .instance()
+            .get(&FeeKey::Config)
+            .unwrap_or(DynamicFeeConfig {
+                base_fee: 1000,
+                network_multiplier: 100,
+                volatility_factor: 50,
+                congestion_threshold: 100,
+                smoothing_factor: 80,
+                max_fee_increase: 200,
+                min_fee_decrease: 50,
+            });
 
     let user_metrics = get_or_create_user_metrics(&env, &seller);
     let tier = get_user_discount_tier(&env, &seller);
@@ -606,11 +603,7 @@ pub fn calculate_marketplace_fee(env: Env, seller: Address, price: u64) -> u64 {
         0
     };
 
-    let adjusted_fee_bps = if effective_discount >= base_fee_bps {
-        0
-    } else {
-        base_fee_bps - effective_discount
-    };
+    let adjusted_fee_bps = base_fee_bps.saturating_sub(effective_discount);
 
     (price as u128 * adjusted_fee_bps as u128 / 10000) as u64
 }

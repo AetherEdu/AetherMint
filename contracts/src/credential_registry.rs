@@ -1,5 +1,4 @@
 use crate::credential_events::{publish_credential_event, CredentialLifecycleEvent};
-use crate::utils::pause::PauseUtils;
 use crate::utils::storage::{EntityType, StorageUtils, StorageVersion};
 use crate::utils::validation::{
     validate_duration, validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH,

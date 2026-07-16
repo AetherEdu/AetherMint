@@ -1,7 +1,7 @@
 use crate::dynamic_fees::calculate_marketplace_fee;
 use crate::utils::pause::PauseUtils;
 use crate::utils::storage::StorageKey;
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String};
+use soroban_sdk::{contracttype, symbol_short, Address, Env, String};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -164,6 +164,9 @@ pub fn list_item(env: &Env, seller: &Address, item_id: u64, item_type: u32, pric
     if item_type > 2 {
         panic!("Invalid item type");
     }
+    if price == 0 {
+        panic!("Price cannot be zero");
+    }
 
     let dup_key = MarketplaceKey::ItemListed(item_id, item_type);
     if env.storage().instance().has(&dup_key) {
@@ -285,6 +288,16 @@ pub fn buy_item(env: &Env, buyer: &Address, listing_id: u64) {
         .instance()
         .get(&MarketplaceKey::Listing(listing_id))
         .unwrap_or_else(|| panic!("Listing not found"));
+
+    if listing.seller == *buyer {
+        panic!("Cannot buy your own item");
+    }
+    if listing.status == 1 {
+        panic!("Item already sold");
+    }
+    if listing.status != 0 {
+        panic!("Listing is not active");
+    }
 
     let escrow_id = env
         .storage()
@@ -512,6 +525,10 @@ pub fn release_escrow(env: &Env, listing_id: u64) {
         .get(&MarketplaceKey::Escrow(escrow_id))
         .unwrap_or_else(|| panic!("Escrow not found"));
 
+    if escrow.status != 0 {
+        panic!("Escrow already processed");
+    }
+
     escrow.status = 1; // Released
     env.storage()
         .instance()
@@ -536,6 +553,10 @@ pub fn refund_escrow(env: &Env, listing_id: u64) {
         .instance()
         .get(&MarketplaceKey::Escrow(escrow_id))
         .unwrap_or_else(|| panic!("Escrow not found"));
+
+    if escrow.status != 0 {
+        panic!("Escrow already processed");
+    }
 
     escrow.status = 2; // Refunded
     env.storage()
