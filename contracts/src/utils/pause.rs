@@ -1,5 +1,5 @@
-use soroban_sdk::{contracttype, symbol_short, Address, Env};
 use crate::utils::storage::StorageKey;
+use soroban_sdk::{contracttype, symbol_short, Address, Env};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -37,7 +37,7 @@ impl PauseUtils {
     /// Pause the contract.
     pub fn pause(env: &Env, admin: Address, stored_admin: Address) {
         admin.require_auth();
-        
+
         if admin != stored_admin {
             panic!("Only admin can pause");
         }

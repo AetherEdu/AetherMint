@@ -6,6 +6,7 @@
 //! wrappers in `lib.rs`.
 
 use crate::credential_registry;
+use crate::utils::pause::PauseUtils;
 use crate::utils::validation::{
     validate_non_zero_address, validate_string_length, MAX_METADATA_LENGTH, MAX_SHORT_TEXT_LENGTH,
 };
@@ -13,7 +14,6 @@ use crate::DataKey;
 use soroban_sdk::{
     contracterror, contracttype, panic_with_error, symbol_short, Address, BytesN, Env, String,
 };
-use crate::utils::pause::PauseUtils;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -194,12 +194,7 @@ impl ProctoringContract {
 }
 
 /// Log a behavioral event for the audit trail
-pub fn log_behavioral_event(
-    env: Env,
-    session_id: u64,
-    event_type: String,
-    data_hash: BytesN<32>,
-) {
+pub fn log_behavioral_event(env: Env, session_id: u64, event_type: String, data_hash: BytesN<32>) {
     PauseUtils::require_not_paused(&env);
     let session: AssessmentSession = env
         .storage()
@@ -276,8 +271,7 @@ pub fn submit_proctoring_result(
     let mut session = require_session(env, session_id);
 
     session.proctor.require_auth();
-    if session.status != ProctoringStatus::Pending
-        && session.status != ProctoringStatus::InProgress
+    if session.status != ProctoringStatus::Pending && session.status != ProctoringStatus::InProgress
     {
         panic_with_error!(env, ProctoringError::InvalidSessionState);
     }
@@ -400,9 +394,10 @@ pub fn resolve_challenge(
         resolved_at: env.ledger().timestamp(),
     };
 
-    env.storage()
-        .persistent()
-        .set(&ProctoringKey::SessionResolution(session_id), &resolution_record);
+    env.storage().persistent().set(
+        &ProctoringKey::SessionResolution(session_id),
+        &resolution_record,
+    );
 
     session.status = ProctoringStatus::Resolved;
     session.resolved_at = Some(resolution_record.resolved_at);
@@ -415,11 +410,7 @@ pub fn resolve_challenge(
 }
 
 /// Link a proctored credential issuance to a verified session.
-pub fn register_proctored_credential(
-    env: &Env,
-    session_id: u64,
-    credential_id: u64,
-) {
+pub fn register_proctored_credential(env: &Env, session_id: u64, credential_id: u64) {
     let mut session = require_session(env, session_id);
 
     if session.linked_credential_id.is_some() {
@@ -454,9 +445,10 @@ pub fn register_proctored_credential(
 
     credential_registry::mark_credential_as_proctored(env, credential_id);
 
-    env.storage()
-        .persistent()
-        .set(&ProctoringKey::SessionCredential(session_id), &credential_id);
+    env.storage().persistent().set(
+        &ProctoringKey::SessionCredential(session_id),
+        &credential_id,
+    );
 
     env.events().publish(
         (symbol_short!("proctor"), symbol_short!("link")),
@@ -499,10 +491,7 @@ pub fn get_proctoring_challenge(env: &Env, session_id: u64) -> Option<Proctoring
         .get(&ProctoringKey::SessionChallenge(session_id))
 }
 
-pub fn get_proctoring_resolution(
-    env: &Env,
-    session_id: u64,
-) -> Option<ProctoringResolutionRecord> {
+pub fn get_proctoring_resolution(env: &Env, session_id: u64) -> Option<ProctoringResolutionRecord> {
     env.storage()
         .persistent()
         .get(&ProctoringKey::SessionResolution(session_id))

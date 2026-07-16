@@ -13,7 +13,9 @@
 //! - It can withdraw with [`revoke_attestation`].
 //! - The contract admin can [`deactivate_attester`] (and [`reactivate_attester`]).
 
-use soroban_sdk::{contracterror, contracttype, panic_with_error, symbol_short, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{
+    contracterror, contracttype, panic_with_error, symbol_short, Address, BytesN, Env, String, Vec,
+};
 
 use crate::credential_registry;
 use crate::utils::pause::PauseUtils;

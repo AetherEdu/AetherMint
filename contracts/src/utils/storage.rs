@@ -526,9 +526,10 @@ impl StorageVersion {
         };
         // `transformed` is informational; surface it through the marker so
         // off-chain tooling can confirm side-effects were performed.
-        env.storage()
-            .instance()
-            .set(&StorageVersionKey::MigrationMarker(new_version), &transformed);
+        env.storage().instance().set(
+            &StorageVersionKey::MigrationMarker(new_version),
+            &transformed,
+        );
 
         // Bump the version.
         env.storage()

@@ -1,8 +1,6 @@
-use crate::utils::storage::{PackedTimestamps, PackedUserFlags};
 use crate::utils::pause::PauseUtils;
-use soroban_sdk::{
-    contract, contracttype, symbol_short, Address, Env, String, Vec,
-};
+use crate::utils::storage::{PackedTimestamps, PackedUserFlags};
+use soroban_sdk::{contract, contracttype, symbol_short, Address, Env, String, Vec};
 
 /// Optimized user profile with packed storage
 #[contracttype]
@@ -69,7 +67,7 @@ pub struct Achievement {
     pub user: Address,
     pub title: String,
     pub description: String,
-    pub timestamp: u64,     // Packed earned_at and verification status
+    pub timestamp: u64,  // Packed earned_at and verification status
     pub badge_hash: u64, // Hash of badge URL
 }
 
@@ -282,8 +280,12 @@ impl UserProfileContract {
 
         // Pack timestamp and verification status
         let packed_timestamp = timestamp << 1; // Reserve bit 0 for verification status
-        let badge_hash =
-            generate_string_hash(&badge_url.as_ref().cloned().unwrap_or_else(|| String::from_str(&env, "")));
+        let badge_hash = generate_string_hash(
+            &badge_url
+                .as_ref()
+                .cloned()
+                .unwrap_or_else(|| String::from_str(&env, "")),
+        );
 
         // Create achievement
         let achievement = Achievement {
@@ -489,5 +491,4 @@ impl UserProfileContract {
             None
         }
     }
-
 }

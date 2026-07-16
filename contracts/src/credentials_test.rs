@@ -54,8 +54,7 @@ fn test_issue_and_verify_credential() {
 
     // Integration: lifecycle events must be recorded by the unified
     // credential_events module so off-chain indexers can subscribe to them.
-    let issued_records =
-        crate::credential_events::get_credential_events(&env, cred_id);
+    let issued_records = crate::credential_events::get_credential_events(&env, cred_id);
     assert_eq!(issued_records.len(), 3); // Issued, Verified, Revoked
     assert_eq!(
         issued_records.get(0).unwrap().event_type,

@@ -1,8 +1,8 @@
-use soroban_sdk::{contracttype, symbol_short, Address, Bytes, Env, String, Vec, Symbol, Map};
 use crate::utils::pause::PauseUtils;
 use crate::utils::validation::{
     validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH,
 };
+use soroban_sdk::{contracttype, symbol_short, Address, Bytes, Env, Map, String, Symbol, Vec};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -108,7 +108,8 @@ impl Governance {
             panic!("Quorum must be positive");
         }
 
-        let count: u64 = env.storage()
+        let count: u64 = env
+            .storage()
             .instance()
             .get(&GovernanceDataKey::ProposalCount)
             .unwrap_or(0);
@@ -148,18 +149,13 @@ impl Governance {
         id
     }
 
-    pub fn cast_vote(
-        env: Env,
-        voter: Address,
-        proposal_id: u64,
-        support: u32,
-        voting_power: i128,
-    ) {
+    pub fn cast_vote(env: Env, voter: Address, proposal_id: u64, support: u32, voting_power: i128) {
         PauseUtils::require_not_paused(&env);
         voter.require_auth();
         validate_non_zero_address(&env, &voter);
 
-        let mut proposal: Proposal = env.storage()
+        let mut proposal: Proposal = env
+            .storage()
             .instance()
             .get(&GovernanceDataKey::Proposal(proposal_id))
             .unwrap_or_else(|| panic!("Proposal not found"));
@@ -176,7 +172,8 @@ impl Governance {
             panic!("Voting period ended");
         }
 
-        if env.storage()
+        if env
+            .storage()
             .instance()
             .has(&GovernanceDataKey::Vote(proposal_id, voter.clone()))
         {
@@ -193,9 +190,10 @@ impl Governance {
         env.storage()
             .instance()
             .set(&GovernanceDataKey::Proposal(proposal_id), &proposal);
-        env.storage()
-            .instance()
-            .set(&GovernanceDataKey::Vote(proposal_id, voter.clone()), &support);
+        env.storage().instance().set(
+            &GovernanceDataKey::Vote(proposal_id, voter.clone()),
+            &support,
+        );
 
         let now = env.ledger().timestamp();
         env.events().publish(
@@ -206,7 +204,9 @@ impl Governance {
 
     pub fn execute_proposal(env: Env, proposal_id: u64) {
         PauseUtils::require_not_paused(&env);
-        let mut proposal: Proposal = env.storage().instance()
+        let mut proposal: Proposal = env
+            .storage()
+            .instance()
             .get(&GovernanceDataKey::Proposal(proposal_id))
             .unwrap_or_else(|| panic!("Proposal not found"));
 
@@ -224,9 +224,8 @@ impl Governance {
                     panic!("Voting period not ended");
                 }
 
-                let total_votes = proposal.for_votes
-                    + proposal.against_votes
-                    + proposal.abstain_votes;
+                let total_votes =
+                    proposal.for_votes + proposal.against_votes + proposal.abstain_votes;
 
                 if total_votes < proposal.quorum {
                     proposal.status = ProposalStatus::Defeated;
@@ -253,7 +252,8 @@ impl Governance {
                 }
 
                 proposal.status = ProposalStatus::Succeeded;
-                let timelock_delay: u64 = env.storage()
+                let timelock_delay: u64 = env
+                    .storage()
                     .instance()
                     .get(&GovernanceDataKey::TimelockDelay)
                     .unwrap_or(DEFAULT_TIMELOCK_DELAY);
@@ -329,7 +329,9 @@ impl Governance {
 
     pub fn deposit_to_treasury(env: Env, from: Address, amount: i128) {
         PauseUtils::require_not_paused(&env);
-        let current: i128 = env.storage().instance()
+        let current: i128 = env
+            .storage()
+            .instance()
             .get(&GovernanceDataKey::TreasuryBalance)
             .unwrap_or(0);
         let new_balance = current + amount;
@@ -347,7 +349,9 @@ impl Governance {
     pub fn withdraw_from_treasury(env: Env, amount: i128, recipient: Address) {
         // This should only be called by the contract itself during proposal execution
         PauseUtils::require_not_paused(&env);
-        let current: i128 = env.storage().instance()
+        let current: i128 = env
+            .storage()
+            .instance()
             .get(&GovernanceDataKey::TreasuryBalance)
             .unwrap_or(0);
         if current < amount {
@@ -392,7 +396,15 @@ pub fn create_proposal(
     voting_period: u64,
     quorum: i128,
 ) -> u64 {
-    Governance::create_proposal(env, proposer, title, description, action_data, voting_period, quorum)
+    Governance::create_proposal(
+        env,
+        proposer,
+        title,
+        description,
+        action_data,
+        voting_period,
+        quorum,
+    )
 }
 
 pub fn cast_vote(env: Env, voter: Address, proposal_id: u64, support: u32, voting_power: i128) {

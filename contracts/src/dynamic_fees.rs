@@ -169,12 +169,17 @@ fn initialize_discount_tiers(env: &Env) {
             tier_id: 5,
             min_reputation: 900,
             discount_percentage: 50,
-            requirements: String::from_str(env, "Elite status, 500+ transactions, 1+ year activity"),
+            requirements: String::from_str(
+                env,
+                "Elite status, 500+ transactions, 1+ year activity",
+            ),
         },
     ];
 
     for tier in tiers {
-        env.storage().instance().set(&FeeKey::DiscountTier(tier.tier_id), &tier);
+        env.storage()
+            .instance()
+            .set(&FeeKey::DiscountTier(tier.tier_id), &tier);
     }
 }
 
@@ -213,7 +218,11 @@ pub fn get_user_discount_tier(env: &Env, user: &Address) -> FeeDiscountTier {
     let metrics = get_or_create_user_metrics(env, user);
 
     for tier_id in 1..=5u32 {
-        if let Some(tier) = env.storage().instance().get::<_, FeeDiscountTier>(&FeeKey::DiscountTier(tier_id)) {
+        if let Some(tier) = env
+            .storage()
+            .instance()
+            .get::<_, FeeDiscountTier>(&FeeKey::DiscountTier(tier_id))
+        {
             if metrics.reputation_score >= tier.min_reputation {
                 return tier;
             }
@@ -266,7 +275,8 @@ fn calculate_network_adjustment(config: &DynamicFeeConfig, metrics: &NetworkMetr
 
 fn calculate_incentive_discount(env: &Env, user: &Address) -> u64 {
     let current_time = env.ledger().timestamp();
-    let reward_count: u64 = env.storage()
+    let reward_count: u64 = env
+        .storage()
         .instance()
         .get(&FeeKey::RewardCount)
         .unwrap_or(0);
@@ -274,7 +284,11 @@ fn calculate_incentive_discount(env: &Env, user: &Address) -> u64 {
     let mut total_discount = 0u64;
 
     for reward_id in 1..=reward_count {
-        if let Some(reward) = env.storage().instance().get::<_, IncentiveReward>(&FeeKey::Reward(reward_id)) {
+        if let Some(reward) = env
+            .storage()
+            .instance()
+            .get::<_, IncentiveReward>(&FeeKey::Reward(reward_id))
+        {
             if reward.user == *user && reward.expires_at > current_time {
                 match reward.reward_type {
                     RewardType::FeeDiscount => {
@@ -290,7 +304,11 @@ fn calculate_incentive_discount(env: &Env, user: &Address) -> u64 {
 }
 
 fn calculate_abuse_premium(env: &Env, user: &Address) -> u64 {
-    if let Some(abuse) = env.storage().instance().get::<_, AbuseDetection>(&FeeKey::AbuseDetection(user.clone())) {
+    if let Some(abuse) = env
+        .storage()
+        .instance()
+        .get::<_, AbuseDetection>(&FeeKey::AbuseDetection(user.clone()))
+    {
         let current_time = env.ledger().timestamp();
 
         if abuse.blocked_until > current_time {
@@ -339,7 +357,8 @@ fn calculate_reputation_score(metrics: &UserBehaviorMetrics) -> u64 {
 
 fn check_abuse_patterns(env: &Env, user: &Address, metrics: &UserBehaviorMetrics) {
     let current_time = env.ledger().timestamp();
-    let mut abuse = env.storage()
+    let mut abuse = env
+        .storage()
         .instance()
         .get(&FeeKey::AbuseDetection(user.clone()))
         .unwrap_or_else(|| AbuseDetection {
@@ -374,12 +393,15 @@ fn check_abuse_patterns(env: &Env, user: &Address, metrics: &UserBehaviorMetrics
         abuse.blocked_until = current_time + 3600;
     }
 
-    env.storage().instance().set(&FeeKey::AbuseDetection(user.clone()), &abuse);
+    env.storage()
+        .instance()
+        .set(&FeeKey::AbuseDetection(user.clone()), &abuse);
 }
 
 fn store_fee_history(env: &Env, user: &Address, calculation: &FeeCalculation) {
     let key = FeeKey::FeeHistory(user.clone());
-    let mut history: Vec<FeeCalculation> = env.storage()
+    let mut history: Vec<FeeCalculation> = env
+        .storage()
         .instance()
         .get(&key)
         .unwrap_or_else(|| Vec::new(env));
@@ -413,7 +435,9 @@ fn create_fee_breakdown(
 fn boost_user_reputation(env: &Env, user: &Address, boost_amount: u64) {
     let mut metrics = get_or_create_user_metrics(env, user);
     metrics.reputation_score = (metrics.reputation_score + boost_amount).min(1000);
-    env.storage().instance().set(&FeeKey::UserMetrics(user.clone()), &metrics);
+    env.storage()
+        .instance()
+        .set(&FeeKey::UserMetrics(user.clone()), &metrics);
 }
 
 fn estimate_current_fee(env: &Env, user: &Address) -> u64 {
@@ -421,12 +445,9 @@ fn estimate_current_fee(env: &Env, user: &Address) -> u64 {
     calculation.final_fee
 }
 
-pub fn calculate_fee(
-    env: Env,
-    user: Address,
-    transaction_value: u64,
-) -> FeeCalculation {
-    let config: DynamicFeeConfig = env.storage()
+pub fn calculate_fee(env: Env, user: Address, transaction_value: u64) -> FeeCalculation {
+    let config: DynamicFeeConfig = env
+        .storage()
         .instance()
         .get(&FeeKey::Config)
         .unwrap_or_else(|| panic!("Fee config not found"));
@@ -469,18 +490,17 @@ pub fn calculate_fee(
 }
 
 pub fn update_network_metrics(env: &Env, metrics: &NetworkMetrics) {
-    env.storage().instance().set(&FeeKey::NetworkMetrics, metrics);
+    env.storage()
+        .instance()
+        .set(&FeeKey::NetworkMetrics, metrics);
 
     let timestamp = env.ledger().timestamp();
-    env.storage().instance().set(&FeeKey::NetworkHistory(timestamp), metrics);
+    env.storage()
+        .instance()
+        .set(&FeeKey::NetworkHistory(timestamp), metrics);
 }
 
-pub fn update_user_metrics(
-    env: &Env,
-    user: &Address,
-    success: bool,
-    transaction_value: u64,
-) {
+pub fn update_user_metrics(env: &Env, user: &Address, success: bool, transaction_value: u64) {
     let mut metrics = get_or_create_user_metrics(env, user);
 
     metrics.transaction_count += 1;
@@ -492,7 +512,8 @@ pub fn update_user_metrics(
         metrics.streak_days = 0;
     }
 
-    let total_value = metrics.average_transaction_value * (metrics.transaction_count - 1) + transaction_value;
+    let total_value =
+        metrics.average_transaction_value * (metrics.transaction_count - 1) + transaction_value;
     metrics.average_transaction_value = total_value / metrics.transaction_count;
 
     metrics.last_activity_timestamp = env.ledger().timestamp();
@@ -500,7 +521,9 @@ pub fn update_user_metrics(
 
     check_abuse_patterns(env, user, &metrics);
 
-    env.storage().instance().set(&FeeKey::UserMetrics(user.clone()), &metrics);
+    env.storage()
+        .instance()
+        .set(&FeeKey::UserMetrics(user.clone()), &metrics);
 }
 
 pub fn get_current_fee(env: &Env, user: &Address, transaction_value: u64) -> u64 {
@@ -517,12 +540,14 @@ pub fn issue_reward(
     reason: &String,
     duration_seconds: u64,
 ) -> u64 {
-    let _config: DynamicFeeConfig = env.storage()
+    let _config: DynamicFeeConfig = env
+        .storage()
         .instance()
         .get(&FeeKey::Config)
         .unwrap_or_else(|| panic!("Fee config not found"));
 
-    let reward_count: u64 = env.storage()
+    let reward_count: u64 = env
+        .storage()
         .instance()
         .get(&FeeKey::RewardCount)
         .unwrap_or(0);
@@ -540,8 +565,12 @@ pub fn issue_reward(
         expires_at: env.ledger().timestamp() + duration_seconds,
     };
 
-    env.storage().instance().set(&FeeKey::Reward(reward_id), &reward);
-    env.storage().instance().set(&FeeKey::RewardCount, &reward_id);
+    env.storage()
+        .instance()
+        .set(&FeeKey::Reward(reward_id), &reward);
+    env.storage()
+        .instance()
+        .set(&FeeKey::RewardCount, &reward_id);
 
     if is_reputation_boost {
         boost_user_reputation(env, user, amount);
@@ -551,7 +580,8 @@ pub fn issue_reward(
 }
 
 pub fn calculate_marketplace_fee(env: Env, seller: Address, price: u64) -> u64 {
-    let _config: DynamicFeeConfig = env.storage()
+    let _config: DynamicFeeConfig = env
+        .storage()
         .instance()
         .get(&FeeKey::Config)
         .unwrap_or_else(|| DynamicFeeConfig {

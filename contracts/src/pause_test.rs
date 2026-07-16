@@ -1,8 +1,12 @@
 #![cfg(test)]
 
-use crate::{AetherMintContract, AetherMintContractClient};
 use crate::utils::pause::{PausedEvent, UnpausedEvent};
-use soroban_sdk::{testutils::{Address as _, Ledger, Events}, symbol_short, Address, Env, String, IntoVal};
+use crate::{AetherMintContract, AetherMintContractClient};
+use soroban_sdk::{
+    symbol_short,
+    testutils::{Address as _, Events, Ledger},
+    Address, Env, IntoVal, String,
+};
 
 fn setup_test() -> (Env, AetherMintContractClient, Address) {
     let env = Env::default();
@@ -61,10 +65,10 @@ fn test_mutating_methods_fail_when_paused() {
     let desc = String::from_str(&env, "Desc");
     let course = String::from_str(&env, "Course");
     let ipfs = String::from_str(&env, "IPFS");
-    
+
     let result = client.try_issue_credential(&admin, &user, &title, &desc, &course, &ipfs);
     assert!(result.is_err());
-    
+
     // Test create_course (mutating) - should fail
     let result_course = client.try_create_course(&admin, &title, &desc, &100);
     assert!(result_course.is_err());
@@ -73,7 +77,7 @@ fn test_mutating_methods_fail_when_paused() {
 #[test]
 fn test_read_methods_work_when_paused() {
     let (env, client, admin) = setup_test();
-    
+
     client.pause(&admin);
 
     // Read methods should still work
@@ -92,7 +96,7 @@ fn test_events_emitted_correctly() {
     assert!(events.len() > 0);
 
     client.unpause(&admin);
-    
+
     let events = env.events().all();
     assert!(events.len() > 0);
 }

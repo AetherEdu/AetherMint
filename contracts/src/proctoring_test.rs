@@ -1,12 +1,8 @@
 #![cfg(test)]
 extern crate std;
 
-use crate::{
-    credential_registry, proctoring, AetherMintContract, AetherMintContractClient,
-};
-use soroban_sdk::{
-    testutils::Address as _, Address, BytesN, Env, String,
-};
+use crate::{credential_registry, proctoring, AetherMintContract, AetherMintContractClient};
+use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String};
 
 fn setup_contract(env: &Env) -> (AetherMintContractClient, Address, Address, Address) {
     let contract_id = env.register_contract(None, AetherMintContract);
@@ -31,11 +27,8 @@ fn test_proctoring_session_lifecycle() {
     env.mock_all_auths();
     let (client, admin, student, proctor) = setup_contract(&env);
 
-    let session_id = client.start_proctoring_session(
-        &String::from_str(&env, "exam-101"),
-        &student,
-        &proctor,
-    );
+    let session_id =
+        client.start_proctoring_session(&String::from_str(&env, "exam-101"), &student, &proctor);
 
     let session = client.get_proctoring_session(&session_id);
     assert_eq!(session.exam_id, String::from_str(&env, "exam-101"));
@@ -51,7 +44,10 @@ fn test_proctoring_session_lifecycle() {
     );
 
     let completed_session = client.get_proctoring_session(&session_id);
-    assert_eq!(completed_session.status, proctoring::ProctoringStatus::Completed);
+    assert_eq!(
+        completed_session.status,
+        proctoring::ProctoringStatus::Completed
+    );
     assert!(client.get_proctoring_result(&session_id).is_some());
 
     let credential_id = client.issue_proctored_cred_with_exp(
@@ -80,11 +76,8 @@ fn test_challenge_and_resolution_flow() {
     let (client, admin, student, proctor) = setup_contract(&env);
     let challenger = Address::generate(&env);
 
-    let session_id = client.start_proctoring_session(
-        &String::from_str(&env, "exam-202"),
-        &student,
-        &proctor,
-    );
+    let session_id =
+        client.start_proctoring_session(&String::from_str(&env, "exam-202"), &student, &proctor);
 
     client.submit_proctoring_result(
         &session_id,
@@ -136,11 +129,8 @@ fn test_overturned_challenge_blocks_proctored_issuance() {
     let (client, admin, student, proctor) = setup_contract(&env);
     let challenger = Address::generate(&env);
 
-    let session_id = client.start_proctoring_session(
-        &String::from_str(&env, "exam-303"),
-        &student,
-        &proctor,
-    );
+    let session_id =
+        client.start_proctoring_session(&String::from_str(&env, "exam-303"), &student, &proctor);
 
     client.submit_proctoring_result(
         &session_id,
@@ -184,11 +174,8 @@ fn test_duplicate_result_submission_and_early_challenge_fail() {
     env.mock_all_auths();
     let (client, _admin, student, proctor) = setup_contract(&env);
 
-    let session_id = client.start_proctoring_session(
-        &String::from_str(&env, "exam-404"),
-        &student,
-        &proctor,
-    );
+    let session_id =
+        client.start_proctoring_session(&String::from_str(&env, "exam-404"), &student, &proctor);
 
     client.submit_proctoring_result(
         &session_id,
@@ -232,11 +219,8 @@ fn test_resolution_requires_admin() {
     let (client, _admin, student, proctor) = setup_contract(&env);
     let non_admin = Address::generate(&env);
 
-    let session_id = client.start_proctoring_session(
-        &String::from_str(&env, "exam-406"),
-        &student,
-        &proctor,
-    );
+    let session_id =
+        client.start_proctoring_session(&String::from_str(&env, "exam-406"), &student, &proctor);
 
     client.submit_proctoring_result(
         &session_id,
@@ -268,11 +252,8 @@ fn test_challenge_after_linked_credential_fails() {
     let (client, admin, student, proctor) = setup_contract(&env);
     let challenger = Address::generate(&env);
 
-    let session_id = client.start_proctoring_session(
-        &String::from_str(&env, "exam-407"),
-        &student,
-        &proctor,
-    );
+    let session_id =
+        client.start_proctoring_session(&String::from_str(&env, "exam-407"), &student, &proctor);
 
     client.submit_proctoring_result(
         &session_id,

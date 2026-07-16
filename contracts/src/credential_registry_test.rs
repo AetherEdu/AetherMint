@@ -16,11 +16,7 @@ fn setup_env() -> (Env, Address) {
     (env, admin)
 }
 
-fn make_params(
-    env: &Env,
-    recipient: Address,
-    _idx: u32,
-) -> BatchCredentialParams {
+fn make_params(env: &Env, recipient: Address, _idx: u32) -> BatchCredentialParams {
     BatchCredentialParams {
         recipient,
         title: String::from_str(env, "Soroban Bootcamp"),
@@ -187,7 +183,12 @@ fn test_batch_emits_lifecycle_events_for_each_credential() {
     for i in 0..3u32 {
         let cred_id = ids.get(i).unwrap();
         let events = crate::credential_events::get_credential_events(&env, cred_id);
-        assert_eq!(events.len(), 1, "credential {} should have exactly 1 event", cred_id);
+        assert_eq!(
+            events.len(),
+            1,
+            "credential {} should have exactly 1 event",
+            cred_id
+        );
         assert_eq!(
             events.get(0).unwrap().event_type,
             crate::credential_events::CredentialLifecycleEvent::Issued,

@@ -1,9 +1,7 @@
 use crate::dynamic_fees::calculate_marketplace_fee;
-use crate::utils::storage::StorageKey;
 use crate::utils::pause::PauseUtils;
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String,
-};
+use crate::utils::storage::StorageKey;
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -162,13 +160,7 @@ pub fn list_credential(
 }
 
 /// List a generic item for sale
-pub fn list_item(
-    env: &Env,
-    seller: &Address,
-    item_id: u64,
-    item_type: u32,
-    price: u64,
-) -> u64 {
+pub fn list_item(env: &Env, seller: &Address, item_id: u64, item_type: u32, price: u64) -> u64 {
     if item_type > 2 {
         panic!("Invalid item type");
     }
@@ -204,9 +196,7 @@ pub fn list_item(
     env.storage()
         .instance()
         .set(&MarketplaceKey::ListingCount, &listing_id);
-    env.storage()
-        .instance()
-        .set(&dup_key, &true);
+    env.storage().instance().set(&dup_key, &true);
 
     env.events().publish(
         (symbol_short!("market"), symbol_short!("listed")),
@@ -303,11 +293,8 @@ pub fn buy_item(env: &Env, buyer: &Address, listing_id: u64) {
         .unwrap_or(0u64)
         + 1;
 
-    let platform_fee = calculate_marketplace_fee(
-        env.clone(),
-        listing.seller.clone(),
-        listing.price,
-    );
+    let platform_fee =
+        calculate_marketplace_fee(env.clone(), listing.seller.clone(), listing.price);
 
     let seller_amount = listing.price - platform_fee;
 
@@ -583,11 +570,20 @@ pub fn initiate_escrow(env: &Env, buyer: &Address, listing_id: u64, timeout: u64
     buyer.require_auth();
 
     // Logical escrow ID
-    let escrow_id = env.storage().instance().get::<_, u64>(&symbol_short!("esc_cnt")).unwrap_or(0) + 1;
-    env.storage().instance().set(&symbol_short!("esc_cnt"), &escrow_id);
+    let escrow_id = env
+        .storage()
+        .instance()
+        .get::<_, u64>(&symbol_short!("esc_cnt"))
+        .unwrap_or(0)
+        + 1;
+    env.storage()
+        .instance()
+        .set(&symbol_short!("esc_cnt"), &escrow_id);
 
     let release_time = env.ledger().timestamp() + timeout;
-    env.storage().instance().set(&symbol_short!("escrow_t"), &release_time);
+    env.storage()
+        .instance()
+        .set(&symbol_short!("escrow_t"), &release_time);
 
     env.events().publish(
         (symbol_short!("market"), symbol_short!("escrow")),

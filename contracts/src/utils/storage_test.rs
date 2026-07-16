@@ -8,8 +8,7 @@
 //     specific panic-message format that may shift between Soroban versions.
 
 use crate::utils::storage::{
-    MigrationRecord, StorageVersion, StorageVersionKey, STORAGE_VERSION,
-    SUPPORTED_STORAGE_VERSIONS,
+    MigrationRecord, StorageVersion, StorageVersionKey, STORAGE_VERSION, SUPPORTED_STORAGE_VERSIONS,
 };
 use soroban_sdk::{testutils::Address as _, Address, Env, Vec};
 
@@ -19,9 +18,7 @@ fn setup_env_with_admin() -> (Env, Address) {
     let admin = Address::generate(&env);
     // The contract records its admin under `DataKey::Admin` —
     // `StorageVersion::migrate` reads it back from the same keyspace.
-    env.storage()
-        .instance()
-        .set(&crate::DataKey::Admin, &admin);
+    env.storage().instance().set(&crate::DataKey::Admin, &admin);
     (env, admin)
 }
 
@@ -94,7 +91,10 @@ fn require_compatible_version_accepts_known_versions() {
     assert_eq!(v, 1);
 
     StorageVersion::set_storage_version_for_testing(&env, STORAGE_VERSION);
-    assert_eq!(StorageVersion::require_compatible_version(&env), STORAGE_VERSION);
+    assert_eq!(
+        StorageVersion::require_compatible_version(&env),
+        STORAGE_VERSION
+    );
 }
 
 #[test]
@@ -132,9 +132,10 @@ fn migrate_bumps_version_and_records_history() {
     // Seed the credential count using the REAL enum key the migration
     // transform reads — the transform lives in credential_registry.rs so its
     // seed keys must match the production keyspace.
-    env.storage()
-        .instance()
-        .set(&crate::credential_registry::CredentialRegistryKey::CredentialCount, &3u64);
+    env.storage().instance().set(
+        &crate::credential_registry::CredentialRegistryKey::CredentialCount,
+        &3u64,
+    );
 
     StorageVersion::migrate(&env, admin.clone(), 2);
 
@@ -175,9 +176,10 @@ fn migrate_v1_to_v2_is_idempotent() {
     // Re-running the migration should not double-write or panic.
     let (env, admin) = setup_env_with_admin();
     StorageVersion::set_storage_version_for_testing(&env, 1);
-    env.storage()
-        .instance()
-        .set(&crate::credential_registry::CredentialRegistryKey::CredentialCount, &1u64);
+    env.storage().instance().set(
+        &crate::credential_registry::CredentialRegistryKey::CredentialCount,
+        &1u64,
+    );
 
     StorageVersion::migrate(&env, admin.clone(), 2);
     assert_eq!(StorageVersion::migration_history(&env).len(), 1);
@@ -206,9 +208,10 @@ fn migrate_on_uninitialized_legacy_contract_runs_v1_to_v2_transform() {
         .instance()
         .has(&StorageVersionKey::StorageVersion));
 
-    env.storage()
-        .instance()
-        .set(&crate::credential_registry::CredentialRegistryKey::CredentialCount, &3u64);
+    env.storage().instance().set(
+        &crate::credential_registry::CredentialRegistryKey::CredentialCount,
+        &3u64,
+    );
 
     StorageVersion::migrate(&env, admin.clone(), 2);
 
