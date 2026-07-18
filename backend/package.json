@@ -27,7 +27,8 @@
     "migrate:status": "ts-node src/utils/migrate.ts status",
     "python:install": "pip install -r requirements.txt",
     "python:setup": "python -m spacy download en_core_web_sm",
-    "migrate:restore": "ts-node src/utils/migrate.ts restore"
+    "migrate:restore": "ts-node src/utils/migrate.ts restore",
+    "test:smoke": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.5.0",
