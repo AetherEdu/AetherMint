@@ -10,6 +10,7 @@ import '../styles/globals.css';
 // Bootstraps i18next on the client side (LanguageDetector, querystring, etc).
 import '../lib/i18n';
 import nextI18NextConfig from '../../next-i18next.config';
+import { PageTransition } from '../components/PageTransition';
 
 // The OfflineIndicator uses `useNetworkStatus`, which reads
 // `navigator.onLine` on first render — that produces a different value
@@ -58,7 +59,9 @@ function MyApp({ Component, pageProps }: AppProps) {
       {/* Reserve space on mobile so the fixed hamburger (top) and bottom
           nav bar don't overlap page content; removed at md+. */}
       <div className="pt-16 pb-20 md:pt-0 md:pb-0">
-        <Component {...pageProps} />
+        <PageTransition routeKey={router.asPath}>
+          <Component {...pageProps} />
+        </PageTransition>
       </div>
       <OfflineIndicator />
       <Toaster position="bottom-right" />
