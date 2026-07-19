@@ -178,7 +178,7 @@ const nextConfig = {
     domains: ['localhost'],
     formats: ['image/webp', 'image/avif'],
   },
-  // Performance headers
+  // Performance and Security headers
   async headers() {
     return [
       {
@@ -216,6 +216,32 @@ const nextConfig = {
           {
             key: 'Content-Type',
             value: 'application/javascript; charset=utf-8',
+          },
+        ],
+      },
+      // Additional security headers for all responses
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
           },
         ],
       },
