@@ -2,7 +2,7 @@
 
 > **Closes**: [#261](https://github.com/AetherEdu/AetherMint/issues/261)  
 > **Branch**: `feat/issue-261-api-test-coverage`  
-> **Files Changed**: 23 · **Insertions**: 2,248 · **Deletions**: 70
+> **Files Changed**: 23 · **Insertions**: 2,268 · **Deletions**: 70
 
 ---
 
@@ -279,7 +279,7 @@ Before this PR, all 9 existing route test suites failed during initialization (0
 | `backend/src/utils/roles.ts` | +1 | `UserRole` re-export |
 | `backend/src/routes/federatedLearning.js` | +20 / -8 | Class instantiation + method mapping |
 | `backend/tests/setup.js` | +25 / -6 | Graceful MongoDB fallback, CommonJS export |
-| `.github/workflows/ci.yml` | +41 | `test-backend` job with coverage |
+| `.github/workflows/ci.yml` | +46 | `test-backend` job with coverage; `allow-unsafe-pr-checkout: true` for all 5 checkout steps |
 | `package.json` | +3 | `caniuse-lite` and `paillier-js` dependencies (see note below) |
 | `package-lock.json` | — | Lockfile updates for new dependencies |
 
@@ -368,4 +368,5 @@ The `test-backend` CI job will:
 - [x] 38 auth route tests written (37/38 passing, 1 known Express json parser behavior difference)
 - [x] All 9 existing test suites loading and executing (253 tests; pre-existing status code mismatches remain in some suites)
 - [x] Auth route mounting is a behavioral change (previously unreachable endpoints now live)
+- [x] `allow-unsafe-pr-checkout: true` added to all 5 checkout steps (required for `pull_request_target` + fork PRs)
 - [x] `--forceExit` configured for CI stability
