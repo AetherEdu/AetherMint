@@ -1,0 +1,18 @@
+# Gitleaks config for AetherMint. Extends the default rules and allowlists
+# documented placeholders and public test values to keep the scan low-noise.
+
+title = "AetherMint gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore documented placeholders and public test data"
+paths = [
+    '''\.env\.example''',
+]
+regexes = [
+    '''your_[a-z0-9_]+_here''',
+    '''GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA''',
+    '''username:password@''',
+]
