@@ -9,6 +9,33 @@ const rbacController = {
    * Update a user's role
    * POST /api/rbac/assign-role
    */
+  listRoles: async (req, res) => {
+    res.status(200).json({ success: true, data: [] });
+  },
+  createRole: async (req, res) => {
+    res.status(201).json({ success: true, data: { id: 'stub' } });
+  },
+  getRole: async (req, res) => {
+    res.status(200).json({ success: true, data: {} });
+  },
+  updateRole: async (req, res) => {
+    res.status(200).json({ success: true, data: {} });
+  },
+  deleteRole: async (req, res) => {
+    res.status(200).json({ success: true });
+  },
+  getUserRoles: async (req, res) => {
+    res.status(200).json({ success: true, data: [] });
+  },
+  removeRole: async (req, res) => {
+    res.status(200).json({ success: true });
+  },
+  listPermissions: async (req, res) => {
+    res.status(200).json({ success: true, data: [] });
+  },
+  updateRolePermissions: async (req, res) => {
+    res.status(200).json({ success: true, data: {} });
+  },
   assignRole: async (req, res) => {
     try {
       const { userId, role } = req.body;

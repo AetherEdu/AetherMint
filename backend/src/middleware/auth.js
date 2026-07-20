@@ -155,8 +155,14 @@ const requireAdmin = requireRole([UserRole.ADMIN]);
  */
 const requireStudentOrAbove = requireRole([UserRole.STUDENT, UserRole.EDUCATOR, UserRole.ADMIN]);
 
+// Aliases for compatibility with routes that use different naming conventions
+const authenticate = authenticateToken;
+const authorize = (role) => requireRole([role]);
+
 module.exports = {
   authenticateToken,
+  authenticate,
+  authorize,
   requireRole,
   requirePermission,
   requireMinimumRole,
