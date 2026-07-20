@@ -3,6 +3,14 @@ const redisConfig = require('../config/redis');
 const Transaction = require('../models/Transaction');
 const logger = require('../utils/logger');
 
+let webhookService = null;
+try {
+  // Dynamic import to avoid circular dependency issues at require time
+  webhookService = require('../services/webhookService').default || require('../services/webhookService');
+} catch (err) {
+  logger.warn('Webhook service not available for transaction events', err);
+}
+
 class TransactionEvents extends EventEmitter {
   constructor() {
     super();
@@ -89,12 +97,43 @@ class TransactionEvents extends EventEmitter {
       // Call the default handler
       await this.defaultEventHandler(type, data);
 
+      // Dispatch webhook events for credential and enrollment operations
+      await this.dispatchWebhookEvent(type, data);
+
       this.stats.eventsProcessed++;
 
     } catch (error) {
       this.stats.eventsFailed++;
       logger.error(`Error handling transaction event:`, error);
       this.emit('eventError', { error, message });
+    }
+  }
+
+  /**
+   * Dispatch webhook events for credential and enrollment events.
+   * Maps internal transaction event types to webhook event types.
+   */
+  async dispatchWebhookEvent(type, data) {
+    if (!webhookService) return;
+
+    const eventMap = {
+      'CREDENTIAL_ISSUED': 'credential.issued',
+      'CREDENTIAL_VERIFIED': 'credential.verified',
+      'CREDENTIAL_REVOKED': 'credential.revoked',
+      'ENROLLMENT_CREATED': 'enrollment.created',
+    };
+
+    const webhookEvent = eventMap[type];
+    if (!webhookEvent) return;
+
+    try {
+      await webhookService.dispatchEvent(webhookEvent, {
+        eventType: type,
+        ...(typeof data === 'object' && data !== null ? data : { raw: data }),
+      });
+      logger.debug(`Webhook dispatched for event: ${webhookEvent}`);
+    } catch (error) {
+      logger.error(`Failed to dispatch webhook for event ${webhookEvent}:`, error);
     }
   }
 

@@ -28,6 +28,7 @@ import SecureRealtimeCommunication from './services/secureRealtimeCommunication'
 import { swaggerSpec } from './config/swagger';
 import { openApiSpec } from './docs/openapi';
 import { Migrator } from './utils/migrate';
+import webhookService from './services/webhookService';
 
 // @ts-ignore
 import * as transactionQueue from './services/transactionQueue';
@@ -239,6 +240,11 @@ app.use('/api/cross-protocol-bridge', crossProtocolBridgeRoutes);
 const auditRoutes = resolveRoute(require('./routes/auditRoutes'));
 app.use('/api/audit', auditRoutes);
 
+// Webhook routes
+// @ts-ignore
+const webhookRoutes = resolveRoute(require('./routes/webhooks'));
+app.use('/api/webhooks', webhookRoutes);
+
 // Root endpoint
 app.get('/', (req, res) => {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -304,6 +310,9 @@ async function startServer() {
     await (transactionProcessor as any).start();
     await (transactionEvents as any).startListening();
 
+    // Start webhook retry processor
+    webhookService.startRetryProcessor();
+
     if (process.env.AUTO_MIGRATE === 'true') {
       logger.info('Auto-running pending migrations...');
       const migrator = new Migrator();
@@ -355,6 +364,7 @@ if (require.main === module) {
       { name: 'transaction-queue', run: () => (transactionQueue as any).stopProcessing() },
       { name: 'transaction-processor', run: () => (transactionProcessor as any).stop() },
       { name: 'transaction-events', run: () => (transactionEvents as any).stopListening() },
+      { name: 'webhook-retry-processor', run: () => webhookService.stopRetryProcessor() },
       {
         name: 'redis',
         run: async () => {
