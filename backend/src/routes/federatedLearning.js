@@ -8,7 +8,10 @@
 const express = require("express");
 const router = express.Router();
 const { authenticate, authorize } = require("../middleware/auth");
-const federatedLearningController = require("../controllers/federatedLearningController");
+const FederatedLearningController = require("../controllers/federatedLearningController");
+
+// Instantiate the controller (it's a class with constructor dependencies)
+const federatedLearningController = new FederatedLearningController();
 
 router.use(authenticate, authorize("admin"));
 
@@ -24,7 +27,7 @@ router.use(authenticate, authorize("admin"));
  *       '200':
  *         description: Training session started
  */
-router.post("/train", federatedLearningController.startTraining);
+router.post("/train", (req, res) => federatedLearningController.startRound(req, res));
 
 /**
  * @openapi
@@ -38,7 +41,7 @@ router.post("/train", federatedLearningController.startTraining);
  *       '200':
  *         description: Model aggregated
  */
-router.post("/aggregate", federatedLearningController.aggregateUpdates);
+router.post("/aggregate", (req, res) => federatedLearningController.submitModelUpdate(req, res));
 
 /**
  * @openapi
@@ -52,7 +55,7 @@ router.post("/aggregate", federatedLearningController.aggregateUpdates);
  *       '200':
  *         description: Clients listed
  */
-router.get("/clients", federatedLearningController.listClients);
+router.get("/clients", (req, res) => federatedLearningController.getParticipants(req, res));
 
 /**
  * @openapi
@@ -66,7 +69,7 @@ router.get("/clients", federatedLearningController.listClients);
  *       '200':
  *         description: Client registered
  */
-router.post("/clients/register", federatedLearningController.registerClient);
+router.post("/clients/register", (req, res) => federatedLearningController.registerParticipant(req, res));
 
 /**
  * @openapi
@@ -86,7 +89,7 @@ router.post("/clients/register", federatedLearningController.registerClient);
  *       '200':
  *         description: Model details retrieved
  */
-router.get("/models/:modelId", federatedLearningController.getModel);
+router.get("/models/:modelId", (req, res) => federatedLearningController.getSessionStatus(req, res));
 
 /**
  * @openapi
@@ -106,6 +109,6 @@ router.get("/models/:modelId", federatedLearningController.getModel);
  *       '200':
  *         description: Metrics retrieved
  */
-router.get("/metrics/:sessionId", federatedLearningController.getTrainingMetrics);
+router.get("/metrics/:sessionId", (req, res) => federatedLearningController.getAnalytics(req, res));
 
 module.exports = router;

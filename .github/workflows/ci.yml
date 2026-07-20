@@ -96,6 +96,47 @@ jobs:
       - name: Build backend
         run: npm run build -w backend
 
+  test-backend:
+    name: Test Backend (Coverage)
+    runs-on: ubuntu-latest
+    needs: build-backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm ci -w backend
+
+      - name: Run tests with coverage
+        run: npm run test:ci -w backend -- --forceExit
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: backend/coverage/lcov.info
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage-report
+          path: backend/coverage/
+          if-no-files-found: warn
+
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest

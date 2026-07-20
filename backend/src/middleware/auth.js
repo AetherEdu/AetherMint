@@ -155,8 +155,16 @@ const requireAdmin = requireRole([UserRole.ADMIN]);
  */
 const requireStudentOrAbove = requireRole([UserRole.STUDENT, UserRole.EDUCATOR, UserRole.ADMIN]);
 
+// Alias for backward compatibility with routes using `authenticate`
+const authenticate = authenticateToken;
+
+// Helper: authorize(role) returns middleware for the specified role
+const authorize = (role) => requireRole([role]);
+
 module.exports = {
   authenticateToken,
+  authenticate,
+  authorize,
   requireRole,
   requirePermission,
   requireMinimumRole,
