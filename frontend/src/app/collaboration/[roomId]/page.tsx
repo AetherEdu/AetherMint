@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import CollaborationRoom from '@/components/collaboration/CollaborationRoom';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import toast from 'react-hot-toast';
 
 const CollaborationRoomPage = () => {
@@ -56,12 +57,14 @@ const CollaborationRoomPage = () => {
   }
 
   return (
-    <CollaborationRoom
-      roomId={roomId}
-      userId={userInfo.userId}
-      username={userInfo.username}
-      role={userInfo.role}
-    />
+    <ErrorBoundary variant="network" errorTitle="Collaboration Error" errorMessage="Failed to load the collaboration room. Please check your connection and try again.">
+      <CollaborationRoom
+        roomId={roomId}
+        userId={userInfo.userId}
+        username={userInfo.username}
+        role={userInfo.role}
+      />
+    </ErrorBoundary>
   );
 };
 
