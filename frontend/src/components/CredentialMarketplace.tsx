@@ -15,19 +15,19 @@ const CredentialMarketplace = () => {
   ];
 
   return (
-    <div className="feature-container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '1rem' }}>
-        <h1 style={{ margin: 0 }}>MICRO-CREDENTIAL MARKETPLACE</h1>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <div className="feature-container" style={{ padding: '1rem', margin: '0.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.75rem' }}>
+        <h1 style={{ margin: 0, fontSize: 'clamp(1rem, 4vw, 1.5rem)' }}>MICRO-CREDENTIAL MARKETPLACE</h1>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
            {categories.map(c => (
-              <button key={c} className="glass-card" onClick={() => setFilter(c)} style={{ padding: '0.4rem 1rem', border: filter === c ? '1px solid var(--primary-accent)' : 'none' }}>
+              <button key={c} className="glass-card" onClick={() => setFilter(c)} style={{ padding: '0.5rem 1rem', minHeight: '44px', minWidth: '44px', border: filter === c ? '1px solid var(--primary-accent)' : 'none', fontSize: 'clamp(0.7rem, 2.5vw, 0.875rem)' }}>
                 {c}
               </button>
            ))}
         </div>
       </div>
 
-      <div className="grid-layout">
+      <div className="grid-layout" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))' }}>
         {mockCredentials.filter(c => filter === 'All' || c.category === filter).map(cred => (
           <div key={cred.id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ position: 'relative' }}>

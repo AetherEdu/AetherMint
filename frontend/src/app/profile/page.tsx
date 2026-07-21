@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useProfile } from '../../hooks/useProfile';
 import { ProfileEditor } from '../../components/ProfileEditor';
 import { AchievementDisplay } from '../../components/AchievementDisplay';
@@ -34,6 +34,8 @@ export default function ProfilePage() {
   
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [showEditModal, setShowEditModal] = useState(false);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef(0);
 
   const tabs = [
     { id: 'overview' as ActiveTab, label: 'Overview', icon: User },
@@ -42,6 +44,42 @@ export default function ProfilePage() {
     { id: 'stats' as ActiveTab, label: 'Statistics', icon: BarChart3 },
     { id: 'settings' as ActiveTab, label: 'Settings', icon: Settings },
   ];
+
+  // Swipe gesture for tab navigation on mobile
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      const diff = touchStartX.current - e.changedTouches[0].clientX;
+      const swipeThreshold = 50;
+
+      if (Math.abs(diff) > swipeThreshold) {
+        const currentIndex = tabs.findIndex(t => t.id === activeTab);
+        if (diff > 0 && currentIndex < tabs.length - 1) {
+          // Swipe left → next tab
+          setActiveTab(tabs[currentIndex + 1].id);
+        } else if (diff < 0 && currentIndex > 0) {
+          // Swipe right → previous tab
+          setActiveTab(tabs[currentIndex - 1].id);
+        }
+      }
+    };
+
+    const container = tabsContainerRef.current;
+    if (container) {
+      container.addEventListener('touchstart', handleTouchStart, { passive: true });
+      container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('touchstart', handleTouchStart);
+        container.removeEventListener('touchend', handleTouchEnd);
+      }
+    };
+  }, [activeTab, tabs]);
 
   const handleProfileUpdate = () => {
     setShowEditModal(false);
@@ -122,7 +160,7 @@ export default function ProfilePage() {
       {/* Navigation Tabs */}
       <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
+          <div ref={tabsContainerRef} className="flex space-x-4 sm:space-x-8 overflow-x-auto hide-scrollbar scroll-smooth-touch">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -130,7 +168,7 @@ export default function ProfilePage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
-                    flex items-center gap-2 px-1 py-4 border-b-2 transition-colors
+                    flex items-center gap-1.5 sm:gap-2 px-1 py-4 border-b-2 transition-colors whitespace-nowrap min-h-[44px] touch-target flex-shrink-0
                     ${activeTab === tab.id
                       ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                       : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -138,7 +176,7 @@ export default function ProfilePage() {
                   `}
                 >
                   <Icon className="h-4 w-4" />
-                  <span className="font-medium">{tab.label}</span>
+                  <span className="font-medium text-xs sm:text-sm">{tab.label}</span>
                 </button>
               );
             })}

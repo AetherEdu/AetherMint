@@ -69,8 +69,8 @@ export function ProfileStats({
 
   if (compact) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+      <div className="grid grid-cols-2 xs:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 sm:p-4 border border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-2 mb-1">
             <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <span className="text-sm text-blue-600 dark:text-blue-400">Courses</span>
@@ -116,7 +116,7 @@ export function ProfileStats({
   return (
     <div className="space-y-6">
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Learning Progress */}
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-700">
           <div className="flex items-center justify-between mb-4">
@@ -302,7 +302,7 @@ export function ProfileStats({
       )}
 
       {/* Detailed Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {/* In Progress */}
         <div className="bg-white dark:bg-slate-900 rounded-lg p-4 border border-gray-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
