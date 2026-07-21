@@ -10,6 +10,7 @@ import { RootErrorBoundary } from '@/components/providers/RootErrorBoundary';
 import '@/lib/performance-monitor';
 import PWAClientShell from '@/components/PWA/PWAClientShell';
 import MobileNavShell from '@/components/Mobile/MobileNavShell';
+import { PageTransition } from '@/components/PageTransition';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -54,7 +55,9 @@ export default function RootLayout({
             mobile nav is hidden. */}
         <main id="main-content" role="main" tabIndex={-1} className="pt-16 pb-20 md:pt-0 md:pb-0">
           <RootErrorBoundary>
-            {children}
+            <PageTransition>
+              {children}
+            </PageTransition>
           </RootErrorBoundary>
         </main>
       </body>
