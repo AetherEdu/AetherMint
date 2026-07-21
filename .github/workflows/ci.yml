@@ -15,6 +15,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          allow-unsafe-pr-checkout: true
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -74,6 +75,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          allow-unsafe-pr-checkout: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -106,6 +108,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          allow-unsafe-pr-checkout: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -186,6 +189,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          allow-unsafe-pr-checkout: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
