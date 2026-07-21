@@ -39,6 +39,9 @@ if (!parsed.success) {
 const nextConfig = {
   // Enable standalone output for Docker container builds
   output: 'standalone',
+  // Serve built static assets from a CDN when ASSET_PREFIX is set.
+  // Empty in local/dev, so default behaviour is unchanged.
+  assetPrefix: process.env.ASSET_PREFIX || undefined,
   typescript: {
     // Ignore TS build errors — pre-existing type issues across the codebase
     ignoreBuildErrors: true,
