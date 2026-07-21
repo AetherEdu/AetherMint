@@ -1,0 +1,216 @@
+import { Meta, Title, Subtitle, Description, Story } from '@storybook/blocks';
+
+<Meta title="Documentation/Usage Guidelines" />
+
+<Title>Usage Guidelines</Title>
+<Subtitle>Building consistent UI with AetherMint components</Subtitle>
+
+<Description>
+  These guidelines help developers build consistent, accessible, and
+  visually cohesive interfaces across the AetherMint platform.
+</Description>
+
+---
+
+## 🚀 Getting Started
+
+### Importing Components
+
+All UI components are available from the `@/components/ui` directory:
+
+```tsx
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+```
+
+Composite components are imported from their respective directories:
+
+```tsx
+import EnrollmentForm from '@/components/EnrollmentForm';
+import QuizPlayer from '@/components/Quiz/QuizPlayer';
+import { ProgressDashboard } from '@/components/dashboard/ProgressDashboard';
+```
+
+---
+
+## 🎯 Component Patterns
+
+### Button Usage
+
+Use the `variant` prop to communicate intent:
+
+```tsx
+// Primary action
+<Button variant="default">Submit Enrollment</Button>
+
+// Destructive action
+<Button variant="destructive">Delete Course</Button>
+
+// Secondary / cancel
+<Button variant="outline">Cancel</Button>
+
+// Subtle action
+<Button variant="ghost">View Details</Button>
+
+// Text-only action
+<Button variant="link">Learn More</Button>
+```
+
+### Card Patterns
+
+Cards provide consistent containers for content. Use subcomponents for structure:
+
+```tsx
+<Card>
+  <CardHeader>
+    <CardTitle>Course Title</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <p>Course description and metadata.</p>
+    <Button>Enroll Now</Button>
+  </CardContent>
+</Card>
+```
+
+### Loading States
+
+Always show loading indicators while data is being fetched:
+
+```tsx
+// Full-page loading
+<LoadingSpinner size="xl" showLabel label="Loading courses..." />
+
+// Inline (button context)
+<Button disabled>
+  <LoadingSpinner size="sm" />
+  Processing...
+</Button>
+
+// Skeleton placeholder
+<Skeleton variant="card" lines={3} aria-label="Loading course card" />
+```
+
+### Error Handling
+
+Wrap error-prone sections with ErrorBoundary:
+
+```tsx
+<ErrorBoundary
+  variant="network"
+  errorTitle="Connection Failed"
+  errorMessage="Could not reach the server."
+>
+  <CourseList />
+</ErrorBoundary>
+```
+
+---
+
+## ♿ Accessibility Guidelines
+
+### Focus Management
+
+- All interactive elements must be keyboard accessible
+- Use `focus-visible:ring-2` for focus indicators (already in globals.css)
+- Skip-to-content link available on all pages
+
+### ARIA Labels
+
+- Provide `aria-label` on icon-only buttons
+- Use `aria-live="polite"` for dynamic content updates
+- Loading states must include `aria-label` with descriptive text
+
+### Color Contrast
+
+- All text meets WCAG AA contrast ratios (4.5:1 for normal text, 3:1 for large text)
+- Dark mode colors are tested for contrast compliance
+- Interactive tests in Storybook verify contrast via the a11y addon
+
+### Reduced Motion
+
+- Components respect `prefers-reduced-motion: reduce`
+- Framer Motion animations degrade gracefully
+- Loading spinners fall back to opacity pulse
+
+---
+
+## 📱 Responsive Design
+
+AetherMint follows mobile-first responsive design:
+
+```tsx
+// Responsive grid
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {courses.map(course => <CourseCard key={course.id} course={course} />)}
+</div>
+
+// Responsive flex
+<div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+  <Button>Primary</Button>
+  <Button variant="outline">Secondary</Button>
+</div>
+```
+
+### Breakpoints
+
+| Breakpoint | Min Width | Devices |
+|---|---|---|
+| **xs** | 375px | Small phones |
+| **sm** | 640px | Large phones |
+| **md** | 768px | Tablets |
+| **lg** | 1024px | Small desktops |
+| **xl** | 1280px | Desktops |
+| **2xl** | 1440px | Large desktops |
+
+---
+
+## 🌐 Internationalization (i18n)
+
+The platform supports multiple languages via `next-i18next`. Components use the `useTranslation` hook:
+
+```tsx
+import { useTranslation } from 'next-i18next';
+
+function MyComponent() {
+  const { t } = useTranslation('common');
+  return <h1>{t('welcome.title')}</h1>;
+}
+```
+
+---
+
+## 🧪 Testing Components in Storybook
+
+### Visual Testing
+
+Storybook's viewport addon allows testing at different screen sizes. Use the
+viewport toolbar to switch between mobile, tablet, and desktop views.
+
+### Interaction Testing
+
+Many stories include `play` functions that simulate user interactions:
+
+```tsx
+export const ClickInteraction: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole('button');
+    await userEvent.click(button);
+  },
+};
+```
+
+### Accessibility Testing
+
+The **Accessibility** panel in Storybook (powered by axe-core) automatically
+audits each story for WCAG compliance.
+
+---
+
+## 🔗 Related
+
+- [Design Tokens](/docs/documentation-design-tokens--docs)
+- [Button Stories](/docs/ui-components-button--docs)
+- [Card Stories](/docs/ui-components-card--docs)

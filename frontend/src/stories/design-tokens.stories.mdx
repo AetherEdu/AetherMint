@@ -1,0 +1,183 @@
+import { Meta, Title, Subtitle, Description, ColorPalette, ColorItem, Typeset } from '@storybook/blocks';
+
+<Meta title="Documentation/Design Tokens" />
+
+<Title>Design Tokens</Title>
+<Subtitle>AetherMint Design System</Subtitle>
+
+<Description>
+  Design tokens are the visual foundation of the AetherMint platform. They ensure
+  visual consistency across all components and views, from the student dashboard
+  to the credential verification interface.
+</Description>
+
+---
+
+## 🎨 Color Palette
+
+### Primary Colors
+
+<ColorPalette>
+  <ColorItem
+    title="Primary"
+    subtitle="Primary brand color — used for main actions, links, and emphasis"
+    colors={{
+      'primary (blue-600)': '#2563eb',
+      'primary-foreground': '#ffffff',
+      'primary/90 (hover)': 'rgba(37, 99, 235, 0.9)',
+    }}
+  />
+  <ColorItem
+    title="Secondary"
+    subtitle="Secondary actions, badges, and muted emphasis"
+    colors={{
+      'secondary': '#64748b',
+      'secondary-foreground': '#ffffff',
+      'secondary/80 (hover)': 'rgba(100, 116, 139, 0.8)',
+    }}
+  />
+</ColorPalette>
+
+### Destructive Colors
+
+<ColorPalette>
+  <ColorItem
+    title="Destructive"
+    subtitle="Danger actions, error states, destructive operations"
+    colors={{
+      'destructive': '#dc2626',
+      'destructive-foreground': '#ffffff',
+      'destructive/90 (hover)': 'rgba(220, 38, 38, 0.9)',
+    }}
+  />
+</ColorPalette>
+
+### Background & Surface Colors
+
+<ColorPalette>
+  <ColorItem
+    title="Background"
+    subtitle="Page background, card backgrounds"
+    colors={{
+      'background': '#ffffff',
+      'foreground': '#0f172a',
+      'muted': '#f1f5f9',
+      'muted-foreground': '#64748b',
+      'accent': '#f8fafc',
+      'accent-foreground': '#0f172a',
+    }}
+  />
+</ColorPalette>
+
+### Border & Input Colors
+
+<ColorPalette>
+  <ColorItem
+    title="Border & Input"
+    subtitle="Card borders, input fields, dividers"
+    colors={{
+      'border': '#e2e8f0',
+      'input': '#e2e8f0',
+      'ring': '#2563eb',
+    }}
+  />
+</ColorPalette>
+
+### Dark Mode Colors
+
+<ColorPalette>
+  <ColorItem
+    title="Dark Theme"
+    subtitle="Automatically applied when system prefers dark mode or toggled in Storybook"
+    colors={{
+      'dark background': '#0f172a',
+      'dark foreground': '#f8fafc',
+      'dark muted': '#1e293b',
+      'dark border': '#334155',
+      'dark accent': '#1e293b',
+    }}
+  />
+</ColorPalette>
+
+---
+
+## 📐 Typography
+
+<Typeset
+  fontSizes={[12, 14, 16, 18, 20, 24, 30, 36]}
+  fontWeight="normal"
+  sampleText="The quick brown fox jumps over the lazy dog."
+/>
+
+### Font Stack
+
+| Property | Value |
+|---|---|
+| **Font Family** | System UI (-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif) |
+| **Base Size** | 16px |
+| **Line Height** | 1.625 |
+| **Heading Weight** | 700 (bold) |
+| **Body Weight** | 400 (normal) |
+
+### Text Sizes
+
+| Size | Class | Use Case |
+|---|---|---|
+| **xs** (12px) | `text-xs` | Badges, labels, helper text |
+| **sm** (14px) | `text-sm` | Secondary text, descriptions |
+| **base** (16px) | `text-base` / `text-body-base` | Body text, inputs |
+| **lg** (18px) | `text-lg` | Subtitles, card titles |
+| **xl** (20px) | `text-xl` | Section headers |
+| **2xl** (24px) | `text-2xl` | Page titles |
+| **3xl** (30px) | `text-3xl` | Hero text |
+| **4xl** (36px) | `text-4xl` | Landing page headings |
+
+---
+
+## 📏 Spacing Scale
+
+| Name | Value | Tailwind Class |
+|---|---|---|
+| **xs** | 4px | `p-1`, `gap-1` |
+| **sm** | 8px | `p-2`, `gap-2` |
+| **md** | 16px | `p-4`, `gap-4` |
+| **lg** | 24px | `p-6`, `gap-6` |
+| **xl** | 32px | `p-8`, `gap-8` |
+| **2xl** | 48px | `p-12`, `gap-12` |
+
+---
+
+## 🔲 Border Radius
+
+| Size | Class | Use Case |
+|---|---|---|
+| **sm** | `rounded-sm` | Small elements, tags |
+| **md** (default) | `rounded-md` | Buttons, inputs, badges |
+| **lg** | `rounded-lg` | Cards, containers |
+| **xl** | `rounded-xl` | Modal dialogs, large cards |
+| **2xl** | `rounded-2xl` | Feature cards, sections |
+| **full** | `rounded-full` | Pills, avatars, badges |
+
+---
+
+## 🌓 Dark Mode
+
+AetherMint supports dark mode via the `dark` class on the `<html>` element, following Tailwind's
+dark mode strategy. Components use `dark:` variants to adjust colors:
+
+```css
+/* Example: card background adapts to dark mode */
+.bg-white dark:bg-gray-800
+.text-gray-900 dark:text-gray-100
+.border-gray-200 dark:border-gray-700
+```
+
+Toggle dark mode in Storybook using the **☀️/🌙** button in the toolbar.
+
+---
+
+## 🔗 Related
+
+- [Usage Guidelines](/docs/documentation-usage-guidelines--docs)
+- [Button Component](/docs/ui-components-button--docs)
+- [Card Component](/docs/ui-components-card--docs)

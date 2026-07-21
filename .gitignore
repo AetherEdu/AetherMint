@@ -88,6 +88,7 @@ prof/
 
 # Deployment / CI artifacts
 .github/workflows/cache/
+storybook-static/
 .vercel/
 .netlify/
 .output/
