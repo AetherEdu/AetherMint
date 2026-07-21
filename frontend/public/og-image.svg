@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">AetherMint Education</title>
+  <desc id="desc">AetherMint Education social sharing image.</desc>
+  <rect width="1200" height="630" fill="#0f172a"/>
+  <rect x="48" y="48" width="1104" height="534" rx="32" fill="#111827" stroke="#3b82f6" stroke-width="4"/>
+  <circle cx="312" cy="316" r="132" fill="#2563eb"/>
+  <path d="M242 318c26-84 134-108 174-10 26 65-28 132-90 132-44 0-83-39-84-122Z" fill="#60a5fa"/>
+  <rect x="520" y="214" width="360" height="40" rx="20" fill="#f8fafc"/>
+  <rect x="520" y="278" width="294" height="28" rx="14" fill="#93c5fd"/>
+  <rect x="520" y="330" width="326" height="28" rx="14" fill="#93c5fd"/>
+  <rect x="520" y="382" width="248" height="28" rx="14" fill="#93c5fd"/>
+  <text x="520" y="190" font-family="Arial, sans-serif" font-size="34" fill="#f8fafc">AetherMint Education</text>
+</svg>
