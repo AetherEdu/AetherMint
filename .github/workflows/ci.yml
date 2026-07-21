@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, develop ]
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
