@@ -99,6 +99,10 @@ const agiTutorRoutes = require('./routes/agiTutorRoutes');
 // @ts-ignore
 const analyticsRoutes = require('./routes/analytics');
 
+// CSP Violation Reporting route
+// @ts-ignore
+const cspViolationRoutes = require('./routes/cspViolationRoutes');
+
 // Initialize Express app
 const app: Application = express();
 const server = createServer(app);
@@ -238,6 +242,9 @@ app.use('/api/cross-protocol-bridge', crossProtocolBridgeRoutes);
 // @ts-ignore
 const auditRoutes = resolveRoute(require('./routes/auditRoutes'));
 app.use('/api/audit', auditRoutes);
+
+// CSP Violation Reporting endpoint
+app.use('/api/csp-violation', cspViolationRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

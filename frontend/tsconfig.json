@@ -29,7 +29,9 @@
       ]
     },
     "strictNullChecks": true,
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "ignoreDeprecations": "6.0",
+    "types": ["node", "jest"]
   },
   "include": [
     "next-env.d.ts",

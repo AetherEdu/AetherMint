@@ -30,6 +30,16 @@ const authenticateToken = (req, res, next) => {
 };
 
 /**
+ * Authorization middleware (alias for requireRole)
+ * @param {string|string[]} allowedRoles - Single role or array of allowed roles
+ * @returns {Function} Middleware function
+ */
+const authorize = (allowedRoles) => {
+  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+  return requireRole(roles);
+};
+
+/**
  * Role-based access control middleware
  * @param {string[]} allowedRoles - Array of allowed roles
  * @returns {Function} Middleware function
@@ -157,6 +167,8 @@ const requireStudentOrAbove = requireRole([UserRole.STUDENT, UserRole.EDUCATOR, 
 
 module.exports = {
   authenticateToken,
+  authenticate: authenticateToken,
+  authorize,
   requireRole,
   requirePermission,
   requireMinimumRole,

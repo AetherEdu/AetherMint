@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import securityConfig from '../config/security';
 import logger from '../utils/logger';
 import redisConfig from '../config/redis';
@@ -6,13 +7,115 @@ import * as securityService from '../services/securityService';
 import { sanitizeInput } from './sanitizer';
 
 /**
+ * Generate a random nonce for CSP
+ */
+export const generateNonce = (): string => {
+  return crypto.randomBytes(16).toString('base64');
+};
+
+/**
+ * Extend the Express Request type to include nonce
+ */
+declare global {
+  namespace Express {
+    interface Request {
+      cspNonce?: string;
+    }
+  }
+}
+
+/**
+ * CSP Configuration
+ * Strict directives with NO unsafe-inline or unsafe-eval
+ * Uses nonce-based script execution
+ * Report-only mode for initial rollout
+ */
+const CSP_DIRECTIVES = {
+  'default-src': ["'self'"],
+  'script-src': ["'self'"], // Nonce will be added dynamically
+  'style-src': ["'self'"], // Strict: no unsafe-inline
+  'img-src': ["'self'", 'data:', 'https:', 'blob:'],
+  'font-src': ["'self'", 'data:'],
+  'connect-src': ["'self'", 'wss:', 'ws:', 'https:'],
+  'object-src': ["'none'"],
+  'frame-ancestors': ["'none'"],
+  'base-uri': ["'self'"],
+  'form-action': ["'self'"],
+  'frame-src': ["'none'"],
+  'manifest-src': ["'self'"],
+  'media-src': ["'self'"],
+  'worker-src': ["'self'", 'blob:'],
+};
+
+/**
+ * Build a CSP header string from directives
+ */
+const buildCSPString = (directives: Record<string, string[]>, nonce?: string): string => {
+  return Object.entries(directives)
+    .map(([key, values]) => {
+      let resolvedValues = [...values];
+      // Add nonce to script-src if provided
+      if (key === 'script-src' && nonce) {
+        resolvedValues.push(`'nonce-${nonce}'`);
+      }
+      return `${key} ${resolvedValues.join(' ')}`;
+    })
+    .join('; ');
+};
+
+/**
+ * Determine if report-only mode is enabled
+ * Controlled by CSP_REPORT_ONLY env var (defaults to true for safe rollout)
+ */
+const isReportOnly = (): boolean => {
+  return process.env.CSP_REPORT_ONLY !== 'false';
+};
+
+/**
+ * Get the CSP report URI
+ */
+const getReportUri = (): string => {
+  return process.env.CSP_REPORT_URI || '/api/csp-violation';
+};
+
+/**
  * Content Security Policy (CSP) Middleware
+ * 
+ * Features:
+ * - Strict directives with NO unsafe-inline or unsafe-eval for scripts
+ * - Nonce-based script execution for inline scripts
+ * - frame-ancestors 'none' to prevent clickjacking
+ * - Report-only mode for initial rollout (controlled by CSP_REPORT_ONLY env var)
+ * - CSP violation reporting via report-uri/report-to
  */
 export const cspMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' wss: ws:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
-  );
+  // Generate a unique nonce for this request
+  const nonce = generateNonce();
+  req.cspNonce = nonce;
+
+  const reportOnly = isReportOnly();
+  const reportUri = getReportUri();
+
+  const cspValue = buildCSPString(CSP_DIRECTIVES, nonce);
+
+  // Add report-uri for violation reporting
+  const cspWithReporting = `${cspValue}; report-uri ${reportUri}`;
+
+  if (reportOnly) {
+    // Report-only mode: log violations but don't enforce
+    res.setHeader('Content-Security-Policy-Report-Only', cspWithReporting);
+    logger.info(`CSP report-only header set for ${req.method} ${req.path}`, {
+      nonce: nonce.substring(0, 8) + '...',
+      reportUri,
+    });
+  } else {
+    // Enforce mode
+    res.setHeader('Content-Security-Policy', cspWithReporting);
+  }
+
+  // Expose nonce to templates via res.locals
+  res.locals.cspNonce = nonce;
+
   next();
 };
 
