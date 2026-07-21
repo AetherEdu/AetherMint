@@ -71,7 +71,7 @@
     "socket.io": "^4.7.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
-    "twilio": "^5.13.1",
+    "twilio": "^6.0.2",
     "uuid": "^9.0.1",
     "web-push": "^3.6.7",
     "winston": "^3.10.0",
