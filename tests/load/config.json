@@ -1,0 +1,48 @@
+{
+  "scenarios": {
+    "smoke": {
+      "description": "Smoke test - 10 users, 1 minute",
+      "stages": [
+        { "duration": "20s", "target": 5 },
+        { "duration": "20s", "target": 10 },
+        { "duration": "20s", "target": 0 }
+      ]
+    },
+    "full": {
+      "description": "Full load test - 100 users, 5 minutes",
+      "stages": [
+        { "duration": "60s", "target": 20 },
+        { "duration": "120s", "target": 80 },
+        { "duration": "60s", "target": 100 },
+        { "duration": "30s", "target": 100 },
+        { "duration": "30s", "target": 0 }
+      ]
+    }
+  },
+  "weights": {
+    "courseBrowsing": 80,
+    "credentialVerification": 15,
+    "enrollment": 5
+  },
+  "thresholds": {
+    "http_req_duration": ["p(95)<500", "p(50)<200", "p(99)<1000"],
+    "http_req_failed": ["rate<0.01"],
+    "http_reqs": ["rate>50"]
+  },
+  "endpoints": {
+    "healthCheck": "/api/health",
+    "analyticsOverview": "/api/analytics/overview",
+    "analyticsCourses": "/api/analytics/courses",
+    "analyticsUsers": "/api/analytics/users",
+    "analyticsEngagement": "/api/analytics/engagement",
+    "analyticsPerformance": "/api/analytics/performance",
+    "credentialStatus": "/api/time-lock/{credentialId}/status",
+    "credentialGet": "/api/time-lock/{credentialId}",
+    "enrollmentEvent": "/api/events/course-enrollment"
+  },
+  "environments": {
+    "local": "http://localhost:3001",
+    "staging": "https://staging.aethermint.io",
+    "production": "https://api.aethermint.io"
+  }
+}

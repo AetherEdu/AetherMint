@@ -164,6 +164,71 @@ services:
       start_period: 10s
 
   # --------------------------------------------------------------------------
+  # k6 - Load Testing
+  # --------------------------------------------------------------------------
+  # Runs k6 load tests against the backend. Not started by default.
+  # Usage:
+  #   docker compose run --rm k6-smoke          # smoke test (10 users, 1 min)
+  #   docker compose run --rm k6-full           # full load test (100 users, 5 min)
+  #   docker compose run --rm k6-seed           # seed test data
+  #   docker compose run --rm k6-seed cleanup   # remove test data
+  k6-smoke:
+    image: grafana/k6:latest
+    container_name: aethermint-k6-smoke
+    profiles: ["load-test"]
+    command: run /scripts/k6-smoke.js
+    environment:
+      - BASE_URL=http://backend:3001
+      - TEST_DATA_PATH=/scripts/test-data.json
+    volumes:
+      - ./tests/load:/scripts:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - aethermint-network
+    restart: "no"
+
+  k6-full:
+    image: grafana/k6:latest
+    container_name: aethermint-k6-full
+    profiles: ["load-test"]
+    command: run /scripts/k6-full.js
+    environment:
+      - BASE_URL=http://backend:3001
+      - TEST_DATA_PATH=/scripts/test-data.json
+    volumes:
+      - ./tests/load:/scripts:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - aethermint-network
+    restart: "no"
+
+  k6-seed:
+    image: node:20-alpine
+    container_name: aethermint-k6-seed
+    profiles: ["load-test"]
+    working_dir: /app
+    entrypoint: ["node", "/app/tests/load/seed-data.js"]
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=aethermint_test
+      - DB_USER=aethermint
+      - DB_PASSWORD=${DB_PASSWORD:-aethermint_dev}
+      - SEED_COUNT=200
+    volumes:
+      - .:/app:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aethermint-network
+    restart: "no"
+
+  # --------------------------------------------------------------------------
   # Backup - on-demand PostgreSQL backup runner
   # --------------------------------------------------------------------------
   # Bundles the PostgreSQL 16 client + AWS CLI and runs scripts/backup-db.sh.

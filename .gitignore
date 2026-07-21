@@ -28,6 +28,10 @@ rate_limit*.txt
 jest_out.txt
 tsc_errors.txt
 
+# Load test artifacts (generated at runtime)
+tests/load/test-data.json
+tests/load/results/*.json
+
 # Environment & secrets
 .env
 .env.local

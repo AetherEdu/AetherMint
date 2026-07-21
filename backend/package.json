@@ -28,7 +28,13 @@
     "python:install": "pip install -r requirements.txt",
     "python:setup": "python -m spacy download en_core_web_sm",
     "migrate:restore": "ts-node src/utils/migrate.ts restore",
-    "test:smoke": "node scripts/smoke-test.mjs"
+    "test:smoke": "node scripts/smoke-test.mjs",
+    "load:seed": "node ../tests/load/seed-data.js",
+    "load:seed:cleanup": "node ../tests/load/seed-data.js cleanup",
+    "load:smoke": "k6 run ../tests/load/k6-smoke.js",
+    "load:full": "k6 run ../tests/load/k6-full.js",
+    "load:smoke:local": "k6 run -e BASE_URL=http://localhost:3001 ../tests/load/k6-smoke.js",
+    "load:full:staging": "k6 run -e BASE_URL=https://staging.aethermint.io ../tests/load/k6-full.js"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.5.0",
@@ -117,7 +123,8 @@
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.6",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "k6": "^0.1.0"
   },
   "keywords": [
     "stellar",

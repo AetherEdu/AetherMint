@@ -152,3 +152,244 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
+
+  # ===========================================================================
+  # Load Test - Smoke (runs on every PR)
+  # ===========================================================================
+  load-test-smoke:
+    name: Load Test (Smoke)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+    needs: [build-backend]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aethermint_test
+          POSTGRES_USER: aethermint
+          POSTGRES_PASSWORD: aethermint_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci -w backend
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Start backend
+        run: |
+          npm run build -w backend
+          cd backend
+          NODE_ENV=test PORT=3001 \
+            DB_HOST=localhost DB_PORT=5432 DB_NAME=aethermint_test \
+            DB_USER=aethermint DB_PASSWORD=aethermint_test \
+            REDIS_HOST=localhost REDIS_PORT=6379 \
+            node dist/index.js &
+          echo $! > backend.pid
+        env:
+          MONGODB_URI: mongodb://localhost:27017/aethermint_test
+
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+
+      - name: Seed test data
+        run: |
+          cd backend
+          DB_HOST=localhost DB_PORT=5432 DB_NAME=aethermint_test \
+          DB_USER=aethermint DB_PASSWORD=aethermint_test \
+          SEED_COUNT=50 \
+          node ../tests/load/seed-data.js seed
+          node ../tests/load/seed-data.js export
+
+      - name: Run smoke test
+        run: |
+          k6 run \
+            -e BASE_URL=http://localhost:3001 \
+            -e TEST_DATA_PATH=./tests/load/test-data.json \
+            --out json=tests/load/results/smoke-ci.json \
+            tests/load/k6-smoke.js
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-smoke-results
+          path: |
+            tests/load/results/
+            tests/load/results/smoke-ci.json
+          retention-days: 30
+
+      - name: Cleanup test data
+        if: always()
+        run: |
+          cd backend
+          DB_HOST=localhost DB_PORT=5432 DB_NAME=aethermint_test \
+          DB_USER=aethermint DB_PASSWORD=aethermint_test \
+          node ../tests/load/seed-data.js cleanup || true
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f backend/backend.pid ]; then
+            kill $(cat backend/backend.pid) || true
+          fi
+
+  # ===========================================================================
+  # Load Test - Full (runs on merge to main)
+  # ===========================================================================
+  load-test-full:
+    name: Load Test (Full)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-backend]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aethermint_test
+          POSTGRES_USER: aethermint
+          POSTGRES_PASSWORD: aethermint_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci -w backend
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Start backend
+        run: |
+          npm run build -w backend
+          cd backend
+          NODE_ENV=test PORT=3001 \
+            DB_HOST=localhost DB_PORT=5432 DB_NAME=aethermint_test \
+            DB_USER=aethermint DB_PASSWORD=aethermint_test \
+            REDIS_HOST=localhost REDIS_PORT=6379 \
+            node dist/index.js &
+          echo $! > backend.pid
+        env:
+          MONGODB_URI: mongodb://localhost:27017/aethermint_test
+
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+
+      - name: Seed test data
+        run: |
+          cd backend
+          DB_HOST=localhost DB_PORT=5432 DB_NAME=aethermint_test \
+          DB_USER=aethermint DB_PASSWORD=aethermint_test \
+          SEED_COUNT=200 \
+          node ../tests/load/seed-data.js seed
+          node ../tests/load/seed-data.js export
+
+      - name: Run full load test
+        run: |
+          k6 run \
+            -e BASE_URL=http://localhost:3001 \
+            -e TEST_DATA_PATH=./tests/load/test-data.json \
+            --out json=tests/load/results/full-ci.json \
+            tests/load/k6-full.js
+
+      - name: Upload full load test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-full-results
+          path: |
+            tests/load/results/
+          retention-days: 90
+
+      - name: Cleanup test data
+        if: always()
+        run: |
+          cd backend
+          DB_HOST=localhost DB_PORT=5432 DB_NAME=aethermint_test \
+          DB_USER=aethermint DB_PASSWORD=aethermint_test \
+          node ../tests/load/seed-data.js cleanup || true
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f backend/backend.pid ]; then
+            kill $(cat backend/backend.pid) || true
+          fi
