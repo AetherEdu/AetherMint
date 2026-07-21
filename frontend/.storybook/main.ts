@@ -43,6 +43,18 @@ const config: StorybookConfig = {
         prop.parent ? !/node_modules/.test(prop.parent.fileName) : true,
     },
   },
+
+  webpackFinal: async (config) => {
+    // Reset Next.js's aggressive splitChunks config which conflicts with
+    // Storybook's internal webpack compilation lifecycle.
+    // The next.config.js cacheGroups use Next.js's own webpack instance,
+    // but Storybook uses node_modules webpack — causing a compilation
+    // instance mismatch at DefinePlugin.getCompilationHooks.
+    if (config.optimization) {
+      config.optimization.splitChunks = false;
+    }
+    return config;
+  },
 };
 
 export default config;
