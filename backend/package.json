@@ -67,7 +67,7 @@
     "nodemailer": "^8.0.4",
     "paillier-js": "^0.9.3",
     "pg": "^8.11.3",
-    "redis": "^4.6.8",
+    "redis": "^6.1.0",
     "sentiment": "^5.0.2",
     "sharp": "^0.32.0",
     "socket.io": "^4.7.2",
