@@ -62,5 +62,12 @@
   "workspaces": [
     "backend",
     "frontend"
-  ]
+  ],
+  "overrides": {
+    "i18next-fs-backend": ">=2.6.6",
+    "i18next-http-middleware": ">=3.9.7",
+    "protobufjs": ">=7.6.5",
+    "shell-quote": ">=1.8.5",
+    "websocket-driver": ">=0.7.5"
+  }
 }
