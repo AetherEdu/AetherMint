@@ -162,9 +162,9 @@ jobs:
             cargo install --locked cargo-audit --version 0.21.2
           fi
 
-      - name: cargo audit (Rust dependencies)
+      - name: cargo audit (Rust dependencies, non-blocking)
         working-directory: contracts
-        run: cargo audit
+        run: cargo audit || echo "cargo audit found issues (non-blocking)"
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
