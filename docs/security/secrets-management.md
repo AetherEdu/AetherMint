@@ -15,12 +15,8 @@ managed secret store with rotation. It supports issue #288.
 
 - Real secrets live only in local, git-ignored .env files. Only .env.example is
   committed, and it contains placeholder values only.
-- A gitleaks secret scan runs on every push and pull request. See the workflow
-  at .github/workflows/secret-scan.yml. It runs in report-only mode, so it
-  surfaces findings without blocking the build. Once the repository is confirmed
-  clean, it can be made blocking by changing its exit code from 0 to 1.
-- The existing Trivy job in the CI pipeline continues to scan dependencies for
-  known vulnerabilities.
+- A gitleaks secret scan can be run locally using the `.gitleaks.toml` configuration. It runs in report-only mode so it surfaces findings without blocking. Once the repository is confirmed clean, it can be made blocking by changing its exit code from 0 to 1.
+- Trivy can be run locally to scan dependencies for known vulnerabilities.
 
 ## Configuration files
 
@@ -73,6 +69,5 @@ the project retention policy.
 ## References
 
 - Issue #288: Implement secrets management with rotation policy.
-- .github/workflows/secret-scan.yml
 - .gitleaks.toml
 - .env.example

@@ -169,10 +169,7 @@ aethermint-education/
 │   │   └── utils/         # Helper functions
 │   └── package.json        # Backend dependencies
 ├── docs/                   # Project documentation
-├── scripts/                # Deployment and utility scripts
-└── .github/               # GitHub workflows and templates
-    ├── workflows/           # CI/CD pipelines
-    └── ISSUE_TEMPLATE/      # Issue templates
+└── scripts/                # Deployment and utility scripts
 ```
 
 ## 🔧 Smart Contracts

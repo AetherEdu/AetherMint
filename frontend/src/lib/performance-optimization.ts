@@ -325,7 +325,7 @@ class PerformanceOptimizationService {
   }
 
   async implementOptimizations(suggestions: OptimizationSuggestion[]): Promise<void> {
-    // This would integrate with build tools or CI/CD to automatically implement suggestions
+    // This would integrate with build tools to automatically implement suggestions
     console.log('Implementing optimizations:', suggestions);
     
     // For now, just log what would be implemented
