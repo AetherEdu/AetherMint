@@ -8,6 +8,8 @@
 import express, { Router } from "express";
 // @ts-ignore - controller module not yet implemented
 import { enrollmentController } from "../controllers/enrollmentController";
+import { authenticateToken } from "../middleware/auth";
+import { idempotencyMiddleware } from "../middleware/idempotency";
 
 const router: Router = express.Router();
 
@@ -29,7 +31,11 @@ const router: Router = express.Router();
  *       '200':
  *         description: Enrollment details retrieved
  */
-router.get("/:userId", enrollmentController.getEnrollment);
+router.get(
+  "/:userId",
+  authenticateToken,
+  enrollmentController.getEnrollment,
+);
 
 /**
  * @openapi
@@ -39,11 +45,24 @@ router.get("/:userId", enrollmentController.getEnrollment);
  *     summary: Enroll user in course
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: Idempotency-Key
+ *         required: false
+ *         schema:
+ *           type: string
  *     responses:
  *       '200':
- *         description: User enrolled
+ *         description: User enrolled (or replayed from idempotency cache)
+ *       '409':
+ *         description: A request with this Idempotency-Key is in progress
  */
-router.post("/", enrollmentController.enroll);
+router.post(
+  "/",
+  authenticateToken,
+  idempotencyMiddleware(),
+  enrollmentController.enroll,
+);
 
 /**
  * @openapi
@@ -59,11 +78,21 @@ router.post("/", enrollmentController.enroll);
  *         required: true
  *         schema:
  *           type: string
+ *       - in: header
+ *         name: Idempotency-Key
+ *         required: false
+ *         schema:
+ *           type: string
  *     responses:
  *       '200':
- *         description: User unenrolled
+ *         description: User unenrolled (or replayed from idempotency cache)
  */
-router.delete("/:enrollmentId", enrollmentController.unenroll);
+router.delete(
+  "/:enrollmentId",
+  authenticateToken,
+  idempotencyMiddleware(),
+  enrollmentController.unenroll,
+);
 
 /**
  * @openapi
@@ -79,11 +108,21 @@ router.delete("/:enrollmentId", enrollmentController.unenroll);
  *         required: true
  *         schema:
  *           type: string
+ *       - in: header
+ *         name: Idempotency-Key
+ *         required: false
+ *         schema:
+ *           type: string
  *     responses:
  *       '200':
- *         description: Progress updated
+ *         description: Progress updated (or replayed from idempotency cache)
  */
-router.put("/:enrollmentId/progress", enrollmentController.updateProgress);
+router.put(
+  "/:enrollmentId/progress",
+  authenticateToken,
+  idempotencyMiddleware(),
+  enrollmentController.updateProgress,
+);
 
 /**
  * @openapi
@@ -103,6 +142,10 @@ router.put("/:enrollmentId/progress", enrollmentController.updateProgress);
  *       '200':
  *         description: Enrollments retrieved
  */
-router.get("/course/:courseId", enrollmentController.getCourseEnrollments);
+router.get(
+  "/course/:courseId",
+  authenticateToken,
+  enrollmentController.getCourseEnrollments,
+);
 
 export default router;
