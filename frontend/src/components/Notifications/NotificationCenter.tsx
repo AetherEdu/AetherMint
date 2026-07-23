@@ -25,6 +25,7 @@ const NotificationCenter: React.FC = () => {
   const focusTrapRef = useFocusTrap(isOpen, {
     onEscape: () => setIsOpen(false),
     initialFocusSelector: '[data-notification-close]',
+    lockScroll: false,
   });
 
   // Close dropdown when clicking outside

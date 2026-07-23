@@ -16,8 +16,8 @@ export function LoadingFallback({ message = 'Loading...', size = 'md', className
   const sizeClasses = { sm: 'h-4 w-4', md: 'h-6 w-6', lg: 'h-8 w-8' };
   const textSizes = { sm: 'text-sm', md: 'text-base', lg: 'text-lg' };
   return (
-    <div className={`flex items-center justify-center gap-2 ${className}`}>
-      <Loader2 className={`animate-spin text-blue-600 ${sizeClasses[size]}`} />
+    <div className={`flex items-center justify-center gap-2 ${className}`} role="status" aria-live="polite">
+      <Loader2 className={`animate-spin text-blue-600 ${sizeClasses[size]}`} aria-hidden="true" />
       <span className={`text-gray-600 dark:text-gray-400 ${textSizes[size]}`}>{message}</span>
     </div>
   );
@@ -133,6 +133,7 @@ export function EmptyState({ icon, title, description, action, className }: Empt
       {action && (
         <button
           onClick={action.onClick}
+          tabIndex={0}
           className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
           {action.label}
@@ -167,6 +168,7 @@ export function ErrorDisplay({ title = 'Something went wrong', message, details,
             <div className="mt-3">
               <button
                 onClick={() => setShowDetails(v => !v)}
+                tabIndex={0}
                 className="text-xs text-red-600 dark:text-red-400 underline hover:no-underline"
               >
                 {showDetails ? 'Hide details' : 'Show details'}
@@ -182,6 +184,7 @@ export function ErrorDisplay({ title = 'Something went wrong', message, details,
           {onRetry && (
             <button
               onClick={onRetry}
+              tabIndex={0}
               className="mt-4 flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
             >
               <RefreshCw className="h-3.5 w-3.5" />
