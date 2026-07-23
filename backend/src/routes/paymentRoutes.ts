@@ -8,6 +8,8 @@
 import express, { Router } from "express";
 // @ts-ignore - controller module not yet implemented
 import { paymentController } from "../controllers/paymentController";
+import { authenticateToken, requireRole } from "../middleware/auth";
+import { idempotencyMiddleware } from "../middleware/idempotency";
 
 const router: Router = express.Router();
 
@@ -17,11 +19,26 @@ const router: Router = express.Router();
  *   post:
  *     tags: [Payments]
  *     summary: Create payment intent
+ *     parameters:
+ *       - in: header
+ *         name: Idempotency-Key
+ *         required: false
+ *         schema:
+ *           type: string
  *     responses:
  *       '200':
- *         description: Payment intent created
+ *         description: Payment intent created (or replayed from idempotency cache)
+ *       '400':
+ *         description: Invalid Idempotency-Key
+ *       '409':
+ *         description: A request with this Idempotency-Key is in progress
  */
-router.post("/create-payment-intent", paymentController.createPaymentIntent);
+router.post(
+  "/create-payment-intent",
+  authenticateToken,
+  idempotencyMiddleware(),
+  paymentController.createPaymentIntent,
+);
 
 /**
  * @openapi
@@ -32,6 +49,10 @@ router.post("/create-payment-intent", paymentController.createPaymentIntent);
  *     responses:
  *       '200':
  *         description: Webhook processed
+ *
+ * Note: payment gateway webhooks are idempotent at the gateway level
+ * (they include their own idempotency tokens), so we do NOT wrap them
+ * with the application-level Idempotency-Key middleware.
  */
 router.post("/webhook", paymentController.handleWebhook);
 
@@ -51,7 +72,7 @@ router.post("/webhook", paymentController.handleWebhook);
  *       '200':
  *         description: Payment details retrieved
  */
-router.get("/:paymentId", paymentController.getPayment);
+router.get("/:paymentId", authenticateToken, paymentController.getPayment);
 
 /**
  * @openapi
@@ -65,11 +86,22 @@ router.get("/:paymentId", paymentController.getPayment);
  *         required: true
  *         schema:
  *           type: string
+ *       - in: header
+ *         name: Idempotency-Key
+ *         required: false
+ *         schema:
+ *           type: string
  *     responses:
  *       '200':
- *         description: Payment refunded
+ *         description: Payment refunded (or replayed from idempotency cache)
  */
-router.post("/:paymentId/refund", paymentController.refundPayment);
+router.post(
+  "/:paymentId/refund",
+  authenticateToken,
+  requireRole(["admin"]),
+  idempotencyMiddleware(),
+  paymentController.refundPayment,
+);
 
 /**
  * @openapi
@@ -87,6 +119,10 @@ router.post("/:paymentId/refund", paymentController.refundPayment);
  *       '200':
  *         description: Payment history retrieved
  */
-router.get("/history/:userId", paymentController.getUserPaymentHistory);
+router.get(
+  "/history/:userId",
+  authenticateToken,
+  paymentController.getUserPaymentHistory,
+);
 
 export default router;
