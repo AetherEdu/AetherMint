@@ -6,8 +6,8 @@
 use crate::utils::pause::PauseUtils;
 use crate::utils::storage::StorageUtils;
 use crate::utils::validation::{
-    validate_non_zero_address, validate_string_length,
-    MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
+    validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH,
+    MAX_URI_LENGTH,
 };
 use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Vec};
 
@@ -199,11 +199,7 @@ pub fn get_profile_nft(env: &Env, token_id: u64) -> ProfileNFT {
 ///
 /// Returns `None` if the owner has not minted a profile NFT yet.
 pub fn get_profile_nft_by_owner(env: &Env, owner: Address) -> Option<ProfileNFT> {
-    if let Some(token_id) = get_token_id_for_owner(env, owner) {
-        Some(get_profile_nft(env, token_id))
-    } else {
-        None
-    }
+    get_token_id_for_owner(env, owner).map(|token_id| get_profile_nft(env, token_id))
 }
 
 /// Get the token ID for an owner, if one exists.
