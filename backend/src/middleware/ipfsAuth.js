@@ -1,6 +1,37 @@
 const jwt = require('jsonwebtoken');
 const { ipfsConfig } = require('../config/ipfs');
 const { createIpfsError } = require('../utils/ipfsUtils');
+const { AuthError, ForbiddenError, ValidationError, PayloadTooLargeError } = require('../utils/errors');
+
+/**
+ * Map an IPFS-domain error (created via {@link createIpfsError}) onto the
+ * canonical RFC 7807 AppError family. Unknown errors are re-wrapped as
+ * an AuthError because the IPFS auth middleware only emits authentication-
+ * shaped failures.
+ */
+const mapIpfsError = (error, operation) => {
+  if (!error || !error.isIpfsError) {
+    return new AuthError('Authentication failed');
+  }
+  const message = error.message || 'Authentication failed';
+  if (error.operation === 'validation') {
+    const err = new ValidationError(message);
+    err.details = error.details;
+    return err;
+  }
+  // auth-shaped errors: distinguish 401 (missing/invalid token) vs 403
+  // (insufficient permissions) using the message as the heuristic since
+  // the IPFS layer does not currently classify these.  This still emits
+  // a stable RFC 7807 envelope end-to-end.
+  if (/insufficient/i.test(message) || /permission/i.test(message)) {
+    const err = new ForbiddenError(message);
+    err.details = error.details;
+    return err;
+  }
+  const err = new AuthError(message);
+  err.details = error.details;
+  return err;
+};
 
 /**
  * IPFS Authentication Middleware
@@ -137,20 +168,7 @@ const ipfsAuth = (operation = 'download') => {
 
       next();
     } catch (error) {
-      if (error.isIpfsError) {
-        return res.status(401).json({
-          success: false,
-          message: error.message,
-          operation: error.operation,
-          details: error.details
-        });
-      }
-
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication failed',
-        error: error.message
-      });
+      return next(mapIpfsError(error, operation));
     }
   };
 };
@@ -163,38 +181,39 @@ const optionalIpfsAuth = (operation = 'download') => {
   return async (req, res, next) => {
     try {
       const authHeader = req.headers.authorization;
-      
+
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
         const user = verifyToken(token);
-        
+
         // Check permissions if user is authenticated
         if (!hasPermission(user, operation)) {
-          throw createIpfsError('Insufficient permissions for this operation', 'auth', { 
-            operation, 
-            userRole: user.role 
+          throw createIpfsError('Insufficient permissions for this operation', 'auth', {
+            operation,
+            userRole: user.role
           });
         }
 
         // Check rate limits for authenticated users
         checkRateLimit(user, operation);
-        
+
         req.user = user;
       }
 
       req.ipfsOperation = operation;
       next();
     } catch (error) {
-      if (error.isIpfsError) {
-        return res.status(401).json({
-          success: false,
-          message: error.message,
-          operation: error.operation,
-          details: error.details
-        });
+      if (error && error.isIpfsError) {
+        // Permission failures are surfaced; invalid tokens for optional
+        // auth fall through without attaching a user identity (preserved
+        // pre-migration behaviour).
+        if (/permission/i.test(error.message || '')) {
+          return next(mapIpfsError(error, operation));
+        }
+        req.ipfsOperation = operation;
+        return next();
       }
-
-      // For optional auth, if token is invalid, continue without user info
+      // Unknown errors also fall through silently for optional auth.
       req.ipfsOperation = operation;
       next();
     }
@@ -230,11 +249,7 @@ const validateContentAccess = async (req, res, next) => {
     // For demo purposes, we'll allow access
     next();
   } catch (error) {
-    return res.status(403).json({
-      success: false,
-      message: 'Content access validation failed',
-      error: error.message
-    });
+    return next(new ForbiddenError('Content access validation failed'));
   }
 };
 
@@ -253,19 +268,12 @@ const validateFileSize = (req, res, next) => {
 
     next();
   } catch (error) {
-    if (error.isIpfsError) {
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-        details: error.details
-      });
+    if (error && error.isIpfsError) {
+      // File-size overruns surface as a Pay-load Too Large problem
+      // (RFC 7807) so the existing error catalog row matches the wire.
+      return next(new PayloadTooLargeError(error.message || 'File size exceeds maximum limit'));
     }
-
-    return res.status(400).json({
-      success: false,
-      message: 'File validation failed',
-      error: error.message
-    });
+    return next(new ValidationError('File validation failed'));
   }
 };
 

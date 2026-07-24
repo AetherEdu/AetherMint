@@ -7,41 +7,49 @@ import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { VersionControlUtils } from '../models/ContentVersion';
 import Joi from 'joi';
+import { ValidationError, AuthError } from '../utils/errors';
 
 /**
  * Handle validation errors middleware
+ *
+ * Now forwards `express-validator` results into the central RFC
+ * 7807 error handler so validation failures return a standardized
+ * envelope (`code: 'VALIDATION_ERROR'`).
  */
-export const handleValidationErrors = (req: Request, res: Response, next: NextFunction) => {
+export const handleValidationErrors = (req: Request, _res: Response, next: NextFunction) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors.array(),
-    });
+    const details = errors.array().map((error: any) => ({
+      field: error.type === 'field' ? error.path : 'unknown',
+      message: error.msg,
+      ...(error.type === 'field' && error.value !== undefined ? { value: error.value } : {}),
+    }));
+    return next(new ValidationError('Validation failed', details));
   }
   next();
 };
 
 /**
  * Generic validation middleware
+ *
+ * Same contract as {@link handleValidationErrors} but always attaches
+ * the field name explicitly so the migration helper in
+ * {@link ../../utils/problemDetails} does not have to fall back to
+ * `_` for unknown keys.
  */
-export const validateRequestGeneric = (req: Request, res: Response, next: NextFunction): void => {
+export const validateRequestGeneric = (req: Request, _res: Response, next: NextFunction): void => {
   const errors = validationResult(req);
-  
-  if (!errors.isEmpty()) {
-    const errorMessages = errors.array().map(error => ({
-      field: error.type === 'field' ? (error as any).path : 'unknown',
-      message: error.msg,
-      value: error.type === 'field' ? (error as any).value : undefined
-    }));
 
-    res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errorMessages
+  if (!errors.isEmpty()) {
+    const details = errors.array().map((error: any) => {
+      const field = error.type === 'field' ? error.path : 'unknown';
+      return {
+        field,
+        message: error.msg,
+        ...(error.type === 'field' && error.value !== undefined ? { value: error.value } : {}),
+      };
     });
-    return;
+    return next(new ValidationError('Validation failed', details));
   }
 
   next();
@@ -285,32 +293,32 @@ export const validateVersionExport = [
 ];
 
 /**
- * Custom validation middleware for content version data
+ * Custom validation middleware for content version data.
+ *
+ * Now emits a single ValidationError carrying both the validator's
+ * errors and warnings so the RB central error handler merges them
+ * into the standardized RFC 7807 envelope.
  */
-export const validateVersionData = (req: Request, res: Response, next: NextFunction) => {
+export const validateVersionData = (req: Request, _res: Response, next: NextFunction) => {
   try {
     const versionData = req.body;
     const validation = VersionControlUtils.validateVersion(versionData);
-    
+
     if (!validation.isValid) {
-      return res.status(400).json({
-        success: false,
-        message: 'Version data validation failed',
-        errors: validation.errors,
-        warnings: validation.warnings,
-      });
+      return next(
+        new ValidationError('Version data validation failed', {
+          errors: validation.errors,
+          warnings: validation.warnings,
+        }),
+      );
     }
-    
+
     // Attach warnings to request for potential use in controllers
     req.versionWarnings = validation.warnings;
-    
+
     next();
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'Version validation error',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
+    return next(error);
   }
 };
 
@@ -352,38 +360,34 @@ export const validateVersionNumberParam = [
 ];
 
 /**
- * Middleware to check if user has permission to manage versions
+ * Middleware to check if user has permission to manage versions.
+ * Authentication requirement is now enforced via the central error
+ * middleware — emitting `AuthError('Authentication required …')`
+ * produces a 401 RFC 7807 envelope.
  */
-export const checkVersionManagementPermission = (req: Request, res: Response, next: NextFunction) => {
-  // This would typically check user permissions
-  // For now, we'll assume the user has permission if they're authenticated
+export const checkVersionManagementPermission = (req: Request, _res: Response, next: NextFunction) => {
   if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: 'Authentication required for version management',
-    });
+    return next(new AuthError('Authentication required for version management'));
   }
-  
+
   // In a real implementation, you would check specific permissions
   // For example: if (!req.user.permissions.includes('manage_versions')) { ... }
-  
+
   next();
 };
 
 /**
- * Middleware to check if user can restore versions (typically course creators/admins)
+ * Middleware to check if user can restore versions (typically course
+ * creators/admins). Emits RFC 7807 AuthError when unauthenticated.
  */
-export const checkVersionRestorePermission = (req: Request, res: Response, next: NextFunction) => {
+export const checkVersionRestorePermission = (req: Request, _res: Response, next: NextFunction) => {
   if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: 'Authentication required for version restoration',
-    });
+    return next(new AuthError('Authentication required for version restoration'));
   }
-  
+
   // In a real implementation, check if user is course creator or admin
   // For example: check if user owns the content or has admin privileges
-  
+
   next();
 };
 
@@ -395,23 +399,21 @@ export const validateEnrollmentUpdate = [handleValidationErrors];
 export const validatePayment = [handleValidationErrors];
 
 /**
- * Middleware to validate date range for version history filtering
+ * Middleware to validate date range for version history filtering.
+ * Emits RFC 7807 ValidationError when dateFrom >= dateTo.
  */
-export const validateDateRange = (req: Request, res: Response, next: NextFunction) => {
+export const validateDateRange = (req: Request, _res: Response, next: NextFunction) => {
   const { dateFrom, dateTo } = req.query;
-  
+
   if (dateFrom && dateTo) {
     const from = new Date(dateFrom as string);
     const to = new Date(dateTo as string);
-    
+
     if (from >= to) {
-      return res.status(400).json({
-        success: false,
-        message: 'Date from must be before date to',
-      });
+      return next(new ValidationError('Date from must be before date to'));
     }
   }
-  
+
   next();
 };
 
@@ -444,20 +446,21 @@ const isExpressRequest = (value: any): value is Request => {
   return value && typeof value === 'object' && 'method' in value && 'headers' in value;
 };
 
-export const validateRequest: ValidateRequestMiddleware = ((reqOrSchema: Request | ValidationSchema, res?: Response, next?: NextFunction) => {
+export const validateRequest: ValidateRequestMiddleware = ((reqOrSchema: Request | ValidationSchema, _res?: Response, next?: NextFunction) => {
   if (isExpressRequest(reqOrSchema)) {
     const req = reqOrSchema;
-    if (!res || !next) {
+    if (!_res || !next) {
       throw new Error('Invalid middleware invocation');
     }
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array(),
-      });
+      const details = errors.array().map((error: any) => ({
+        field: error.type === 'field' ? error.path : 'unknown',
+        message: error.msg,
+        ...(error.type === 'field' && error.value !== undefined ? { value: error.value } : {}),
+      }));
+      return next(new ValidationError('Validation failed', details));
     }
 
     return next();
@@ -465,14 +468,14 @@ export const validateRequest: ValidateRequestMiddleware = ((reqOrSchema: Request
 
   const schema = reqOrSchema;
 
-  return (req: Request, res: Response, next: NextFunction) => {
-    const errors: string[] = [];
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const errors: { field: string; message: string }[] = [];
 
     // Validate request body
     if (schema.body) {
       const { error } = schema.body.validate(req.body);
       if (error) {
-        errors.push(`Body: ${error.details[0].message}`);
+        errors.push({ field: 'body', message: `Body: ${error.details[0].message}` });
       }
     }
 
@@ -480,7 +483,7 @@ export const validateRequest: ValidateRequestMiddleware = ((reqOrSchema: Request
     if (schema.query) {
       const { error } = schema.query.validate(req.query);
       if (error) {
-        errors.push(`Query: ${error.details[0].message}`);
+        errors.push({ field: 'query', message: `Query: ${error.details[0].message}` });
       }
     }
 
@@ -488,15 +491,12 @@ export const validateRequest: ValidateRequestMiddleware = ((reqOrSchema: Request
     if (schema.params) {
       const { error } = schema.params.validate(req.params);
       if (error) {
-        errors.push(`Params: ${error.details[0].message}`);
+        errors.push({ field: 'params', message: `Params: ${error.details[0].message}` });
       }
     }
 
     if (errors.length > 0) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors,
-      });
+      return next(new ValidationError('Validation failed', errors));
     }
 
     next();
