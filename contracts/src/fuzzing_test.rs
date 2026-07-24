@@ -30,9 +30,7 @@
 #![cfg(test)]
 extern crate std;
 
-use crate::{
-    AetherMintContract, AetherMintContractClient,
-};
+use crate::{AetherMintContract, AetherMintContractClient};
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
     Address, Env,
@@ -49,12 +47,17 @@ struct Lcg {
 
 impl Lcg {
     fn new(seed: u64) -> Self {
-        Lcg { state: seed.wrapping_mul(2_654_435_761).wrapping_add(1) }
+        Lcg {
+            state: seed.wrapping_mul(2_654_435_761).wrapping_add(1),
+        }
     }
 
     fn next_u32(&mut self) -> u32 {
         // Numerical Recipes' LCG constants.
-        self.state = self.state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        self.state = self
+            .state
+            .wrapping_mul(1_664_525)
+            .wrapping_add(1_013_904_223);
         (self.state >> 16) as u32
     }
 
@@ -182,10 +185,7 @@ fn fuzz_credential_registry_invariants() {
                     expected_status_active += 1;
                     // Recover the index we actually chose so we can
                     // update per-recipient counters correctly.
-                    let chosen = recipients
-                        .iter()
-                        .position(|a| a == &recipient)
-                        .unwrap_or(0);
+                    let chosen = recipients.iter().position(|a| a == &recipient).unwrap_or(0);
                     expected_per_recipient[chosen] += 1;
                     credential_ids.push((cid, chosen));
                 }
@@ -275,10 +275,7 @@ fn fuzz_marketplace_invariants() {
         let mut rng = Lcg::new(seed);
         let (env, client, _admin) = fresh_env();
 
-        let sellers = [
-            Address::generate(&env),
-            Address::generate(&env),
-        ];
+        let sellers = [Address::generate(&env), Address::generate(&env)];
         let buyers = [
             Address::generate(&env),
             Address::generate(&env),
@@ -301,10 +298,11 @@ fn fuzz_marketplace_invariants() {
                     let seller = sellers[rng.next_in(2) as usize].clone();
                     match client.try_list_item(&seller, &item_id, &price, &item_type) {
                         Ok(listing_id) => {
-                            listed_items.push((listing_id, item_type, sellers
-                                .iter()
-                                .position(|a| a == &seller)
-                                .unwrap_or(0)));
+                            listed_items.push((
+                                listing_id,
+                                item_type,
+                                sellers.iter().position(|a| a == &seller).unwrap_or(0),
+                            ));
                             listing_status.insert(listing_id, 0);
                         }
                         Err(_) => {
@@ -489,10 +487,7 @@ fn fuzz_dynamic_nft_invariants() {
         let mut rng = Lcg::new(seed);
         let (env, client, _admin) = fresh_env();
 
-        let recipients = [
-            Address::generate(&env),
-            Address::generate(&env),
-        ];
+        let recipients = [Address::generate(&env), Address::generate(&env)];
 
         let mut minted_count: u32 = 0;
         let mut balances: [u64; 2] = [0, 0];
@@ -523,11 +518,8 @@ fn fuzz_dynamic_nft_invariants() {
                         continue;
                     }
                     let token_id = 1 + (rng.next_in(20) as u64);
-                    let _ = client.try_evolve_nft(
-                        &token_id,
-                        &((seed & 0xFF) as u64),
-                        &"QmFuzzEvolved",
-                    );
+                    let _ =
+                        client.try_evolve_nft(&token_id, &((seed & 0xFF) as u64), &"QmFuzzEvolved");
                 }
             }
         }
@@ -543,13 +535,16 @@ fn fuzz_dynamic_nft_invariants() {
         // Total supply must equal the sum of recipient balances.
         let b0 = client.balance_of(&recipients[0]);
         let b1 = client.balance_of(&recipients[1]);
-        assert_eq!(b0, balances[0], "seed={} recipient 0 balance mismatch", seed);
-        assert_eq!(b1, balances[1], "seed={} recipient 1 balance mismatch", seed);
         assert_eq!(
-            b0 + b1,
-            supply,
-            "seed={} sum of balances ≠ supply",
+            b0, balances[0],
+            "seed={} recipient 0 balance mismatch",
             seed
         );
+        assert_eq!(
+            b1, balances[1],
+            "seed={} recipient 1 balance mismatch",
+            seed
+        );
+        assert_eq!(b0 + b1, supply, "seed={} sum of balances ≠ supply", seed);
     }
 }

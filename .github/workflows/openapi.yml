@@ -52,7 +52,17 @@ jobs:
       - name: Validate spec with swagger-parser
         run: |
           cd backend
-          npx --yes @apidevtools/swagger-parser validate dist/docs/openapi.json
+          node -e "
+            const SwaggerParser = require('@apidevtools/swagger-parser');
+            const path = require('path');
+            const specPath = path.resolve('dist/docs/openapi.json');
+            SwaggerParser.validate(specPath).then(() => {
+              console.log('OpenAPI spec is valid.');
+            }).catch(err => {
+              console.error('OpenAPI validation failed:', err.message);
+              process.exit(1);
+            });
+          "
 
       - name: Upload spec artifact
         uses: actions/upload-artifact@v4
