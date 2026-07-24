@@ -7,9 +7,9 @@ use crate::utils::pause::PauseUtils;
 use crate::utils::storage::StorageUtils;
 use crate::utils::validation::{
     validate_non_zero_address, validate_string_length,
-    MAX_DESCRIPTION_LENGTH, MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
+    MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
 };
-use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Vec};
 
 /// Maximum number of skills per profile NFT
 pub const MAX_SKILLS: u32 = 20;
@@ -192,7 +192,7 @@ pub fn get_profile_nft(env: &Env, token_id: u64) -> ProfileNFT {
     env.storage()
         .persistent()
         .get(&ProfileNFTKey::Token(token_id))
-        .unwrap_or_else(|| panic!("Profile NFT not found"));
+        .unwrap_or_else(|| panic!("Profile NFT not found"))
 }
 
 /// Get a profile NFT by owner address.
@@ -218,7 +218,7 @@ pub fn owner_of(env: &Env, token_id: u64) -> Address {
     env.storage()
         .persistent()
         .get(&ProfileNFTKey::TokenOwner(token_id))
-        .unwrap_or_else(|| panic!("Profile NFT not found"));
+        .unwrap_or_else(|| panic!("Profile NFT not found"))
 }
 
 /// Check whether a profile NFT exists for a given token ID.
@@ -298,7 +298,7 @@ pub fn unverify_profile_nft(env: &Env, admin: Address, token_id: u64) -> bool {
         .set(&ProfileNFTKey::Token(token_id), &nft);
 
     env.events().publish(
-        (symbol_short!("profile"), symbol_short!("unverified")),
+        (symbol_short!("profile"), symbol_short!("unverify")),
         (token_id, admin),
     );
 
