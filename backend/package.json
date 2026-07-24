@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.5.0",
-    "@socket.io/redis-adapter": "^8.3.0",
+    "@socket.io/redis-adapter": "~8.3.0",
     "aws-sdk": "^2.1668.0",
     "axios": "^1.5.0",
     "bcryptjs": "^2.4.3",

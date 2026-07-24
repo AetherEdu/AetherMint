@@ -123,7 +123,9 @@ export const deleteFlag = async (req: Request, res: Response, next: NextFunction
 
 /**
  * Evaluate endpoint for non-admin clients (e.g. the SPA bootstrapping logic).
- * Trims sensitive fields from the response.
+ * Trims sensitive fields from the response. Honours `?bucket=N` for QA
+ * bucketed rollouts so support engineers can pin themselves into a roll
+ * without changing their user identifier.
  */
 export const evaluateForUser = async (req: Request, res: Response): Promise<void> => {
   const userId =
@@ -131,8 +133,15 @@ export const evaluateForUser = async (req: Request, res: Response): Promise<void
     (req.header('x-user-id') ?? undefined);
   const flagName = req.params.name;
 
+  const bucketRaw = typeof req.query.bucket === 'string' ? req.query.bucket : undefined;
+  const bucket = bucketRaw !== undefined ? Number.parseInt(bucketRaw, 10) : undefined;
+  const context =
+    bucket !== undefined && Number.isFinite(bucket)
+      ? { userId, bucket }
+      : { userId };
+
   try {
-    const value = await featureFlagService.evaluate(flagName, { userId });
+    const value = await featureFlagService.evaluate(flagName, context);
     res.json({
       success: true,
       data: { name: flagName, value, userId: userId ?? null },
