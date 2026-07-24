@@ -1,6 +1,7 @@
 const ApiKey = require('../models/ApiKey');
 const logger = require('../utils/logger');
 const securityService = require('../services/securityService');
+const { AuthError, InternalError } = require('../utils/errors');
 
 /**
  * API Key Authentication Middleware
@@ -17,18 +18,12 @@ const authenticateApiKey = async (req, res, next) => {
 
     if (!keyDoc) {
        await securityService.logSecurityEvent(req.ip, 'invalid_api_key', { key: apiKey });
-       return res.status(401).json({
-         success: false,
-         message: 'Invalid or revoked API key'
-       });
+       return next(new AuthError('Invalid or revoked API key'));
     }
 
     // Check expiration
     if (keyDoc.expiresAt && keyDoc.expiresAt < new Date()) {
-       return res.status(401).json({
-         success: false,
-         message: 'API key has expired'
-       });
+       return next(new AuthError('API key has expired'));
     }
 
     // Update last used
@@ -37,11 +32,11 @@ const authenticateApiKey = async (req, res, next) => {
 
     req.user = { id: keyDoc.userId, role: 'api_user' }; // Set basic user info
     req.apiKey = keyDoc;
-    
+
     next();
   } catch (error) {
     logger.error('API Key authentication error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    return next(new InternalError('API key validation failed'));
   }
 };
 

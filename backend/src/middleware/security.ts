@@ -5,6 +5,7 @@ import logger from '../utils/logger';
 import redisConfig from '../config/redis';
 import * as securityService from '../services/securityService';
 import { sanitizeInput } from './sanitizer';
+import { RateLimitError, ForbiddenError } from '../utils/errors';
 
 /**
  * Generate a random nonce for CSP
@@ -161,10 +162,7 @@ export const ddosProtection = async (req: Request, res: Response, next: NextFunc
           await (securityService as any).logSecurityEvent(ip, 'ddos_attempt', { count });
       }
 
-      return res.status(429).json({
-        success: false,
-        message: 'Too many requests, please slow down.',
-      });
+      return next(new RateLimitError('Too many requests, please slow down.'));
     }
 
     const duration = process.hrtime(start);
@@ -193,10 +191,7 @@ export const botDetection = (req: Request, res: Response, next: NextFunction) =>
     if (!isAllowed) {
       logger.info(`Bot detected and blocked: ${userAgent} from IP: ${req.ip}`);
       (securityService as any).logSecurityEvent(req.ip, 'bot_detected', { userAgent });
-      return res.status(403).json({
-        success: false,
-        message: 'Bots are not allowed to access this resource.',
-      });
+      return next(new ForbiddenError('Bots are not allowed to access this resource.'));
     }
   }
 
@@ -225,10 +220,9 @@ export const checkBlacklist = async (req: Request, res: Response, next: NextFunc
     const blockReason = await (securityService as any).isIPBlocked(ip);
     if (blockReason) {
       logger.warn(`Blocked request from blacklisted IP: ${ip} Reason: ${blockReason}`);
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied from this IP.',
-      });
+      const err = new ForbiddenError('Access denied from this IP.');
+      err.details = { reason: blockReason };
+      return next(err);
     }
 
     const duration = process.hrtime(start);
@@ -252,13 +246,13 @@ export const advancedRestrictions = async (req: Request, res: Response, next: Ne
     // Check Geo
     const isGeoRestricted = await (securityService as any).checkGeoRestriction(ip);
     if (isGeoRestricted) {
-        return res.status(403).json({ success: false, message: 'Access denied from your location.' });
+        return next(new ForbiddenError('Access denied from your location.'));
     }
 
     // Check Time
     const isTimeRestricted = await (securityService as any).checkTimeRestriction();
     if (isTimeRestricted) {
-        return res.status(403).json({ success: false, message: 'Platform is currently in maintenance window.' });
+        return next(new ForbiddenError('Platform is currently in maintenance window.'));
     }
 
     next();

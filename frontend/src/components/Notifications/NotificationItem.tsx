@@ -87,6 +87,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       <button
         type="button"
         onClick={handleRemove}
+        tabIndex={0}
         className="absolute right-2 top-2 rounded-full p-1 transition-colors hover:bg-gray-200"
         aria-label={`Remove notification: ${notification.title}`}
       >
@@ -96,6 +97,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       <button
         type="button"
         onClick={handleActivate}
+        tabIndex={0}
         className="flex w-full gap-3 pr-8 text-left outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
         aria-describedby={`notification-${notification.id}-meta notification-${notification.id}-message`}
       >

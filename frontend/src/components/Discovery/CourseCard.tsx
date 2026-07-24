@@ -50,15 +50,17 @@ export const CourseCard = React.forwardRef<HTMLDivElement, CourseCardProps>(
             onPreview();
           }
         }}
-        className={`rounded-[24px] border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 ${isSelected ? 'border-amber-400 bg-amber-50/60 shadow-[0_18px_60px_rgba(245,158,11,0.12)]' : 'border-slate-200 bg-white hover:border-slate-400'} ${className || ''}`}
+        className={`rounded-[20px] sm:rounded-[24px] border p-3 sm:p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 min-h-[44px] ${isSelected ? 'border-amber-400 bg-amber-50/60 shadow-[0_18px_60px_rgba(245,158,11,0.12)]' : 'border-slate-200 bg-white hover:border-slate-400 active:bg-slate-50'} ${className || ''}`}
         {...props}
       >
         <div className={`${view === 'list' ? 'flex-row' : 'flex-col'} flex gap-4`}>
           <img
             src={course.thumbnail || '/placeholder-course.png'}
+            srcSet={`${course.thumbnail || '/placeholder-course.png'}?w=400 400w, ${course.thumbnail || '/placeholder-course.png'}?w=800 800w`}
+            sizes={view === 'list' ? '160px' : '(max-width: 640px) 100vw, 400px'}
             alt={course.title}
             loading="lazy"
-            className={`${view === 'list' ? 'h-28 w-40' : 'h-40 w-full'} rounded-[20px] object-cover`}
+            className={`${view === 'list' ? 'h-24 sm:h-28 w-36 sm:w-40' : 'h-36 sm:h-40 w-full'} rounded-[16px] sm:rounded-[20px] object-cover`}
           />
           <div className="flex flex-1 flex-col">
             <div className="flex items-start justify-between gap-3">
@@ -129,7 +131,7 @@ export const CourseCard = React.forwardRef<HTMLDivElement, CourseCardProps>(
             <div className="mt-5 flex flex-wrap gap-2">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+                className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3.5 py-2.5 sm:py-2 text-sm font-medium text-white transition hover:bg-slate-700 active:bg-slate-800 min-h-[44px] touch-target"
                 onClick={onPreview}
                 aria-label={`Preview ${course.title}`}
               >
@@ -138,7 +140,7 @@ export const CourseCard = React.forwardRef<HTMLDivElement, CourseCardProps>(
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3.5 py-2.5 sm:py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950 active:bg-slate-50 min-h-[44px] touch-target"
                 onClick={onSave}
                 aria-label={`Save ${course.title}`}
               >
@@ -147,7 +149,7 @@ export const CourseCard = React.forwardRef<HTMLDivElement, CourseCardProps>(
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3.5 py-2.5 sm:py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950 active:bg-slate-50 min-h-[44px] touch-target"
                 onClick={onFindSimilar}
                 aria-label={`Find courses similar to ${course.title}`}
               >

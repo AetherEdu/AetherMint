@@ -4,6 +4,8 @@
  * plus JSDoc @openapi annotations in route files.
  *
  * Serves as the single source of truth for swagger-jsdoc configuration.
+ *
+ * Issue #254 — the shared error schema is now RFC 7807 Problem Details.
  */
 
 import swaggerJsdoc from 'swagger-jsdoc';
@@ -29,30 +31,97 @@ const components = {
   },
 
   schemas: {
-    // ── Shared error shape ──────────────────────────────────────────────────
-    ErrorResponse: {
+    // ── Shared error shape (RFC 7807) ─────────────────────────────────────
+    //
+    // Every non-2xx API response is `application/problem+json` with the
+    // shape defined by IETF RFC 7807.  See the catalog at
+    // `backend/docs/ERROR_CATALOG.md` for the canonical list of codes,
+    // statuses, and type URIs.
+    ProblemDetails: {
       type: 'object',
+      description:
+        'RFC 7807 Problem Details object returned by every AetherMint API endpoint on error. ' +
+        'The Content-Type is `application/problem+json`.',
+      required: ['type', 'title', 'status', 'detail', 'instance', 'code', 'success', 'requestId', 'timestamp'],
       properties: {
-        success: { type: 'boolean', example: false },
+        type: {
+          type: 'string',
+          format: 'uri',
+          description:
+            'Stable URI identifying the problem class. Each code maps to exactly one type — see the Error Catalog.',
+          example: 'https://aethermint.io/problems/validation-error',
+        },
+        title: {
+          type: 'string',
+          description:
+            'Short, human-readable summary of the *kind* of problem. Stable across occurrences.',
+          example: 'Validation Error',
+        },
+        status: {
+          type: 'integer',
+          description: 'HTTP status code. Always matches the response status.',
+          example: 400,
+        },
+        detail: {
+          type: 'string',
+          description: 'Human-readable explanation specific to this occurrence.',
+          example: '"email" must be a valid email',
+        },
+        instance: {
+          type: 'string',
+          description: 'URI reference identifying the specific occurrence (method + path).',
+          example: 'POST /api/auth/register',
+        },
+        code: {
+          type: 'string',
+          description: 'Machine-readable AetherMint error code (catalogued in ERROR_CATALOG.md).',
+          example: 'VALIDATION_ERROR',
+        },
+        success: {
+          type: 'boolean',
+          enum: [false],
+          description: 'Always `false` for an error response. Preserved for existing clients.',
+        },
+        requestId: {
+          type: 'string',
+          format: 'uuid',
+          description: 'Correlation id; matches the `X-Request-ID` response header.',
+          example: '7e2c1f5a-8d2b-4e0d-9d6f-3a1d2e9b4c10',
+        },
+        timestamp: {
+          type: 'string',
+          format: 'date-time',
+          description: 'ISO-8601 timestamp captured when the response was composed.',
+        },
+        errors: {
+          type: 'array',
+          description: 'Field-level validation errors (RFC 7807 §A extension).',
+          items: { $ref: '#/components/schemas/FieldValidationError' },
+        },
+        // Deprecated legacy mirror — kept so existing consumers continue to work.
         error: {
           type: 'object',
+          deprecated: true,
+          description: 'Legacy `{success:false, error:{…}}` mirror retained for backward compatibility.',
           properties: {
-            code: { type: 'string', example: 'NOT_FOUND' },
-            message: { type: 'string', example: 'Resource not found' },
+            code: { type: 'string', example: 'VALIDATION_ERROR' },
+            message: { type: 'string', example: 'Validation failed' },
             details: { type: 'object', nullable: true },
-            requestId: { type: 'string', example: 'req-12345' },
+            requestId: { type: 'string', example: '7e2c1f5a-8d2b-4e0d-9d6f-3a1d2e9b4c10' },
+            stack: { type: 'string', description: 'Only present in `development`.' },
           },
         },
       },
     },
 
-    // Legacy flat-error shape still used by several routes
-    Error: {
+    FieldValidationError: {
       type: 'object',
+      description: 'A single field-level validation failure.',
+      required: ['field', 'message'],
       properties: {
-        success: { type: 'boolean', example: false },
-        message: { type: 'string', example: 'Error message' },
-        error: { type: 'string', example: 'ERROR_CODE' },
+        field: { type: 'string', example: 'email' },
+        message: { type: 'string', example: '"email" must be a valid email' },
+        rule: { type: 'string', description: 'Optional Joi/express-validator rule name.', example: 'string.email' },
       },
     },
 
@@ -505,6 +574,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'Tenants', description: 'Multi-tenant management' },
       { name: 'TenantAnalytics', description: 'Cross-tenant analytics' },
       { name: 'AutonomousAgents', description: 'Autonomous AI agent management' },
+      { name: 'Errors', description: 'RFC 7807 Problem Details catalog (see docs/ERROR_CATALOG.md)' },
     ],
   },
   // Scan all route, controller, and docs/schemas files for @openapi JSDoc annotations

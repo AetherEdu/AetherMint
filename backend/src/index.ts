@@ -8,6 +8,7 @@ import swaggerUi from 'swagger-ui-express';
 import logger from './utils/logger';
 import requestId from './middleware/requestId';
 import requestLogger from './middleware/requestLogger';
+import { metricsMiddleware, websocketConnectionsActive } from './middleware/metrics';
 import { errorHandler } from './middleware/errorHandler';
 import { NotFoundError } from './utils/errors';
 import { connectRedis } from './utils/redis';
@@ -51,6 +52,7 @@ import {
 import { detectSuspiciousPatterns } from './middleware/sanitizer';
 // @ts-ignore
 import { tieredRateLimiter, transactionLimiter } from './middleware/rateLimiter';
+import { idempotency } from './middleware/idempotency';
 
 // Connect to Redis
 connectRedis();
@@ -131,6 +133,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestId);
 app.use(requestLogger);
+app.use(metricsMiddleware);
 
 // Reject new traffic with 503 once a graceful shutdown has begun, while still
 // serving the health probe and root so orchestrators can read the drain state.
@@ -192,7 +195,7 @@ app.use('/api/events', eventLoggerRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/rbac', rbacRoutes);
-app.use('/api/transactions', transactionLimiter, transactionRoutes);
+app.use('/api/transactions', idempotency(), transactionLimiter, transactionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/collaboration', collaborationRoutes);
 app.use('/api/holographic', holographicRoutes);
@@ -219,10 +222,10 @@ app.use('/api/gamification', gamificationRoutes);
 const bridgeRoutes = require('./routes/bridge');
 app.use('/api/bridge', bridgeRoutes);
 
-// Time-Locked Credential routes
+// Time-Locked Credential routes with idempotency (Issue #264)
 // @ts-ignore
 const timeLockCredentialsRoutes = require('./routes/timeLockCredentials');
-app.use('/api/time-lock', timeLockCredentialsRoutes);
+app.use('/api/time-lock', idempotency(), timeLockCredentialsRoutes);
 
 // VRF (Verifiable Random Function) routes
 // @ts-ignore
@@ -233,6 +236,24 @@ app.use('/api/vrf', vrfRoutes);
 // @ts-ignore
 const translationRoutes = require('./routes/translation');
 app.use('/api/translate', translationRoutes);
+
+// Bulk operations routes (Admin) – Issue #262
+// @ts-ignore
+const bulkOperationsRoutes = resolveRoute(require('./routes/bulkOperations'));
+app.use('/api/admin/bulk', bulkOperationsRoutes);
+
+// Feature flag admin routes – Issue #267
+// @ts-ignore
+const featureFlagRoutes = resolveRoute(require('./routes/admin/featureFlags'));
+app.use('/api/admin/feature-flags', featureFlagRoutes);
+
+// Public evaluation endpoint for SPA / mobile clients – Issue #267
+// First pulls `publicRouter` off the same module so the admin auth
+// middleware on the default export is not applied to public callers.
+// @ts-ignore
+const featureFlagModule = require('./routes/admin/featureFlags');
+const publicFeatureFlagRouter = (featureFlagModule as any).publicRouter ?? featureFlagModule;
+app.use('/api/feature-flags', publicFeatureFlagRouter);
 
 // Cross-Protocol Bridge routes
 // @ts-ignore
@@ -246,6 +267,11 @@ app.use('/api/audit', auditRoutes);
 
 // CSP Violation Reporting endpoint
 app.use('/api/csp-violation', cspViolationRoutes);
+
+// Prometheus metrics endpoint
+// @ts-ignore
+const metricsRoutes = resolveRoute(require('./routes/metrics'));
+app.use('/api/metrics', metricsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -340,6 +366,9 @@ async function ensureMongooseIndexes(): Promise<void> {
   logger.info('Mongoose index synchronization complete');
 }
 
+// Track the WebSocket metrics interval for cleanup on shutdown
+let wsMetricsInterval: ReturnType<typeof setInterval> | undefined;
+
 async function startServer() {
   try {
     // Ensure Mongoose indexes are created on existing collections (Issue #168)
@@ -375,6 +404,17 @@ async function startServer() {
       }
     }
 
+// Periodically update WebSocket active connection count for Prometheus metrics
+wsMetricsInterval = setInterval(() => {
+  try {
+    const io = websocketService.getIO();
+    const count = io?.engine?.clientsCount ?? 0;
+    websocketConnectionsActive.set(count);
+  } catch {
+    // Silently ignore if WebSocket not available
+  }
+}, 15_000);
+
 server.listen(PORT, () => {
        logger.info('AetherMint Education Backend started', {
          port: PORT,
@@ -391,6 +431,7 @@ server.listen(PORT, () => {
            '/api/agi-tutor',
            '/api/secure-comm',
            '/api/audit',
+           '/api/metrics',
            '/api/health',
          ],
        });
@@ -410,6 +451,7 @@ if (require.main === module) {
     logger,
     steps: [
       { name: 'websocket', run: () => websocketService.close() },
+      { name: 'ws-metrics-interval', run: () => { if (wsMetricsInterval) clearInterval(wsMetricsInterval); } },
       { name: 'http-server', run: () => closeHttpServer(server) },
       { name: 'transaction-queue', run: () => (transactionQueue as any).stopProcessing() },
       { name: 'transaction-processor', run: () => (transactionProcessor as any).stop() },

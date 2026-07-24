@@ -12,6 +12,7 @@
 
 import type { Server as HttpServer } from 'http';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
+import { ServiceUnavailableError } from './errors';
 
 /** Minimal logger surface so tests can inject a spy and production can pass Winston. */
 export interface ShutdownLogger {
@@ -66,6 +67,8 @@ export const resetShutdownState = (): void => {
  * begun, so load balancers stop routing traffic while in-flight work drains.
  * Paths listed in `exemptPaths` (for example the health probe) are still served
  * so orchestrators can observe the "shutting down" state.
+ *
+ * Emits RFC 7807 ProblemDetails via the central handler.
  */
 export const shutdownGuard = (exemptPaths: string[] = []): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -74,7 +77,7 @@ export const shutdownGuard = (exemptPaths: string[] = []): RequestHandler => {
       return;
     }
     res.setHeader('Connection', 'close');
-    res.status(503).json({ success: false, message: 'Server is shutting down' });
+    next(new ServiceUnavailableError('Server is shutting down'));
   };
 };
 

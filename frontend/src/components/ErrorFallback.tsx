@@ -106,6 +106,7 @@ export function ErrorFallback({
         {onRetry && (
           <button
             onClick={onRetry}
+            tabIndex={0}
             className={`w-full px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium ${config.buttonClass}`}
           >
             <RefreshCw className="h-4 w-4" />

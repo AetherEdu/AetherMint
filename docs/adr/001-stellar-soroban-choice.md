@@ -57,7 +57,7 @@ Specifically:
 - **WASM target complexity**: `wasm32v1-none` target requirement with Rust 1.84+ adds build configuration complexity.
 
 ### Neutral
-- **CI/CD pipeline**: Need to install Rust toolchain with `wasm32v1-none` target and `stellar-cli` in CI environments
+- **Build environment**: Need to install Rust toolchain with `wasm32v1-none` target and `stellar-cli` in development and build environments
 - **Testing**: Soroban's test framework (`Env::default()`, `mock_all_auths()`) requires learning specific patterns
 - **Documentation**: Generated via `cargo doc --no-deps` and published to GitHub Pages
 

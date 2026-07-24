@@ -106,7 +106,7 @@ router.post(
       });
     } catch (error) {
       logger.error("Search error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -147,7 +147,7 @@ router.get(
       });
     } catch (error) {
       logger.error("Suggestions error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -181,7 +181,7 @@ router.get(
       });
     } catch (error) {
       logger.error("Trending courses error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -225,7 +225,7 @@ router.get(
       });
     } catch (error) {
       logger.error("Similar courses error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -289,7 +289,7 @@ router.post(
       });
     } catch (error) {
       logger.error("Recommendations error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -350,7 +350,7 @@ router.post(
       });
     } catch (error) {
       logger.error("Activity recording error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -375,7 +375,7 @@ router.get("/categories", async (req: Request, res: Response) => {
     });
   } catch (error) {
       logger.error("Categories error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
 });
 
@@ -399,7 +399,7 @@ router.get("/categories/tree", async (req: Request, res: Response) => {
     });
   } catch (error) {
       logger.error("Category tree error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
 });
 
@@ -474,7 +474,7 @@ router.post(
         }
       );
       logger.error("Category creation error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -543,7 +543,7 @@ router.put(
         }
       );
       logger.error("Category update error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -597,7 +597,7 @@ router.delete(
         }
       );
       logger.error("Category deletion error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -631,7 +631,7 @@ router.get(
       });
     } catch (error) {
       logger.error("Popular searches error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
   },
 );
@@ -659,7 +659,7 @@ router.get("/analytics/search/:query", async (req: Request, res: Response) => {
     });
   } catch (error) {
       logger.error("Search analytics error", error);
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      return next(error);
     }
 });
 

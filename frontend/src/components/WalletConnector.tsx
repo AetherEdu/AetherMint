@@ -211,6 +211,7 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
               </p>
               <button
                 onClick={refreshBalance}
+                tabIndex={0}
                 className="min-h-[44px] min-w-[44px] flex items-center justify-center text-xs sm:text-sm text-blue-600 hover:text-blue-800 rounded-lg hover:bg-blue-50 px-3 transition-colors"
                 aria-label="Refresh balance"
               >
@@ -224,6 +225,7 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
               <label className="text-xs sm:text-sm text-gray-500 uppercase tracking-wider" id="address-label">Address</label>
               <button
                 onClick={() => setShowAddress(!showAddress)}
+                tabIndex={0}
                 className="min-h-[44px] min-w-[44px] flex items-center justify-center text-xs sm:text-sm text-blue-600 hover:text-blue-800 rounded-lg hover:bg-blue-50 px-3 transition-colors"
                 aria-expanded={showAddress}
                 aria-controls="wallet-address-section"
@@ -239,6 +241,7 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
                 <div className="flex gap-2">
                   <button
                     onClick={copyAddress}
+                    tabIndex={0}
                     className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                     aria-label="Copy wallet address to clipboard"
                   >
@@ -246,6 +249,7 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
                   </button>
                   <button
                     onClick={viewOnStellarExplorer}
+                    tabIndex={0}
                     className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                     aria-label="View wallet on Stellar Explorer (opens in new tab)"
                   >
@@ -259,6 +263,7 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
 
         <button
           onClick={disconnectWallet}
+          tabIndex={0}
           className="mt-4 w-full min-h-[44px] bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm sm:text-base font-medium active:scale-[0.98]"
           aria-label="Disconnect wallet"
         >
@@ -294,6 +299,7 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({
           <button
             onClick={connectWallet}
             disabled={isConnecting}
+            tabIndex={0}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center space-x-2"
             aria-label={isConnecting ? 'Connecting wallet' : 'Connect wallet'}
           >
