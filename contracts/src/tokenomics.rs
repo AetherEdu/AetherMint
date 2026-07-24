@@ -1,6 +1,7 @@
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec,
+    contract, contractimpl, contracttype, Address, Env, String, Vec,
 };
+use crate::tokenomics_events::{publish_tokenomics_event, TokenomicsEvent};
 use crate::utils::pause::PauseUtils;
 
 #[contracttype]
@@ -68,10 +69,8 @@ impl TokenomicsContract {
         let total_supply = env.storage().instance().get::<_, u64>(&TokenomicsKey::TotalSupply(token_type)).unwrap_or(0);
         env.storage().instance().set(&TokenomicsKey::TotalSupply(token_type), &(total_supply + amount));
 
-        env.events().publish(
-            (symbol_short!("token"), symbol_short!("mint")),
-            (recipient, amount, token_type),
-        );
+        // Emit standardized tokenomics event. entity_id = amount minted.
+        publish_tokenomics_event(&env, TokenomicsEvent::Minted, amount, recipient);
     }
 
     /// Stake tokens for course quality / platform rewards
@@ -109,10 +108,8 @@ impl TokenomicsContract {
         let pool_total: u64 = env.storage().instance().get(&TokenomicsKey::StakePoolTotal).unwrap_or(0);
         env.storage().instance().set(&TokenomicsKey::StakePoolTotal, &(pool_total + amount));
 
-        env.events().publish(
-            (symbol_short!("token"), symbol_short!("stake")),
-            (staker, amount, lock_duration),
-        );
+        // Emit standardized tokenomics event. entity_id = amount staked.
+        publish_tokenomics_event(&env, TokenomicsEvent::Staked, amount, staker);
     }
 
     /// Claim rewards from staking
@@ -144,10 +141,8 @@ impl TokenomicsContract {
         let pool_total: u64 = env.storage().instance().get(&TokenomicsKey::StakePoolTotal).unwrap_or(0);
         env.storage().instance().set(&TokenomicsKey::StakePoolTotal, &(pool_total - stake.amount));
 
-        env.events().publish(
-            (symbol_short!("token"), symbol_short!("unstake")),
-            (staker, total_return),
-        );
+        // Emit standardized tokenomics event. entity_id = total_return (stake + reward).
+        publish_tokenomics_event(&env, TokenomicsEvent::Unstaked, total_return, staker);
     }
 
     /// Quadratic Voting for Governance Proposals
@@ -177,10 +172,8 @@ impl TokenomicsContract {
 
         env.storage().instance().set(&TokenomicsKey::Proposal(proposal_id), &proposal);
 
-        env.events().publish(
-            (symbol_short!("token"), symbol_short!("vote")),
-            (proposal_id, voter, votes_power),
-        );
+        // Emit standardized tokenomics event. entity_id = proposal_id.
+        publish_tokenomics_event(&env, TokenomicsEvent::Voted, proposal_id, voter);
     }
 
     /// Create a new proposal
@@ -191,7 +184,7 @@ impl TokenomicsContract {
         let id = env.storage().instance().get::<_, u64>(&TokenomicsKey::ProposalCount).unwrap_or(0) + 1;
         let proposal = Proposal {
             id,
-            creator,
+            creator: creator.clone(),
             title,
             description,
             votes_for: 0,
@@ -202,6 +195,9 @@ impl TokenomicsContract {
 
         env.storage().instance().set(&TokenomicsKey::Proposal(id), &proposal);
         env.storage().instance().set(&TokenomicsKey::ProposalCount, &id);
+
+        // Emit standardized tokenomics event. entity_id = proposal_id.
+        publish_tokenomics_event(&env, TokenomicsEvent::ProposalCreated, id, creator);
 
         id
     }
