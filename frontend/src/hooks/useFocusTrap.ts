@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 interface FocusTrapOptions {
   onEscape?: () => void;
   initialFocusSelector?: string;
+  lockScroll?: boolean;
 }
 
 const focusableSelector = [
@@ -19,7 +20,7 @@ const focusableSelector = [
 
 export const useFocusTrap = (isActive: boolean, options: FocusTrapOptions = {}) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { initialFocusSelector, onEscape } = options;
+  const { initialFocusSelector, onEscape, lockScroll = true } = options;
 
   useEffect(() => {
     if (!isActive || !containerRef.current) return;
@@ -101,17 +102,28 @@ export const useFocusTrap = (isActive: boolean, options: FocusTrapOptions = {}) 
       }
     };
 
+    const previousOverflow = document.body.style.overflow;
+    if (lockScroll) {
+      document.body.style.overflow = 'hidden';
+    }
+
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('focusin', handleFocusIn);
     const focusableElements = getFocusableElements();
-    (initialElement || focusableElements[0] || container) && focusElement((initialElement || focusableElements[0] || container) as HTMLElement);
+    const target = initialElement || focusableElements[0] || container;
+    if (target) {
+      focusElement(target as HTMLElement);
+    }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('focusin', handleFocusIn);
+      if (lockScroll) {
+        document.body.style.overflow = previousOverflow;
+      }
       previouslyFocused?.focus();
     };
-  }, [initialFocusSelector, isActive, onEscape]);
+  }, [initialFocusSelector, isActive, onEscape, lockScroll]);
 
   return containerRef;
 };

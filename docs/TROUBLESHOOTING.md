@@ -21,7 +21,7 @@
 - [Infrastructure](#-infrastructure)
   - [Docker and Docker Compose](#docker-and-docker-compose)
   - [Environment Configuration](#environment-configuration)
-  - [CI/CD Pipeline](#cicd-pipeline)
+  
 - [General Development](#-general-development)
   - [Node.js and npm/pnpm](#nodejs-and-npmpnpm)
   - [Git and Branching](#git-and-branching)
@@ -252,14 +252,13 @@ cargo test -- --nocapture 2>&1 | head -100
 
 ---
 
-#### Contract tests pass locally but fail in CI
+#### Contract tests pass locally but fail on another machine
 
-**Cause:** CI may use a different Rust version or missing target.
+**Cause:** The other machine may use a different Rust version or missing target.
 
-**Solution:** Check `.github/workflows/ci.yml` and ensure it installs `wasm32v1-none`:
-```yaml
-- name: Add wasm target
-  run: rustup target add wasm32v1-none
+**Solution:** Ensure the machine has the correct Rust toolchain and `wasm32v1-none` target installed:
+```bash
+rustup target add wasm32v1-none
 ```
 
 ---
@@ -703,7 +702,7 @@ Access to fetch at 'http://localhost:3001/api/...' has been blocked by CORS poli
 
 ## 🏗️ Infrastructure
 
-**Tags:** `infrastructure` `docker` `docker-compose` `env` `ci` `github-actions` `deployment`
+**Tags:** `infrastructure` `docker` `docker-compose` `env` `deployment`
 
 ### Docker and Docker Compose
 
@@ -809,45 +808,7 @@ docker compose down && docker compose up
 
 ---
 
-### CI/CD Pipeline
 
----
-
-#### CI fails: `wasm32v1-none` target not found
-
-**Symptom:** Contract build step fails in GitHub Actions.
-
-**Solution:** Add this step to `.github/workflows/ci.yml` before the build step:
-```yaml
-- name: Install Rust wasm target
-  run: rustup target add wasm32v1-none
-```
-
----
-
-#### CI fails: `stellar-cli not found`
-
-**Solution:** Add to your CI workflow:
-```yaml
-- name: Install Stellar CLI
-  run: cargo install --locked stellar-cli --version 26.1.0
-```
-
----
-
-#### CI fails: environment secrets missing
-
-**Symptom:** Tests fail with connection refused or auth errors in CI.
-
-**Solution:**
-1. Go to **GitHub → Settings → Secrets and variables → Actions**.
-2. Add all required secrets (e.g., `DATABASE_URL`, `JWT_SECRET`).
-3. Reference them in your workflow:
-   ```yaml
-   env:
-     DATABASE_URL: ${{ secrets.DATABASE_URL }}
-     JWT_SECRET: ${{ secrets.JWT_SECRET }}
-   ```
 
 ---
 
