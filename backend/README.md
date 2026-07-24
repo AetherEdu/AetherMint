@@ -142,6 +142,16 @@ await recommendationService.recordUserActivity('user_456', 'complete', 'course_1
 
 ## 📡 API Endpoints
 
+> **Interactive docs are available at `http://localhost:3001/api/docs`** (Swagger UI, auto-generated from JSDoc annotations) and the **Developer Portal** at `http://localhost:3002` (API Playground + Auth Docs).
+>
+> | Resource | URL |
+> |----------|-----|
+> | Swagger UI | `http://localhost:3001/api/docs` |
+> | Raw OpenAPI JSON | `http://localhost:3001/api/docs/json` |
+> | Developer Portal | `http://localhost:3002` |
+> | Auth Docs | `http://localhost:3002/auth-docs` |
+> | Published (GitHub Pages) | https://jobbykings.github.io/aethermint-education/ |
+
 ### Search
 - `POST /api/courses/search` - Search with filters and pagination
 - `GET /api/courses/suggestions?q=<query>` - Auto-complete suggestions
