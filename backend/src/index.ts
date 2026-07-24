@@ -239,6 +239,19 @@ app.use('/api/translate', translationRoutes);
 const bulkOperationsRoutes = resolveRoute(require('./routes/bulkOperations'));
 app.use('/api/admin/bulk', bulkOperationsRoutes);
 
+// Feature flag admin routes – Issue #267
+// @ts-ignore
+const featureFlagRoutes = resolveRoute(require('./routes/admin/featureFlags'));
+app.use('/api/admin/feature-flags', featureFlagRoutes);
+
+// Public evaluation endpoint for SPA / mobile clients – Issue #267
+// First pulls `publicRouter` off the same module so the admin auth
+// middleware on the default export is not applied to public callers.
+// @ts-ignore
+const featureFlagModule = require('./routes/admin/featureFlags');
+const publicFeatureFlagRouter = (featureFlagModule as any).publicRouter ?? featureFlagModule;
+app.use('/api/feature-flags', publicFeatureFlagRouter);
+
 // Cross-Protocol Bridge routes
 // @ts-ignore
 const crossProtocolBridgeRoutes = require('./routes/crossProtocolBridge');

@@ -138,6 +138,9 @@ pub mod utils;
 #[cfg(test)]
 mod pause_test;
 
+#[cfg(test)]
+mod fuzzing_test;
+
 use crate::profile_nft::ProfileNFT;
 #[contracttype]
 #[derive(Clone)]
