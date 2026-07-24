@@ -4,7 +4,7 @@ const express = require('express');
 const { ipfsAuth, optionalIpfsAuth, verifyToken, hasPermission, checkRateLimit, validateContentAccess, validateFileSize } = require('../../src/middleware/ipfsAuth');
 const { createIpfsError } = require('../../src/utils/ipfsUtils');
 const { errorHandler } = require('../../src/middleware/errorHandler');
-const { AuthError, ForbiddenError, ValidationError, NotFoundError, PayloadTooLargeError } = require('../../src/utils/errors');
+const { AuthError, ForbiddenError, ValidationError, NotFoundError, PayloadTooLargeError, RateLimitError } = require('../../src/utils/errors');
 
 /**
  * Issue #254 (RFC 7807) — the IPFS auth / content / file-size helpers now
@@ -212,7 +212,7 @@ describe('Authentication Middleware', () => {
       expect(err.statusCode).toBe(403);
     });
 
-    it('should reject requests when rate limit exceeded via AuthError', async () => {
+    it('should reject requests when rate limit exceeded via RateLimitError (429)', async () => {
       const payload = { userId: 'test-user', role: 'guest' };
       const token = jwt.sign(payload, process.env.JWT_SECRET);
 
@@ -228,8 +228,14 @@ describe('Authentication Middleware', () => {
 
       expect(mockNext).toHaveBeenCalledTimes(1);
       const err = mockNext.mock.calls[0][0];
-      expect(err).toBeInstanceOf(AuthError);
-      expect(err.statusCode).toBe(401);
+      // Issue #254 follow-up: rate-limit now produces a 429 RateLimitError
+      // (data-driven by `checkRateLimit → createIpfsError(..., 429)`) — not
+      // the old AuthError(401) heuristic artifact.
+      expect(err).toBeInstanceOf(RateLimitError);
+      expect(err.statusCode).toBe(429);
+      expect(err.errorCode).toBe('RATE_LIMITED');
+      expect(mockRes.status).not.toHaveBeenCalled();
+      expect(mockRes.json).not.toHaveBeenCalled();
     });
   });
 
@@ -271,39 +277,28 @@ describe('Authentication Middleware', () => {
     });
 
     it('should reject authenticated requests with insufficient permissions via ForbiddenError', async () => {
-      const payload = { userId: 'test-user', role: 'student' };
+      const payload = { userId: 'test-student-no-upload', role: 'student' };
       const token = jwt.sign(payload, process.env.JWT_SECRET);
 
-      mockReq.headers.authorization = `Bearer ${token}`;
-
-      const middleware = optionalIpfsAuth('upload'); // Students can't upload
-
-      // Bypass the JWT verification long enough to assert on ForbiddenError mapping.
-      // For optional auth, the IPFS-IPFS error.insufficient-permissions path
-      // surfaces as ForbiddenError (403).
       const app = express();
       app.use((req, _res, next) => {
-        Object.assign(req, mockReq);
+        req.headers = { authorization: `Bearer ${token}` };
         next();
       });
-      app.get('/', middleware, (_req, res) => res.json({ ok: true }));
+      app.get('/', optionalIpfsAuth('upload'), (_req, res) => res.json({ ok: true }));
       app.use(errorHandler);
 
       const res = await request(app).get('/');
-      // The token is valid but the user 'student' has no upload permission,
-      // so optionalIpfsAuth falls through to the rate-limit + permission check
-      // and forwards a ForbiddenError to the central handler.
-      // Token used here is valid; for failure case we issue a per-test token.
-      const newPayload = { userId: 'test-student-upload', role: 'student' };
-      const newToken = jwt.sign(newPayload, process.env.JWT_SECRET);
-      mockReq.headers.authorization = `Bearer ${newToken}`;
-
-      const res2 = await request(app).get('/');
-      expect(res2.headers['content-type']).toMatch(/application\/problem\+json/);
-      // Status may be 403 (forbidden) or 500 depending on JWT verification
-      // path; we only assert on the content-type which is the new contract.
-      expect(['application/problem+json']).toContain('application/problem+json');
-      expect(mockNext).toHaveBeenCalled();
+      expect(res.status).toBe(403);
+      expect(res.headers['content-type']).toMatch(/application\/problem\+json/);
+      expect(res.body).toMatchObject({
+        title: 'Forbidden',
+        status: 403,
+        code: 'FORBIDDEN',
+        success: false,
+      });
+      expect(typeof res.body.requestId).toBe('string');
+      expect(res.body.detail).toMatch(/Insufficient permissions/);
     });
   });
 
@@ -339,33 +334,25 @@ describe('Authentication Middleware', () => {
       expect(mockRes.status).not.toHaveBeenCalled();
     });
 
-    it('should reject files exceeding size limit via PayloadTooLargeError', async () => {
-      mockReq.file = { size: 100 * 1024 * 1024 }; // 100MB file
-      // Establish the size config so the middleware will trip.
-      process.env.IPFS_MAX_FILE_SIZE = String(100 * 1024 * 1024 + 1);
-      // Force module reload to pick up env override.
-      jest.resetModules();
-      const { validateFileSize: reloadValidateFileSize } = require('../../src/middleware/ipfsAuth');
-      // Reset env to a low limit (1 byte) so the 100MB payload is over.
-      process.env.IPFS_MAX_FILE_SIZE = '1';
+    it('should reject files exceeding size limit via PayloadTooLargeError (413)', async () => {
+      // Mock ipfsConfig with a tiny limit so we don't depend on env vars
+      // or module reset hacks.
+      jest.isolateModules(() => {
+        jest.doMock('../../src/config/ipfs', () => ({
+          ipfsConfig: { maxFileSize: 1, allowedContentTypes: ['*/*'] },
+        }));
+        const { validateFileSize: isolatedValidateFileSize } = require('../../src/middleware/ipfsAuth');
 
-      const localReq = { file: { size: 100 * 1024 * 1024 } };
-      const localRes = { status: jest.fn().mockReturnThis(), json: jest.fn() };
-      const localNext = jest.fn();
-      jest.resetModules();
-      const { ipfsConfig: reloadCfg } = require('../../src/config/ipfs');
-      // Configure limit lower than payload.
-      reloadCfg.maxFileSize = 1;
-      await reloadValidateFileSize(localReq, localRes, localNext);
-
-      const err = localNext.mock.calls[0] && localNext.mock.calls[0][0];
-      if (err) {
-        expect([PayloadTooLargeError, AuthError].some((Cls) => err instanceof Cls)).toBe(true);
-      } else {
-        // The middleware may pass when the env override is fragile
-        // against the cached ipfsConfig module; tolerate it gracefully.
-        expect(localNext).toHaveBeenCalled();
-      }
+        const localReq = { file: { size: 1024 } };
+        const localRes = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+        const localNext = jest.fn();
+        return isolatedValidateFileSize(localReq, localRes, localNext).then(() => {
+          const err = localNext.mock.calls[0] && localNext.mock.calls[0][0];
+          expect(err).toBeInstanceOf(PayloadTooLargeError);
+          expect(err.statusCode).toBe(413);
+          expect(err.errorCode).toBe('PAYLOAD_TOO_LARGE');
+        });
+      });
     });
 
     it('should pass through when no file is provided', async () => {

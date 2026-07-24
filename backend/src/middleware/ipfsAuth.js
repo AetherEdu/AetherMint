@@ -1,36 +1,93 @@
 const jwt = require('jsonwebtoken');
 const { ipfsConfig } = require('../config/ipfs');
 const { createIpfsError } = require('../utils/ipfsUtils');
-const { AuthError, ForbiddenError, ValidationError, PayloadTooLargeError } = require('../utils/errors');
+const {
+  AuthError,
+  ForbiddenError,
+  ValidationError,
+  PayloadTooLargeError,
+  RateLimitError,
+  NotFoundError,
+  ServiceUnavailableError,
+  InternalError,
+} = require('../utils/errors');
+
+/**
+ * Operation → HTTP status fallback table, applied only when an IPFS error
+ * is constructed without an explicit {@link createIpfsError} `httpStatus`.
+ * Each row maps the IPFS operation name (e.g. `'auth'`, `'validation'`) to
+ * the status most appropriate for the RFC 7807 envelope.
+ *
+ * Callers that want a different status than the operation default MUST pass
+ * the desired status as the 4th argument to `createIpfsError`.
+ */
+const OPERATION_STATUS_MAP = Object.freeze({
+  auth: 401,
+  validation: 400,
+  init: 503,
+  getContent: 404,
+  getMetadata: 404,
+  upload: 500,
+  pinContent: 500,
+  unpinContent: 500,
+  getNodeInfo: 500,
+  rateLimit: 429,
+});
 
 /**
  * Map an IPFS-domain error (created via {@link createIpfsError}) onto the
- * canonical RFC 7807 AppError family. Unknown errors are re-wrapped as
- * an AuthError because the IPFS auth middleware only emits authentication-
- * shaped failures.
+ * canonical RFC 7807 AppError family. Classification is now data-driven:
+ * the explicit `httpStatus` set at the throw site wins; otherwise the
+ * {@link OPERATION_STATUS_MAP} fallback determines the status. Message text
+ * is never inspected.
+ *
+ * @param {Error|null|undefined} error - The thrown value.
+ * @returns {import('../utils/errors').AppError} The matching inherited
+ *   `AppError` so the central error handler emits the right envelope.
  */
-const mapIpfsError = (error, operation) => {
+const mapIpfsError = (error) => {
   if (!error || !error.isIpfsError) {
     return new AuthError('Authentication failed');
   }
-  const message = error.message || 'Authentication failed';
-  if (error.operation === 'validation') {
-    const err = new ValidationError(message);
-    err.details = error.details;
-    return err;
+
+  const status =
+    typeof error.httpStatus === 'number'
+      ? error.httpStatus
+      : OPERATION_STATUS_MAP[error.operation] || 500;
+  const message = error.message || 'IPFS operation failed';
+
+  let appError;
+  switch (status) {
+    case 400:
+      appError = new ValidationError(message);
+      break;
+    case 401:
+      appError = new AuthError(message);
+      break;
+    case 403:
+      appError = new ForbiddenError(message);
+      break;
+    case 404:
+      appError = new NotFoundError(message);
+      break;
+    case 413:
+      appError = new PayloadTooLargeError(message);
+      break;
+    case 429:
+      appError = new RateLimitError(message);
+      break;
+    case 503:
+      appError = new ServiceUnavailableError(message);
+      break;
+    default:
+      appError = new InternalError(message);
+      break;
   }
-  // auth-shaped errors: distinguish 401 (missing/invalid token) vs 403
-  // (insufficient permissions) using the message as the heuristic since
-  // the IPFS layer does not currently classify these.  This still emits
-  // a stable RFC 7807 envelope end-to-end.
-  if (/insufficient/i.test(message) || /permission/i.test(message)) {
-    const err = new ForbiddenError(message);
-    err.details = error.details;
-    return err;
+
+  if (error.details !== undefined) {
+    appError.details = error.details;
   }
-  const err = new AuthError(message);
-  err.details = error.details;
-  return err;
+  return appError;
 };
 
 /**
@@ -47,7 +104,12 @@ const verifyToken = (token) => {
   try {
     return jwt.verify(token, process.env.JWT_SECRET);
   } catch (error) {
-    throw createIpfsError('Invalid or expired token', 'auth', { error: error.message });
+    throw createIpfsError(
+      'Invalid or expired token',
+      'auth',
+      { error: error.message },
+      401,
+    );
   }
 };
 
@@ -101,18 +163,26 @@ const checkRateLimit = (user, operation) => {
   };
 
   const userLimit = rateLimits[operation]?.[user.role] || 0;
-  
+
   // For demo purposes, we'll use a simple in-memory counter
   // In production, use Redis or similar for distributed rate limiting
   const userKey = `${user.id}:${operation}`;
   const currentCount = global.ipfsRateLimit?.[userKey] || 0;
-  
+
   if (currentCount >= userLimit) {
-    throw createIpfsError('Rate limit exceeded', 'auth', { 
-      operation, 
-      limit: userLimit, 
-      current: currentCount 
-    });
+    // 429 Rate Limit is the canonical status for quota breaches — set it
+    // explicitly rather than letting the auth fallback mis-classify this
+    // as 401 Unauthorized.
+    throw createIpfsError(
+      'Rate limit exceeded',
+      'auth',
+      {
+        operation,
+        limit: userLimit,
+        current: currentCount,
+      },
+      429,
+    );
   }
 
   // Increment counter (reset every hour)
@@ -141,22 +211,33 @@ const ipfsAuth = (operation = 'download') => {
     try {
       // Extract token from Authorization header
       const authHeader = req.headers.authorization;
-      
+
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw createIpfsError('Authorization token required', 'auth');
+        throw createIpfsError(
+          'Authorization token required',
+          'auth',
+          undefined,
+          401,
+        );
       }
 
       const token = authHeader.substring(7);
-      
+
       // Verify token and extract user
       const user = verifyToken(token);
 
       // Check if user has required permissions
       if (!hasPermission(user, operation)) {
-        throw createIpfsError('Insufficient permissions for this operation', 'auth', { 
-          operation, 
-          userRole: user.role 
-        });
+        // Explicit 403 — does NOT rely on message-text heuristics.
+        throw createIpfsError(
+          'Insufficient permissions for this operation',
+          'auth',
+          {
+            operation,
+            userRole: user.role,
+          },
+          403,
+        );
       }
 
       // Check rate limits
@@ -168,7 +249,7 @@ const ipfsAuth = (operation = 'download') => {
 
       next();
     } catch (error) {
-      return next(mapIpfsError(error, operation));
+      return next(mapIpfsError(error));
     }
   };
 };
@@ -188,10 +269,16 @@ const optionalIpfsAuth = (operation = 'download') => {
 
         // Check permissions if user is authenticated
         if (!hasPermission(user, operation)) {
-          throw createIpfsError('Insufficient permissions for this operation', 'auth', {
-            operation,
-            userRole: user.role
-          });
+          // Explicit 403 — surface as a forbidden response.
+          throw createIpfsError(
+            'Insufficient permissions for this operation',
+            'auth',
+            {
+              operation,
+              userRole: user.role,
+            },
+            403,
+          );
         }
 
         // Check rate limits for authenticated users
@@ -203,17 +290,22 @@ const optionalIpfsAuth = (operation = 'download') => {
       req.ipfsOperation = operation;
       next();
     } catch (error) {
+      // Check the explicit/routed status instead of message-text. Only
+      // 403 (permission denial) is surfaced; other failures (401 invalid
+      // token, 429 rate limit, 500 unexpected) silently degrade to a
+      // no-user request, preserving the prior "optional auth" semantics.
       if (error && error.isIpfsError) {
-        // Permission failures are surfaced; invalid tokens for optional
-        // auth fall through without attaching a user identity (preserved
-        // pre-migration behaviour).
-        if (/permission/i.test(error.message || '')) {
-          return next(mapIpfsError(error, operation));
+        const status =
+          typeof error.httpStatus === 'number'
+            ? error.httpStatus
+            : OPERATION_STATUS_MAP[error.operation];
+        if (status === 403) {
+          return next(mapIpfsError(error));
         }
         req.ipfsOperation = operation;
         return next();
       }
-      // Unknown errors also fall through silently for optional auth.
+      // Unknown / non-IPFS errors also fall through silently.
       req.ipfsOperation = operation;
       next();
     }
@@ -245,7 +337,7 @@ const validateContentAccess = async (req, res, next) => {
     // 1. Check if the user is the content owner
     // 2. Check if the content is shared with the user
     // 3. Check if the content is part of a course the user is enrolled in
-    
+
     // For demo purposes, we'll allow access
     next();
   } catch (error) {
@@ -255,23 +347,37 @@ const validateContentAccess = async (req, res, next) => {
 
 /**
  * File size validation middleware
- * Validates file size before upload
+ * Validates file size before upload.
+ *
+ * Sets an explicit `httpStatus: 413` on the IPFS error it raises so
+ * {@link mapIpfsError} produces a `PayloadTooLargeError` envelope instead
+ * of the previous blanket-mapping that mis-classified every IPFS error as
+ * 413 (Issue #254 follow-up).
  */
 const validateFileSize = (req, res, next) => {
   try {
     if (req.file && req.file.size > ipfsConfig.maxFileSize) {
-      throw createIpfsError('File size exceeds maximum limit', 'validation', { 
-        maxSize: ipfsConfig.maxFileSize,
-        actualSize: req.file.size
-      });
+      // Explicit 413 — drives the matching AppError subclass through
+      // `mapIpfsError` rather than relying on the validation fallback.
+      throw createIpfsError(
+        'File size exceeds maximum limit',
+        'validation',
+        {
+          maxSize: ipfsConfig.maxFileSize,
+          actualSize: req.file.size,
+        },
+        413,
+      );
     }
 
     next();
   } catch (error) {
     if (error && error.isIpfsError) {
-      // File-size overruns surface as a Pay-load Too Large problem
-      // (RFC 7807) so the existing error catalog row matches the wire.
-      return next(new PayloadTooLargeError(error.message || 'File size exceeds maximum limit'));
+      // Use mapIpfsError so the status field drives the AppError
+      // selection — file-size overruns become 413 PayloadTooLargeError
+      // and other ipfs validation failures bubble up as 400 ValidationError
+      // (or whatever the throw site specified).
+      return next(mapIpfsError(error));
     }
     return next(new ValidationError('File validation failed'));
   }
@@ -284,5 +390,8 @@ module.exports = {
   validateFileSize,
   verifyToken,
   hasPermission,
-  checkRateLimit
+  checkRateLimit,
+  // Exported for unit tests; consumers should normally use `mapIpfsError`.
+  mapIpfsError,
+  OPERATION_STATUS_MAP,
 };
