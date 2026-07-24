@@ -2,15 +2,16 @@
  * Bulk Operations Controller
  * Handles HTTP requests for bulk admin operations:
  * - Bulk credential issuance
- * - Bulk course enrollment  
+ * - Bulk course enrollment
  * - Bulk user import (CSV/JSON)
  *
- * Issue: #262
+ * Issues: #262 (bulk ops), #254 (RFC 7807 error envelopes).
  */
 
 import { Request, Response, NextFunction } from 'express';
 import { BulkOperationService, BulkCredentialInput, BulkEnrollmentInput, BulkUserImportInput } from '../services/BulkOperationService';
 import logger from '../utils/logger';
+import { ValidationError, NotFoundError } from '../utils/errors';
 
 const bulkOperationService = new BulkOperationService();
 
@@ -23,26 +24,34 @@ export const bulkCredentialIssuance = async (req: Request, res: Response, next: 
     const { credentials } = req.body;
 
     if (!Array.isArray(credentials) || credentials.length === 0) {
-      res.status(400).json({ success: false, error: 'credentials array is required and must not be empty' });
-      return;
+      return next(new ValidationError('credentials array is required and must not be empty'));
     }
 
     if (credentials.length > 1000) {
-      res.status(400).json({ success: false, error: 'Maximum of 1000 credentials per bulk request' });
-      return;
+      return next(
+        new ValidationError('Maximum of 1000 credentials per bulk request', {
+          limit: 1000,
+          received: credentials.length,
+        }),
+      );
     }
 
     // Validate each item
-    const validationErrors: string[] = [];
+    const validationErrors: { field: string; message: string }[] = [];
     credentials.forEach((item: any, index: number) => {
-      if (!item.recipientId) validationErrors.push(`Item ${index}: recipientId is required`);
-      if (!item.credentialType) validationErrors.push(`Item ${index}: credentialType is required`);
-      if (!item.credentialHash) validationErrors.push(`Item ${index}: credentialHash is required`);
+      if (!item.recipientId) {
+        validationErrors.push({ field: `[${index}].recipientId`, message: 'recipientId is required' });
+      }
+      if (!item.credentialType) {
+        validationErrors.push({ field: `[${index}].credentialType`, message: 'credentialType is required' });
+      }
+      if (!item.credentialHash) {
+        validationErrors.push({ field: `[${index}].credentialHash`, message: 'credentialHash is required' });
+      }
     });
 
     if (validationErrors.length > 0) {
-      res.status(400).json({ success: false, errors: validationErrors });
-      return;
+      return next(new ValidationError('Bulk credential validation failed', validationErrors));
     }
 
     const inputs: BulkCredentialInput[] = credentials.map((c: any) => ({
@@ -79,24 +88,30 @@ export const bulkCourseEnrollment = async (req: Request, res: Response, next: Ne
     const { enrollments } = req.body;
 
     if (!Array.isArray(enrollments) || enrollments.length === 0) {
-      res.status(400).json({ success: false, error: 'enrollments array is required and must not be empty' });
-      return;
+      return next(new ValidationError('enrollments array is required and must not be empty'));
     }
 
     if (enrollments.length > 1000) {
-      res.status(400).json({ success: false, error: 'Maximum of 1000 enrollments per bulk request' });
-      return;
+      return next(
+        new ValidationError('Maximum of 1000 enrollments per bulk request', {
+          limit: 1000,
+          received: enrollments.length,
+        }),
+      );
     }
 
-    const validationErrors: string[] = [];
+    const validationErrors: { field: string; message: string }[] = [];
     enrollments.forEach((item: any, index: number) => {
-      if (!item.userId) validationErrors.push(`Item ${index}: userId is required`);
-      if (!item.courseId) validationErrors.push(`Item ${index}: courseId is required`);
+      if (!item.userId) {
+        validationErrors.push({ field: `[${index}].userId`, message: 'userId is required' });
+      }
+      if (!item.courseId) {
+        validationErrors.push({ field: `[${index}].courseId`, message: 'courseId is required' });
+      }
     });
 
     if (validationErrors.length > 0) {
-      res.status(400).json({ success: false, errors: validationErrors });
-      return;
+      return next(new ValidationError('Bulk enrollment validation failed', validationErrors));
     }
 
     const inputs: BulkEnrollmentInput[] = enrollments.map((e: any) => ({
@@ -146,37 +161,41 @@ export const bulkUserImport = async (req: Request, res: Response, next: NextFunc
         metadata: u.metadata || {},
       }));
     } else {
-      res.status(400).json({
-        success: false,
-        error: 'Either users (JSON array) or csvData (CSV string) is required',
-      });
-      return;
+      return next(
+        new ValidationError('Either users (JSON array) or csvData (CSV string) is required'),
+      );
     }
 
     if (inputs.length === 0) {
-      res.status(400).json({ success: false, error: 'No users to import' });
-      return;
+      return next(new ValidationError('No users to import'));
     }
 
     if (inputs.length > 10000) {
-      res.status(400).json({ success: false, error: 'Maximum of 10000 users per bulk import' });
-      return;
+      return next(
+        new ValidationError('Maximum of 10000 users per bulk import', {
+          limit: 10000,
+          received: inputs.length,
+        }),
+      );
     }
 
     // Validate each item
-    const validationErrors: string[] = [];
+    const validationErrors: { field: string; message: string }[] = [];
     inputs.forEach((item, index) => {
-      if (!item.email) validationErrors.push(`Item ${index}: email is required`);
-      if (!item.username) validationErrors.push(`Item ${index}: username is required`);
+      if (!item.email) {
+        validationErrors.push({ field: `[${index}].email`, message: 'email is required' });
+      }
+      if (!item.username) {
+        validationErrors.push({ field: `[${index}].username`, message: 'username is required' });
+      }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (item.email && !emailRegex.test(item.email)) {
-        validationErrors.push(`Item ${index}: invalid email format "${item.email}"`);
+        validationErrors.push({ field: `[${index}].email`, message: `invalid email format "${item.email}"` });
       }
     });
 
     if (validationErrors.length > 0) {
-      res.status(400).json({ success: false, errors: validationErrors });
-      return;
+      return next(new ValidationError('Bulk user import validation failed', validationErrors));
     }
 
     const operation = await bulkOperationService.bulkUserImport(inputs);
@@ -206,8 +225,7 @@ export const getOperationStatus = async (req: Request, res: Response, next: Next
     const operation = bulkOperationService.getOperationStatus(id);
 
     if (!operation) {
-      res.status(404).json({ success: false, error: 'Bulk operation not found' });
-      return;
+      return next(new NotFoundError('Bulk operation not found'));
     }
 
     res.json({ success: true, data: operation });

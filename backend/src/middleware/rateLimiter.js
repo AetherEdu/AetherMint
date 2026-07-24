@@ -8,6 +8,7 @@ const {
 } = require('../utils/redis');
 const securityConfig = require('../config/security');
 const logger = require('../utils/logger');
+const { RateLimitError, ServiceUnavailableError } = require('../utils/errors');
 
 const getIp = (req) => req.ip || req.socket?.remoteAddress || 'unknown';
 
@@ -157,12 +158,9 @@ const rejectRequest = async (req, res, result) => {
     logger.error('Failed to record rate limit security event:', error);
   }
 
-  return res.status(429).json({
-    success: false,
-    error: 'Rate limit exceeded',
-    message: result.policy.message,
-    retryAfter,
-  });
+  const err = new RateLimitError(result.policy.message || 'Rate limit exceeded');
+  err.details = { retryAfter, policy: result.policy.name };
+  return next(err);
 };
 
 const runPolicies = async (req, res, next, policies) => {
@@ -173,11 +171,7 @@ const runPolicies = async (req, res, next, policies) => {
     const unavailable = results.some((result) => result.unavailable);
 
     if (unavailable && !rateLimitConfig.failOpen) {
-      return res.status(503).json({
-        success: false,
-        error: 'Rate limit service unavailable',
-        message: 'Request protection is temporarily unavailable. Please try again shortly.',
-      });
+      return next(new ServiceUnavailableError('Request protection is temporarily unavailable. Please try again shortly.'));
     }
 
     const exceeded = results.find((result) => result.exceeded);
@@ -197,11 +191,7 @@ const runPolicies = async (req, res, next, policies) => {
   } catch (error) {
     logger.error('Rate limiter failed:', error);
     if (rateLimitConfig.failOpen) return next();
-    return res.status(503).json({
-      success: false,
-      error: 'Rate limit service unavailable',
-      message: 'Request protection is temporarily unavailable. Please try again shortly.',
-    });
+    return next(new ServiceUnavailableError('Request protection is temporarily unavailable. Please try again shortly.'));
   }
 };
 
