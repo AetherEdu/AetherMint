@@ -81,7 +81,7 @@ export const CourseGrid: React.FC = () => {
   const isFirstLoad = isLoading && page === 1;
 
   return (
-    <div className="flex gap-4">
+    <div className="flex flex-col lg:flex-row gap-4">
       <FilterPanel
         categories={categories}
         selected={selected}
@@ -117,7 +117,7 @@ export const CourseGrid: React.FC = () => {
             action={query || selected.size ? { label: 'Clear filters', onClick: () => { setQuery(''); setSelected(new Set()); } } : undefined}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4">
             {courseList.map(c => <CourseCard key={c.id} course={c} />)}
           </div>
         )}

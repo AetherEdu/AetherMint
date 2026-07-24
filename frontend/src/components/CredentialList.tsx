@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Credential } from '../types/profile';
 import { useProfile } from '../hooks/useProfile';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Award,
   CheckCircle,
@@ -213,15 +214,16 @@ export function CredentialList({
   }
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary variant="default" errorTitle="Credentials Error" errorMessage="Failed to load credentials. Please try again.">
+      <div className="space-y-6">
       {/* Header with Stats */}
-      <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-6 border border-green-200 dark:border-green-800">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Award className="h-6 w-6 text-blue-500" />
+      <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4 sm:p-6 border border-green-200 dark:border-green-800">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Award className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
             Credentials
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <ExportButton
               data={exportData}
               filename="credentials"
@@ -240,7 +242,7 @@ export function CredentialList({
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 xs:grid-cols-4 gap-3 sm:gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               {stats.total}
@@ -270,8 +272,8 @@ export function CredentialList({
 
       {/* Filters */}
       {(filterable || searchable) && (
-        <div className="bg-white dark:bg-slate-900 rounded-lg p-4 border border-gray-200 dark:border-slate-700">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <div className="bg-white dark:bg-slate-900 rounded-lg p-3 sm:p-4 border border-gray-200 dark:border-slate-700">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             {/* Search */}
             {searchable && (
               <div className="flex-1">
@@ -282,7 +284,7 @@ export function CredentialList({
                     placeholder="Search credentials..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-3 py-2.5 sm:py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -290,11 +292,11 @@ export function CredentialList({
 
             {/* Filters */}
             {filterable && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 overflow-x-auto hide-scrollbar">
                 <select
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white text-sm"
+                  className="px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white text-sm min-h-[44px]"
                 >
                   {statuses.map(status => (
                     <option key={status} value={status}>
@@ -331,11 +333,11 @@ export function CredentialList({
           return (
             <div
               key={credential.id}
-              className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg transition-shadow"
+              className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-4 sm:p-6 hover:shadow-lg transition-shadow"
             >
-              <div className="flex items-start gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                 {/* Type Icon */}
-                <div className={`p-3 rounded-lg ${typeConfig.bgColor}`}>
+                <div className={`p-3 rounded-lg ${typeConfig.bgColor} self-start`}>
                   <TypeIcon className={`h-6 w-6 ${typeConfig.color}`} />
                 </div>
 
@@ -477,6 +479,7 @@ export function CredentialList({
           </div>
         </div>
       )}
+      </ErrorBoundary>
     </div>
   );
 }

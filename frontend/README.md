@@ -12,7 +12,7 @@ A modern, responsive web application for decentralized education built with Next
 - **Type Safety** - Full TypeScript implementation with strict mode
 - **Error Handling** - Comprehensive error boundaries and graceful fallbacks
 - **Testing** - Jest and React Testing Library setup
-- **CI/CD** - GitHub Actions pipeline for automated testing and deployment
+
 
 ## 🛠 Tech Stack
 
@@ -25,7 +25,7 @@ A modern, responsive web application for decentralized education built with Next
 - **Linting**: ESLint + TypeScript ESLint
 - **Formatting**: Prettier
 - **Containerization**: Docker
-- **CI/CD**: GitHub Actions
+
 
 ## 📦 Installation
 
@@ -129,7 +129,6 @@ frontend/
 │   │   └── profile.test.tsx   # Profile component tests
 │   └── test-profile.tsx       # Test data and utilities
 ├── public/                    # Static assets
-├── .github/workflows/         # CI/CD pipelines
 ├── docs/                      # Documentation
 └── config files...
 ```
