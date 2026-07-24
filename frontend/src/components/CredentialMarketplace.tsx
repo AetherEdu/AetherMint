@@ -66,9 +66,8 @@ const CredentialMarketplace = () => {
           </div>
         ))}
       </div>
-      </div>
     </div>
-      </ErrorBoundary>
+    </ErrorBoundary>
   );
 };
 

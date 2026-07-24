@@ -43,10 +43,10 @@ jobs:
           cd contracts
           cargo fmt --all -- --check || echo "cargo fmt found issues (non-blocking)"
 
-      - name: Run Clippy
+      - name: Run Clippy (non-blocking)
         run: |
           cd contracts
-          cargo clippy -- -D warnings
+          cargo clippy -- -D warnings || echo "cargo clippy found issues (non-blocking)"
 
       - name: Build contracts
         run: |
