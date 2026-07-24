@@ -31,6 +31,31 @@ const components = {
   },
 
   schemas: {
+    // ── Legacy error schemas (kept for backward-compat) ─────────────────
+    //
+    // Some route JSDoc annotations still reference `Error` and
+    // `ErrorResponse`.  These are thin wrappers around the canonical
+    // ProblemDetails schema so swagger-parser validation passes.
+    Error: {
+      type: 'object',
+      description: 'Legacy error object — superseded by ProblemDetails.',
+      properties: {
+        code: { type: 'string', example: 'INTERNAL_ERROR' },
+        message: { type: 'string', example: 'An unexpected error occurred' },
+        details: { type: 'object', nullable: true },
+        requestId: { type: 'string', example: '7e2c1f5a-8d2b-4e0d-9d6f-3a1d2e9b4c10' },
+      },
+    },
+    ErrorResponse: {
+      type: 'object',
+      description: 'Legacy error response — superseded by ProblemDetails.',
+      required: ['success', 'error'],
+      properties: {
+        success: { type: 'boolean', enum: [false] },
+        error: { $ref: '#/components/schemas/Error' },
+      },
+    },
+
     // ── Shared error shape (RFC 7807) ─────────────────────────────────────
     //
     // Every non-2xx API response is `application/problem+json` with the
