@@ -10,6 +10,8 @@ import { RootErrorBoundary } from '@/components/providers/RootErrorBoundary';
 import '@/lib/performance-monitor';
 import PWAClientShell from '@/components/PWA/PWAClientShell';
 import MobileNavShell from '@/components/Mobile/MobileNavShell';
+import { PageTransition } from '@/components/PageTransition';
+import KeyboardShortcutsProvider from '@/components/providers/KeyboardShortcutsProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -82,6 +84,8 @@ export default function RootLayout({
             itself on md+ via its own `md:hidden` classes; the client shell
             supplies the current path + navigate callback from next/navigation. */}
         <MobileNavShell />
+        {/* Global keyboard shortcuts listener + ? key help dialog */}
+        <KeyboardShortcutsProvider />
         {/* Reserve space on mobile so the fixed hamburger (top) and bottom
             nav bar don't overlap page content; removed at md+ where the
             mobile nav is hidden. */}

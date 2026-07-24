@@ -6,6 +6,7 @@ import { useRouter } from 'next/router';
 import { ChevronDown, Globe, Check } from 'lucide-react';
 import { isRTL, getFontFamily } from '../lib/rtl';
 import { SUPPORTED_LOCALES, normalizeLocale, DEFAULT_LOCALE } from '../lib/i18n';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface Language {
   code: string;
@@ -103,6 +104,11 @@ export function LanguageSwitcher({
     [searchTerm]
   );
 
+  const focusTrapRef = useFocusTrap(isOpen, {
+    onEscape: () => setIsOpen(false),
+    lockScroll: false,
+  });
+
   // Sanity check: every supported locale must have metadata so the UI
   // can render a label + flag. Run once on mount, not on every render.
   useEffect(() => {
@@ -119,6 +125,7 @@ export function LanguageSwitcher({
       <div className={`relative ${className}`}>
         <button
           onClick={() => setIsOpen(!isOpen)}
+          tabIndex={0}
           className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
           aria-label={t('language.switcherAria', 'Select language')}
         >
@@ -133,12 +140,14 @@ export function LanguageSwitcher({
           <div
             className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
             role="menu"
+            ref={focusTrapRef}
           >
             <div className="max-h-64 overflow-y-auto">
               {filteredLanguages.map((language) => (
                 <button
                   key={language.code}
                   onClick={() => handleLanguageChange(language)}
+                  tabIndex={0}
                   className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
                   role="menuitemradio"
                   aria-checked={selectedLanguage?.code === language.code}
@@ -181,6 +190,7 @@ export function LanguageSwitcher({
             <button
               key={language.code}
               onClick={() => handleLanguageChange(language)}
+              tabIndex={0}
               className={`
                 relative p-3 rounded-lg border-2 transition-all duration-200 text-center
                 ${
@@ -215,6 +225,7 @@ export function LanguageSwitcher({
     <div className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        tabIndex={0}
         className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         aria-label={t('language.switcherAria', 'Select language')}
         aria-haspopup="menu"
@@ -238,6 +249,7 @@ export function LanguageSwitcher({
         <div
           className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
           role="menu"
+          ref={focusTrapRef}
         >
           <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <div className="relative">
@@ -264,6 +276,7 @@ export function LanguageSwitcher({
               <button
                 key={language.code}
                 onClick={() => handleLanguageChange(language)}
+                tabIndex={0}
                 className={`
                   w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors
                   ${
