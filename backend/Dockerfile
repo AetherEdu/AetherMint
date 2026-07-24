@@ -89,9 +89,14 @@ LABEL org.opencontainers.image.title="AetherMint Backend" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}"
 
-# Health check
+# Health check – the liveness probe (`/health`) is used rather than the
+# readiness probe (`/health/ready`) because Docker's healthcheck is binary:
+# during a graceful shutdown, hitting dependency-backed readiness probes from
+# the kubelet/orchestrator can cause the container to flap between healthy
+# and unhealthy before it has finished draining. Liveness reflects only
+# process state and is stable through shutdown.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:3001/api/health || exit 1
+    CMD curl -f http://localhost:3001/health || exit 1
 
 # Start the application
 CMD ["node", "dist/index.js"]

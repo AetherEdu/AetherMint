@@ -92,9 +92,139 @@ const options: swaggerJsdoc.Options = {
             createdAt: { type: 'string', format: 'date-time' },
           },
         },
+        // ===== Health (Issue #178) ===========================================
+        LivenessResponse: {
+          type: 'object',
+          description: 'Cheap, dependency-free liveness probe response.',
+          properties: {
+            status: { type: 'string', enum: ['healthy'], example: 'healthy' },
+            timestamp: { type: 'string', format: 'date-time' },
+            uptime: { type: 'number', description: 'Process uptime in seconds', example: 4289.31 },
+          },
+          required: ['status', 'timestamp', 'uptime'],
+        },
+        ShuttingDownResponse: {
+          type: 'object',
+          description: 'Returned with HTTP 503 once a graceful shutdown has begun.',
+          properties: {
+            status: { type: 'string', enum: ['shutting_down'], example: 'shutting_down' },
+            timestamp: { type: 'string', format: 'date-time' },
+          },
+          required: ['status', 'timestamp'],
+        },
+        DependencyReport: {
+          type: 'object',
+          description:
+            'Per-dependency result surfaced in the readiness payload. Field set varies by dependency.',
+          properties: {
+            status: { type: 'string', enum: ['up', 'down'] },
+            latencyMs: { type: 'number', description: 'Probe round-trip latency in milliseconds.' },
+            httpStatus: { type: 'number', description: 'Last observed HTTP status (Stellar/IPFS probes only).' },
+            error: { type: 'string', description: 'Error name / class when status is "down" – never a verbose stack.' },
+            freeBytes: { type: 'number', description: 'Disk free bytes (disk probe only).' },
+            totalBytes: { type: 'number' },
+            usagePercent: { type: 'number' },
+            thresholdBytes: { type: 'number' },
+            circuitBreakerOpen: { type: 'boolean', description: 'True if Redis circuit breaker is open.' },
+            latency: { type: 'number', description: 'Backend-reported latency, when available.' },
+            endpoint: { type: 'string', description: 'Endpoint probed for network deps.' },
+          },
+          required: ['status'],
+          additionalProperties: true,
+        },
+        ReadinessResponse: {
+          type: 'object',
+          description:
+            'Aggregate readiness payload – returned with 200 when every dependency is up, 503 otherwise.',
+          properties: {
+            status: { type: 'string', enum: ['ok', 'degraded'], example: 'ok' },
+            timestamp: { type: 'string', format: 'date-time' },
+            uptime: { type: 'number' },
+            cached: { type: 'boolean', description: 'True when the response was served from the in-process TTL cache.' },
+            dependencies: {
+              type: 'object',
+              description: 'Per-dependency result keyed by name (database, redis, ipfs, stellar, disk).',
+              additionalProperties: { $ref: '#/components/schemas/DependencyReport' },
+            },
+          },
+          required: ['status', 'timestamp', 'uptime', 'cached', 'dependencies'],
+        },
       },
     },
     paths: {
+      // ===== Health (Issue #178) =====
+      '/health': {
+        get: {
+          tags: ['Health'],
+          summary: 'Liveness probe',
+          description:
+            'Cheap, dependency-free probe. Returns 200 while the process is alive, 503 once graceful shutdown has begun (load balancers stop routing).',
+          responses: {
+            200: {
+              description: 'Process is alive',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/LivenessResponse' } } },
+            },
+            503: {
+              description: 'Process is shutting down',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/ShuttingDownResponse' } } },
+            },
+          },
+        },
+      },
+      '/health/ready': {
+        get: {
+          tags: ['Health'],
+          summary: 'Readiness probe (every dependency)',
+          description:
+            'Runs PostgreSQL, Redis, Stellar RPC, IPFS, and disk-space probes in parallel, each bounded by HEALTH_CHECK_TIMEOUT_MS (default 5s). The aggregate is cached for HEALTH_CHECK_CACHE_TTL_MS (default 10s); concurrent calls during a cache miss share a single in-flight probe burst. Returns 200 ok when every dependency is reachable, 503 degraded otherwise.',
+          responses: {
+            200: {
+              description: 'All dependencies reachable',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadinessResponse' } } },
+            },
+            503: {
+              description: 'One or more dependencies unreachable, or process is draining',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadinessResponse' } } },
+            },
+          },
+        },
+      },
+      '/api/health': {
+        get: {
+          tags: ['Health'],
+          summary: 'Liveness probe – legacy alias',
+          description:
+            'Legacy alias for /health, retained for existing Dockerfile / docker-compose / kubernetes manifests and the post-deploy smoke-test script. Same handler.',
+          responses: {
+            200: {
+              description: 'Service is healthy',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/LivenessResponse' } } },
+            },
+            503: {
+              description: 'Process is shutting down',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/ShuttingDownResponse' } } },
+            },
+          },
+        },
+      },
+      '/api/health/ready': {
+        get: {
+          tags: ['Health'],
+          summary: 'Readiness probe – legacy alias',
+          description: 'Legacy alias for /health/ready, retained for backwards compatibility.',
+          responses: {
+            200: {
+              description: 'All dependencies reachable',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadinessResponse' } } },
+            },
+            503: {
+              description: 'One or more dependencies unreachable, or process draining',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadinessResponse' } } },
+            },
+          },
+        },
+      },
+
       // ===== Authentication =====
       '/api/auth/register': {
         post: {
@@ -988,11 +1118,6 @@ const options: swaggerJsdoc.Options = {
       },
       '/api/analytics/tenants/{tenantId}': {
         get: { tags: ['TenantAnalytics'], summary: 'Get tenant-specific analytics', security: [{ bearerAuth: [] }], parameters: [{ in: 'path', name: 'tenantId', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Tenant analytics retrieved' } } },
-      },
-
-      // ===== Health =====
-      '/api/health': {
-        get: { tags: ['System'], summary: 'Health check endpoint', responses: { 200: { description: 'Service is healthy', content: { 'application/json': { schema: { type: 'object', properties: { status: { type: 'string', example: 'healthy' }, timestamp: { type: 'string', format: 'date-time' }, uptime: { type: 'number' } } } } } } } },
       },
     },
   },

@@ -86,8 +86,11 @@ services:
     networks:
       - aethermint-network
     restart: unless-stopped
+    # Use the liveness probe (`/health`) — see backend/Dockerfile for rationale.
+    # The readiness probe (`/health/ready`) is exposed for Kubernetes / kustomize
+    # manifests that want full dependency awareness.
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
       timeout: 5s
       retries: 3

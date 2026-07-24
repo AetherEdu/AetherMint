@@ -104,6 +104,14 @@ const analyticsRoutes = require('./routes/analytics');
 // @ts-ignore
 const cspViolationRoutes = require('./routes/cspViolationRoutes');
 
+// Health check routes (Issue #178) — liveness and readiness probes.
+// @ts-ignore
+const {
+  default: healthRoutes,
+  livenessHandler,
+  readinessHandler,
+} = require('./routes/health');
+
 // Initialize Express app
 const app: Application = express();
 const server = createServer(app);
@@ -133,8 +141,10 @@ app.use(requestId);
 app.use(requestLogger);
 
 // Reject new traffic with 503 once a graceful shutdown has begun, while still
-// serving the health probe and root so orchestrators can read the drain state.
-app.use(shutdownGuard(['/api/health', '/']));
+// serving the health probes and root so orchestrators can read the drain state.
+// `/api/health` is the legacy alias retained for external probes (Dockerfile,
+// docker-compose, k8s manifests) – the canonical handler lives on `/health`.
+app.use(shutdownGuard(['/api/health', '/health', '/health/ready', '/']));
 
 // Integration of sanitization middleware
 // Performance tracker first
@@ -252,6 +262,11 @@ app.use('/api/audit', auditRoutes);
 // CSP Violation Reporting endpoint
 app.use('/api/csp-violation', cspViolationRoutes);
 
+// Health endpoints (Issue #178) — mounted before the /api rate limiter so
+// orchestrator probes (kubelet, load balancers) are never throttled and
+// remain reachable during graceful shutdown via the shutdownGuard above.
+app.use('/health', healthRoutes);
+
 // Root endpoint
 app.get('/', (req, res) => {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -267,25 +282,15 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  // During a graceful shutdown report "shutting down" with a 503 so liveness
-  // probes and load balancers stop routing traffic while the server drains.
-  if (isShuttingDown()) {
-    res.status(503).json({
-      status: 'shutting down',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-    });
-    return;
-  }
-
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
-});
+// Legacy `/api/health` and `/api/health/ready` aliases are dispatched
+// directly to the same handlers mounted on `/health` and `/health/ready`.
+// We deliberately do NOT issue a 307 redirect: smoke-test.mjs uses bare
+// `fetch` which does not follow redirects, and a redirect would silently
+// break `/api/health → /health` on the wire. Mounting the same handler on
+// both paths means the codebase has a single source of truth without
+// paying the redirect round-trip on every probe.
+app.get('/api/health', livenessHandler);
+app.get('/api/health/ready', readinessHandler);
 
 // 404 catch-all — must come after all route definitions
 app.use('*', (req: any, _res: any, next: any) => {
@@ -330,24 +335,26 @@ async function startServer() {
     }
 
 server.listen(PORT, () => {
-       logger.info('AetherMint Education Backend started', {
-         port: PORT,
-         routes: [
-           '/api/quizzes',
-           '/api/events',
-           '/api/sync',
-           '/api/content',
-           '/api/transactions',
-           '/api/collaboration',
-           '/api/holographic',
-           '/api/aco',
-           '/api/federated-learning',
-           '/api/agi-tutor',
-           '/api/secure-comm',
-           '/api/audit',
-           '/api/health',
-         ],
-       });
+    logger.info('AetherMint Education Backend started', {
+      port: PORT,
+      routes: [
+        '/api/quizzes',
+        '/api/events',
+        '/api/sync',
+        '/api/content',
+        '/api/transactions',
+        '/api/collaboration',
+        '/api/holographic',
+        '/api/aco',
+        '/api/federated-learning',
+        '/api/agi-tutor',
+        '/api/secure-comm',
+        '/api/audit',
+        '/api/health',
+        '/health',
+        '/health/ready',
+      ],
+    });
      });
   } catch (error) {
     logger.error('Failed to start server', error as Error);
