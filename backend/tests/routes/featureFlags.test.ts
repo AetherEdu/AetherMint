@@ -163,4 +163,35 @@ describe('evaluateForUser (public evaluation endpoint)', () => {
     expect(low.body.data.value).toBe(true);
     expect(high.body.data.value).toBe(false);
   });
+
+  it('rejects out-of-range, non-numeric, and empty ?bucket per the public contract', async () => {
+    await featureFlagService.upsertFlag({
+      name: 'bucket-rejection',
+      enabled: true,
+      rolloutPercent: 100,
+      createdAt: '',
+      updatedAt: '',
+    });
+    const app = express();
+    app.get('/api/feature-flags/:name/evaluate', evaluateForUser);
+
+    // Out-of-range, negative, and non-numeric values must 400.
+    const tooLarge = await request(app).get('/api/feature-flags/bucket-rejection/evaluate?bucket=100');
+    const negative = await request(app).get('/api/feature-flags/bucket-rejection/evaluate?bucket=-1');
+    const alpha = await request(app).get('/api/feature-flags/bucket-rejection/evaluate?bucket=abc');
+    const mixed = await request(app).get('/api/feature-flags/bucket-rejection/evaluate?bucket=5abc');
+    expect(tooLarge.status).toBe(400);
+    expect(negative.status).toBe(400);
+    expect(alpha.status).toBe(400);
+    expect(mixed.status).toBe(400); // parseInt('5abc', 10) === 5, but we re-validate
+    expect(tooLarge.body.error).toMatch(/\[0, 99\]/);
+
+    // Empty / omitted bucket must NOT reject — it means "fall back to userId hash".
+    const omitted = await request(app).get('/api/feature-flags/bucket-rejection/evaluate');
+    const empty = await request(app).get('/api/feature-flags/bucket-rejection/evaluate?bucket=');
+    expect(omitted.status).toBe(200);
+    expect(omitted.body.data.value).toBe(true);
+    expect(empty.status).toBe(200);
+    expect(empty.body.data.value).toBe(true);
+  });
 });

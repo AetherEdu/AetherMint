@@ -122,10 +122,48 @@ export const deleteFlag = async (req: Request, res: Response, next: NextFunction
 };
 
 /**
+ * Validate an `?bucket=N` query parameter into a typed result the
+ * controller can switch on without juggling parses, regexes, and ranges
+ * in the request hot path.
+ *
+ * Outcomes:
+ *   - `{ kind: 'absent' }`     — caller did not supply `?bucket=`; the
+ *                                service will hash by userId.
+ *   - `{ kind: 'invalid' }`    — caller supplied garbage (non-digits,
+ *                                out of range). Surface as 400.
+ *   - `{ kind: 'valid', value }` — caller supplied an integer in [0, 99].
+ *
+ * Pure: no I/O, no logger, no request object. Easy to unit-test.
+ */
+export type BucketParseResult =
+  | { kind: 'absent' }
+  | { kind: 'invalid' }
+  | { kind: 'valid'; value: number };
+
+export const parseBucketParam = (raw: unknown): BucketParseResult => {
+  if (raw === undefined || raw === null) return { kind: 'absent' };
+  // Express collapses `?bucket=` to an empty string. Treat as absent.
+  if (typeof raw === 'string' && raw.length === 0) return { kind: 'absent' };
+  // Reject arrays early — `?bucket=10&bucket=20` shouldn't sneak past.
+  if (typeof raw !== 'string') return { kind: 'invalid' };
+  // Mandate digits only — closes the `?bucket=5abc` parseInt-truncation hole.
+  if (!/^\d+$/.test(raw)) return { kind: 'invalid' };
+  const parsed = Number.parseInt(raw, 10);
+  if (parsed < 0 || parsed > 99) return { kind: 'invalid' };
+  return { kind: 'valid', value: parsed };
+};
+
+/**
  * Evaluate endpoint for non-admin clients (e.g. the SPA bootstrapping logic).
  * Trims sensitive fields from the response. Honours `?bucket=N` for QA
  * bucketed rollouts so support engineers can pin themselves into a roll
  * without changing their user identifier.
+ *
+ * NOTE: `data.userId` echoes the caller's own ID back to them. This is
+ * intentional — the value is already known to the caller and the request
+ * never crosses trust boundaries — but downstream SPA logging should treat
+ * the response as containing the viewer's own identifier, not a third-
+ * party attribution.
  */
 export const evaluateForUser = async (req: Request, res: Response): Promise<void> => {
   const userId =
@@ -133,12 +171,20 @@ export const evaluateForUser = async (req: Request, res: Response): Promise<void
     (req.header('x-user-id') ?? undefined);
   const flagName = req.params.name;
 
-  const bucketRaw = typeof req.query.bucket === 'string' ? req.query.bucket : undefined;
-  const bucket = bucketRaw !== undefined ? Number.parseInt(bucketRaw, 10) : undefined;
-  const context =
-    bucket !== undefined && Number.isFinite(bucket)
-      ? { userId, bucket }
-      : { userId };
+  // Validate `?bucket=N` via a pure helper so the gate ordering is
+  // impossible to invert by mistake. Empty / omitted buckets fall
+  // through to `evaluate()` with no bucket, which hashes by userId.
+  const validated = parseBucketParam(req.query.bucket);
+  if (validated.kind === 'invalid') {
+    res.status(400).json({ success: false, error: 'bucket must be an integer in [0, 99]' });
+    return;
+  }
+  // Narrow the discriminated union explicitly so TypeScript can read
+  // `.value` after the early-return.
+  const bucket = validated.kind === 'valid' ? validated.value : undefined;
+  const context = bucket !== undefined
+    ? { userId, bucket }
+    : { userId };
 
   try {
     const value = await featureFlagService.evaluate(flagName, context);
