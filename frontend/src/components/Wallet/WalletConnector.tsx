@@ -100,7 +100,7 @@ export const WalletConnector: React.FC = () => {
           </div>
         )}
       </div>
-      </ErrorBoundary>
     </div>
+      </ErrorBoundary>
   );
 };

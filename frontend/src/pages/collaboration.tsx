@@ -1,5 +1,5 @@
 import React from 'react';
-import VirtualClassroom from '../components/Collaboration/VirtualClassroom';
+import VirtualClassroom from '../components/collaboration/VirtualClassroom';
 import { useCollaborationSession } from '../hooks/useCollaborationSession';
 
 const CollaborationPage: React.FC = () => {

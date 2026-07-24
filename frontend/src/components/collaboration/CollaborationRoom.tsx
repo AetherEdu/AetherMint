@@ -4,11 +4,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { useWhiteboard } from '@/hooks/useWhiteboard';
-import VideoGrid from '../Collaboration/VideoGrid';
-import Whiteboard from '../Collaboration/Whiteboard';
-import ChatPanel from '../Collaboration/ChatPanel';
-import ControlBar from '../Collaboration/ControlBar';
-import ParticipantsList from '../Collaboration/ParticipantsList';
+import VideoGrid from '../collaboration/VideoGrid';
+import Whiteboard from '../collaboration/Whiteboard';
+import ChatPanel from '../collaboration/ChatPanel';
+import ControlBar from '../collaboration/ControlBar';
+import ParticipantsList from '../collaboration/ParticipantsList';
 import toast from 'react-hot-toast';
 
 interface Participant {
