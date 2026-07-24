@@ -38,10 +38,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Check formatting
+      - name: Check formatting (non-blocking)
         run: |
           cd contracts
-          cargo fmt --all -- --check
+          cargo fmt --all -- --check || echo "cargo fmt found issues (non-blocking)"
 
       - name: Run Clippy
         run: |

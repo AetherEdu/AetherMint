@@ -16,6 +16,7 @@ const CredentialMarketplace = () => {
   ];
 
   return (
+    <ErrorBoundary variant="default" errorTitle="Marketplace Error" errorMessage="Failed to load the credential marketplace.">
     <div className="feature-container" style={{ padding: '1rem', margin: '0.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.75rem' }}>
         <h1 style={{ margin: 0, fontSize: 'clamp(1rem, 4vw, 1.5rem)' }}>MICRO-CREDENTIAL MARKETPLACE</h1>
@@ -66,8 +67,8 @@ const CredentialMarketplace = () => {
         ))}
       </div>
       </div>
+    </div>
       </ErrorBoundary>
-    );
   );
 };
 
