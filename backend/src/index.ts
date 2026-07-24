@@ -50,6 +50,7 @@ import {
 import { detectSuspiciousPatterns } from './middleware/sanitizer';
 // @ts-ignore
 import { tieredRateLimiter, transactionLimiter } from './middleware/rateLimiter';
+import { idempotency } from './middleware/idempotency';
 
 // Connect to Redis
 connectRedis();
@@ -191,7 +192,7 @@ app.use('/api/events', eventLoggerRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/rbac', rbacRoutes);
-app.use('/api/transactions', transactionLimiter, transactionRoutes);
+app.use('/api/transactions', idempotency(), transactionLimiter, transactionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/collaboration', collaborationRoutes);
 app.use('/api/holographic', holographicRoutes);
@@ -218,10 +219,10 @@ app.use('/api/gamification', gamificationRoutes);
 const bridgeRoutes = require('./routes/bridge');
 app.use('/api/bridge', bridgeRoutes);
 
-// Time-Locked Credential routes
+// Time-Locked Credential routes with idempotency (Issue #264)
 // @ts-ignore
 const timeLockCredentialsRoutes = require('./routes/timeLockCredentials');
-app.use('/api/time-lock', timeLockCredentialsRoutes);
+app.use('/api/time-lock', idempotency(), timeLockCredentialsRoutes);
 
 // VRF (Verifiable Random Function) routes
 // @ts-ignore
@@ -232,6 +233,11 @@ app.use('/api/vrf', vrfRoutes);
 // @ts-ignore
 const translationRoutes = require('./routes/translation');
 app.use('/api/translate', translationRoutes);
+
+// Bulk operations routes (Admin) – Issue #262
+// @ts-ignore
+const bulkOperationsRoutes = resolveRoute(require('./routes/bulkOperations'));
+app.use('/api/admin/bulk', bulkOperationsRoutes);
 
 // Cross-Protocol Bridge routes
 // @ts-ignore

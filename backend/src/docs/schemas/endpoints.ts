@@ -2135,7 +2135,1119 @@
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 
+// ─── Credentials ──────────────────────────────────────────────────────────────
+
+/**
+ * @openapi
+ * /api/credentials/issue:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Issue a credential on-chain
+ *     description: Issues a tamper-proof educational credential on the Stellar blockchain.
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/IssueCredentialRequest'
+ *     responses:
+ *       '201':
+ *         description: Credential issued successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Credential'
+ *       '400':
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: Blockchain submission error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/credentials/{id}:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Verify a credential by ID
+ *     description: Retrieves and verifies a credential's on-chain status. Public endpoint.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: cred_01HXZ9QABC111001
+ *     responses:
+ *       '200':
+ *         description: Credential verified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Credential'
+ *                 verified:
+ *                   type: boolean
+ *                   example: true
+ *       '404':
+ *         description: Credential not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: Verification error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/credentials/user/{address}:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Get credentials for a user
+ *     description: Returns all credentials earned by a given Stellar wallet address.
+ *     parameters:
+ *       - in: path
+ *         name: address
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA
+ *     responses:
+ *       '200':
+ *         description: Credentials retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Credential'
+ *       '404':
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+// ─── Holographic ──────────────────────────────────────────────────────────────
+
+/**
+ * @openapi
+ * /api/holographic/encode:
+ *   post:
+ *     tags: [Holographic]
+ *     summary: Encode content in holographic format
+ *     description: >
+ *       Encodes binary content using wavelet-based 3D spatial interference
+ *       patterns, achieving 2–3× compression and enabling parallel read speeds
+ *       up to 15,000 MB/s.
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/HolographicEncodeRequest'
+ *     responses:
+ *       '200':
+ *         description: Content encoded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HolographicEncodeResponse'
+ *       '400':
+ *         description: Invalid request body
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: Encoding error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/holographic/decode/{hash}:
+ *   get:
+ *     tags: [Holographic]
+ *     summary: Decode holographic content
+ *     description: Reconstructs original binary data from a holographic hash.
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: hash
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Holographic content hash returned by /encode
+ *         example: holo_a1b2c3d4e5f6
+ *     responses:
+ *       '200':
+ *         description: Content decoded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 contentId:
+ *                   type: string
+ *                   example: course-101
+ *                 data:
+ *                   type: string
+ *                   format: byte
+ *                   description: Base64-encoded decoded content
+ *       '404':
+ *         description: Hash not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: Decoding error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/holographic/access/parallel:
+ *   post:
+ *     tags: [Holographic]
+ *     summary: Parallel access to multiple holographic objects
+ *     description: Retrieves multiple holographic content items simultaneously for high-speed delivery.
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [hashes]
+ *             properties:
+ *               hashes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["holo_a1b2c3", "holo_d4e5f6"]
+ *     responses:
+ *       '200':
+ *         description: Parallel access results
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 results:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       hash:
+ *                         type: string
+ *                       data:
+ *                         type: string
+ *                         format: byte
+ *       '400':
+ *         description: Invalid hashes list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/holographic/metrics:
+ *   get:
+ *     tags: [Holographic]
+ *     summary: Get holographic storage metrics
+ *     description: Returns performance statistics including density, throughput, and total stored objects.
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Metrics retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/HolographicMetrics'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/holographic/optimize:
+ *   post:
+ *     tags: [Holographic]
+ *     summary: Optimize holographic storage density
+ *     description: Runs the storage optimizer to compact fragmented holographic data and improve density.
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Optimization completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 densityBefore:
+ *                   type: number
+ *                   format: float
+ *                   example: 0.72
+ *                 densityAfter:
+ *                   type: number
+ *                   format: float
+ *                   example: 0.88
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: Optimization error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
 /**
  * Export marker to satisfy TypeScript module requirements
  */
 export {};
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+/**
+ * @openapi
+ * /api/notifications:
+ *   get:
+ *     tags: [Notifications]
+ *     summary: Get user notifications
+ *     description: Returns paginated notifications for the authenticated user.
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: read
+ *         schema:
+ *           type: boolean
+ *         description: Filter by read status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       '200':
+ *         description: Notifications retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Notification'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/notifications/{id}/read:
+ *   patch:
+ *     tags: [Notifications]
+ *     summary: Mark a notification as read
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: notif_01HXZ9QABC555001
+ *     responses:
+ *       '200':
+ *         description: Notification marked as read
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: Notification not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/notifications/read-all:
+ *   patch:
+ *     tags: [Notifications]
+ *     summary: Mark all notifications as read
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: All notifications marked as read
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 updated:
+ *                   type: integer
+ *                   example: 5
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+// ─── Gamification ─────────────────────────────────────────────────────────────
+
+/**
+ * @openapi
+ * /api/gamification/leaderboard:
+ *   get:
+ *     tags: [Gamification]
+ *     summary: Get the global leaderboard
+ *     description: Returns the top-ranked users sorted by points.
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [all-time, monthly, weekly]
+ *           default: all-time
+ *     responses:
+ *       '200':
+ *         description: Leaderboard retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/LeaderboardEntry'
+ *       '500':
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/gamification/user/{userId}/achievements:
+ *   get:
+ *     tags: [Gamification]
+ *     summary: Get achievements for a user
+ *     description: Returns all badges and achievements earned by the specified user.
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: usr_01HXZ9QABC123456
+ *     responses:
+ *       '200':
+ *         description: Achievements retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Achievement'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/gamification/event:
+ *   post:
+ *     tags: [Gamification]
+ *     summary: Process a gamification event
+ *     description: Triggers point/badge evaluation for a user action (e.g., lesson complete, quiz pass).
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId, event]
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 example: usr_01HXZ9QABC123456
+ *               event:
+ *                 type: string
+ *                 enum: [lesson_complete, quiz_pass, course_complete, first_login, streak_7]
+ *                 example: lesson_complete
+ *               data:
+ *                 type: object
+ *                 nullable: true
+ *                 example: { courseId: "course_01HXZ9QABC123456" }
+ *     responses:
+ *       '200':
+ *         description: Event processed, points/badges awarded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 pointsAwarded:
+ *                   type: integer
+ *                   example: 50
+ *                 newAchievements:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Achievement'
+ *       '400':
+ *         description: Invalid event type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+/**
+ * @openapi
+ * /api/analytics/event:
+ *   post:
+ *     tags: [Analytics]
+ *     summary: Track an analytics event
+ *     description: Records a user interaction event for platform analytics.
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AnalyticsEvent'
+ *     responses:
+ *       '201':
+ *         description: Event recorded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *       '400':
+ *         description: Invalid event payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/analytics/dashboard:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Get platform analytics dashboard
+ *     description: Returns aggregated platform metrics for the admin dashboard.
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date (YYYY-MM-DD)
+ *         example: "2024-01-01"
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date (YYYY-MM-DD)
+ *         example: "2024-12-31"
+ *     responses:
+ *       '200':
+ *         description: Analytics data retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalUsers:
+ *                       type: integer
+ *                       example: 12500
+ *                     activeUsers:
+ *                       type: integer
+ *                       example: 3800
+ *                     totalEnrollments:
+ *                       type: integer
+ *                       example: 45000
+ *                     completionRate:
+ *                       type: number
+ *                       format: float
+ *                       example: 0.68
+ *                     revenue:
+ *                       type: number
+ *                       format: float
+ *                       example: 125000.00
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '403':
+ *         description: Admin access required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+// ─── Quizzes ──────────────────────────────────────────────────────────────────
+
+/**
+ * @openapi
+ * /api/quizzes:
+ *   get:
+ *     tags: [Quizzes]
+ *     summary: List quizzes
+ *     description: Returns a paginated list of quizzes, optionally filtered by courseId.
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: courseId
+ *         schema:
+ *           type: string
+ *         description: Filter by course
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       '200':
+ *         description: Quizzes retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Quiz'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *   post:
+ *     tags: [Quizzes]
+ *     summary: Create a new quiz
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title, courseId, questions]
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Blockchain Basics Quiz
+ *               courseId:
+ *                 type: string
+ *                 example: course_01HXZ9QABC123456
+ *               questions:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     text:
+ *                       type: string
+ *                     options:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     correctAnswer:
+ *                       type: string
+ *               timeLimit:
+ *                 type: integer
+ *                 description: Time limit in minutes
+ *                 example: 30
+ *     responses:
+ *       '201':
+ *         description: Quiz created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Quiz'
+ *       '400':
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/quizzes/{id}:
+ *   get:
+ *     tags: [Quizzes]
+ *     summary: Get quiz by ID
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: quiz_01HXZ9QABC666001
+ *     responses:
+ *       '200':
+ *         description: Quiz retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Quiz'
+ *       '404':
+ *         description: Quiz not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/quizzes/{id}/submit:
+ *   post:
+ *     tags: [Quizzes]
+ *     summary: Submit quiz answers
+ *     description: Submits answers for a quiz attempt and returns the score and feedback.
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: quiz_01HXZ9QABC666001
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [answers]
+ *             properties:
+ *               answers:
+ *                 type: array
+ *                 description: Array of selected answers indexed by question order
+ *                 items:
+ *                   type: string
+ *                 example: ["A", "C", "B"]
+ *               timeTaken:
+ *                 type: integer
+ *                 description: Time taken in seconds
+ *                 example: 840
+ *     responses:
+ *       '200':
+ *         description: Submission graded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 score:
+ *                   type: number
+ *                   format: float
+ *                   example: 86.7
+ *                 passed:
+ *                   type: boolean
+ *                   example: true
+ *                 feedback:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       '400':
+ *         description: Invalid submission
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+// ─── Collaboration ────────────────────────────────────────────────────────────
+
+/**
+ * @openapi
+ * /api/collaboration/rooms:
+ *   get:
+ *     tags: [Collaboration]
+ *     summary: List collaboration rooms
+ *     description: Returns active real-time collaboration rooms, optionally filtered by course.
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: courseId
+ *         schema:
+ *           type: string
+ *         description: Filter by course ID
+ *     responses:
+ *       '200':
+ *         description: Rooms retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CollaborationRoom'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *   post:
+ *     tags: [Collaboration]
+ *     summary: Create a collaboration room
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [courseId]
+ *             properties:
+ *               courseId:
+ *                 type: string
+ *                 example: course_01HXZ9QABC123456
+ *               maxParticipants:
+ *                 type: integer
+ *                 default: 10
+ *                 example: 5
+ *     responses:
+ *       '201':
+ *         description: Room created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/CollaborationRoom'
+ *       '401':
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/collaboration/rooms/{roomId}/join:
+ *   post:
+ *     tags: [Collaboration]
+ *     summary: Join a collaboration room
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: roomId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: room_01HXZ9QABC333001
+ *     responses:
+ *       '200':
+ *         description: Joined room successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/CollaborationRoom'
+ *       '400':
+ *         description: Room is full
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: Room not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/collaboration/rooms/{roomId}/leave:
+ *   post:
+ *     tags: [Collaboration]
+ *     summary: Leave a collaboration room
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: roomId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: room_01HXZ9QABC333001
+ *     responses:
+ *       '200':
+ *         description: Left room successfully
+ *       '404':
+ *         description: Room not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */

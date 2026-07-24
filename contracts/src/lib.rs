@@ -116,11 +116,15 @@ pub mod proctoring;
 // pub mod tokenomics;
 pub mod dynamic_fees;
 pub mod marketplace;
+pub mod profile_nft;
 
 #[cfg(test)]
 mod marketplace_test;
 #[cfg(test)]
 mod proctoring_test;
+
+#[cfg(test)]
+mod profile_nft_test;
 
 pub mod utils;
 
@@ -134,7 +138,7 @@ pub mod utils;
 #[cfg(test)]
 mod pause_test;
 
-/// Optimized user profile with packed storage
+use crate::profile_nft::ProfileNFT;
 #[contracttype]
 #[derive(Clone)]
 pub struct UserProfile {
@@ -723,6 +727,80 @@ impl AetherMintContract {
     /// Get NFT metadata URI
     pub fn token_uri(env: Env, token_id: u64) -> String {
         dynamic_nft::token_uri(&env, token_id)
+    }
+
+    // ===== Profile NFT Functions =====
+
+    /// Mint a profile NFT for the caller. One per address.
+    pub fn mint_profile_nft(
+        env: Env,
+        owner: Address,
+        name: String,
+        bio: String,
+        avatar_url: String,
+        skills: Vec<String>,
+        website: Option<String>,
+    ) -> u64 {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::mint_profile_nft(&env, owner, name, bio, avatar_url, skills, website)
+    }
+
+    /// Update an existing profile NFT's metadata.
+    pub fn update_profile_nft(
+        env: Env,
+        owner: Address,
+        name: String,
+        bio: String,
+        avatar_url: String,
+        skills: Vec<String>,
+        website: Option<String>,
+    ) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::update_profile_nft(&env, owner, name, bio, avatar_url, skills, website)
+    }
+
+    /// Get a profile NFT by token ID.
+    pub fn get_profile_nft(env: Env, token_id: u64) -> ProfileNFT {
+        profile_nft::get_profile_nft(&env, token_id)
+    }
+
+    /// Get a profile NFT by owner address.
+    pub fn get_profile_nft_by_owner(env: Env, owner: Address) -> Option<ProfileNFT> {
+        profile_nft::get_profile_nft_by_owner(&env, owner)
+    }
+
+    /// Check if an address has a profile NFT.
+    pub fn has_profile_nft(env: Env, owner: Address) -> bool {
+        profile_nft::has_profile_nft(&env, owner)
+    }
+
+    /// Burn the caller's profile NFT.
+    pub fn burn_profile_nft(env: Env, owner: Address) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::burn_profile_nft(&env, owner)
+    }
+
+    /// Admin-only: verify a profile NFT.
+    pub fn verify_profile_nft(env: Env, admin: Address, token_id: u64) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::verify_profile_nft(&env, admin, token_id)
+    }
+
+    /// Admin-only: unverify a profile NFT.
+    pub fn unverify_profile_nft(env: Env, admin: Address, token_id: u64) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::unverify_profile_nft(&env, admin, token_id)
+    }
+
+    /// Get total profile NFT supply.
+    pub fn get_profile_nft_supply(env: Env) -> u64 {
+        profile_nft::get_total_supply(&env)
+    }
+
+    /// Get the token ID for an owner, if one exists. Falls back to a default (0)
+    /// for backwards-compatibility so the return type remains u64.
+    pub fn get_profile_nft_token_id(env: Env, owner: Address) -> u64 {
+        profile_nft::get_token_id_for_owner(&env, owner).unwrap_or(0)
     }
 
     /// Check if NFT exists

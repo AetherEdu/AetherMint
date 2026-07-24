@@ -189,44 +189,6 @@ pm2 save
 pm2 startup
 ```
 
-#### Option D: GitHub Actions (Cloud)
-
-Create `.github/workflows/analytics-update.yml`:
-```yaml
-name: Update Analytics
-
-on:
-  schedule:
-    - cron: '0 2 * * *'  # Daily at 2 AM UTC
-  workflow_dispatch:  # Manual trigger
-
-jobs:
-  update:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      
-      - name: Install dependencies
-        run: |
-          cd contracts/scripts
-          npm install
-      
-      - name: Update analytics
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          STELLAR_RPC_URL: ${{ secrets.STELLAR_RPC_URL }}
-          ANALYTICS_CONTRACT_ID: ${{ secrets.ANALYTICS_CONTRACT_ID }}
-          ADMIN_PRIVATE_KEY: ${{ secrets.ADMIN_PRIVATE_KEY }}
-        run: node contracts/scripts/update_analytics.js
-```
-
-Add secrets in GitHub repository settings.
-
 ## Monitoring
 
 ### View Logs
