@@ -65,12 +65,12 @@ export function AchievementGrid({
   return (
     <div className="w-full space-y-8">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-          <div className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-1">
+      <div className="grid grid-cols-2 xs:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-900/20 rounded-lg p-3 sm:p-4 border border-blue-200 dark:border-blue-700">
+          <div className="text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-300 mb-1">
             Total Earned
           </div>
-          <div className="text-3xl font-bold text-blue-700 dark:text-blue-200">
+          <div className="text-2xl sm:text-3xl font-bold text-blue-700 dark:text-blue-200">
             {earnedAchievements.length}
           </div>
         </div>
@@ -110,10 +110,10 @@ export function AchievementGrid({
       {/* Earned Achievements */}
       {earnedAchievements.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 sm:mb-6">
             Earned Achievements ({earnedAchievements.length})
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {earnedAchievements.map((achievement) => {
               const colors = rarityColors[achievement.rarity];
               const isAnimating = animatingIds.has(achievement.id);
@@ -162,10 +162,10 @@ export function AchievementGrid({
       {/* Locked Achievements */}
       {lockedAchievements.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 sm:mb-6">
             Locked Achievements ({lockedAchievements.length})
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {lockedAchievements.map((achievement) => (
               <div
                 key={achievement.id}

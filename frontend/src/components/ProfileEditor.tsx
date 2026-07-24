@@ -97,20 +97,21 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-slate-700">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+      <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-slate-700">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
           Edit Profile
         </h2>
         <button
           onClick={handleCancel}
-          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[44px] min-h-[44px] flex items-center justify-center touch-target"
+          aria-label="Close editor"
         >
           <X className="h-5 w-5" />
         </button>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="p-4 sm:p-6 space-y-5 sm:space-y-6">
         {/* Avatar Section */}
         <div className="flex items-center gap-6">
           <div className="relative">
@@ -129,7 +130,7 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
             </div>
             <label
               htmlFor="avatar-upload"
-              className="absolute bottom-0 right-0 bg-blue-600 text-white p-1 rounded-full cursor-pointer hover:bg-blue-700 transition-colors"
+              className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
               <Camera className="h-4 w-4" />
               <input
@@ -178,7 +179,7 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
                   message: 'Name cannot exceed 50 characters'
                 }
               })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Enter your name"
             />
             {errors.name && (
@@ -206,7 +207,7 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
                   message: 'Invalid email address'
                 }
               })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="your.email@example.com"
             />
             {errors.email && (
@@ -233,7 +234,7 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
                   message: 'Bio cannot exceed 500 characters'
                 }
               })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               placeholder="Tell us about yourself..."
             />
             {errors.bio && (
@@ -343,18 +344,18 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+        <div className="flex flex-col xs:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
           <button
             type="button"
             onClick={handleCancel}
-            className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-900 dark:text-white font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+            className="px-4 py-3 sm:py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-900 dark:text-white font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] touch-target"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!isDirty || isSubmitting || loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className="px-4 py-3 sm:py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 min-h-[44px] touch-target"
           >
             <Save className="h-4 w-4" />
             {isSubmitting ? 'Saving...' : 'Save Changes'}

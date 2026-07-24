@@ -11,12 +11,46 @@ import '@/lib/performance-monitor';
 import PWAClientShell from '@/components/PWA/PWAClientShell';
 import MobileNavShell from '@/components/Mobile/MobileNavShell';
 import { PageTransition } from '@/components/PageTransition';
+import KeyboardShortcutsProvider from '@/components/providers/KeyboardShortcutsProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aethermint.edu';
+const metadataBase = new URL(siteUrl);
+
 export const metadata: Metadata = {
-  title: 'AetherMint Education - Decentralized Learning Platform',
-  description: 'Learn blockchain development with courses powered by Stellar',
+  metadataBase,
+  title: {
+    default: 'AetherMint Education - Decentralized Learning Platform',
+    template: '%s | AetherMint Education',
+  },
+  description:
+    'Explore blockchain, AI, and web3 education with immersive courses, credentials, and a decentralized learning platform.',
+  keywords: ['AetherMint', 'blockchain education', 'web3 courses', 'decentralized learning', 'Stellar'],
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'AetherMint Education',
+    description:
+      'Discover expert-led courses and verifiable credentials for the next generation of blockchain builders.',
+    url: siteUrl,
+    siteName: 'AetherMint Education',
+    images: [{ url: `${siteUrl}/og-image.svg`, width: 1200, height: 630, alt: 'AetherMint Education' }],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AetherMint Education',
+    description:
+      'Discover expert-led courses and verifiable credentials for the next generation of blockchain builders.',
+    images: [`${siteUrl}/og-image.svg`],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 // `themeColor` lives under `viewport` in Next.js 14 to avoid the
@@ -50,14 +84,14 @@ export default function RootLayout({
             itself on md+ via its own `md:hidden` classes; the client shell
             supplies the current path + navigate callback from next/navigation. */}
         <MobileNavShell />
+        {/* Global keyboard shortcuts listener + ? key help dialog */}
+        <KeyboardShortcutsProvider />
         {/* Reserve space on mobile so the fixed hamburger (top) and bottom
             nav bar don't overlap page content; removed at md+ where the
             mobile nav is hidden. */}
         <main id="main-content" role="main" tabIndex={-1} className="pt-16 pb-20 md:pt-0 md:pb-0">
           <RootErrorBoundary>
-            <PageTransition>
-              {children}
-            </PageTransition>
+            {children}
           </RootErrorBoundary>
         </main>
       </body>
