@@ -1,6 +1,14 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import { version } from '../../package.json';
 
+/**
+ * Legacy interactive Swagger spec kept for the `/api-docs` alias (Issue #254).
+ *
+ * Adds the RFC 7807 `ProblemDetails` component schema so that consumers
+ * hitting the legacy UI still receive the standardized error envelope in
+ * the generated response examples.
+ */
+
 const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
@@ -34,8 +42,57 @@ const options: swaggerJsdoc.Options = {
         },
       },
       schemas: {
+        // ── RFC 7807 Problem Details (canonical, preferred)
+        ProblemDetails: {
+          type: 'object',
+          description:
+            'RFC 7807 Problem Details object. `Content-Type: application/problem+json`.',
+          required: ['type', 'title', 'status', 'detail', 'instance', 'code', 'success', 'requestId', 'timestamp'],
+          properties: {
+            type: {
+              type: 'string',
+              format: 'uri',
+              example: 'https://aethermint.io/problems/validation-error',
+            },
+            title: { type: 'string', example: 'Validation Error' },
+            status: { type: 'integer', example: 400 },
+            detail: { type: 'string', example: '"email" must be a valid email' },
+            instance: { type: 'string', example: 'POST /api/auth/register' },
+            code: { type: 'string', example: 'VALIDATION_ERROR' },
+            success: { type: 'boolean', enum: [false] },
+            requestId: { type: 'string', format: 'uuid', example: '7e2c1f5a-8d2b-4e0d-9d6f-3a1d2e9b4c10' },
+            timestamp: { type: 'string', format: 'date-time' },
+            errors: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/FieldValidationError' },
+            },
+            error: {
+              type: 'object',
+              deprecated: true,
+              description: 'Legacy `{success:false, error:{…}}` mirror (kept for backward compat).',
+              properties: {
+                code: { type: 'string', example: 'VALIDATION_ERROR' },
+                message: { type: 'string', example: 'Validation failed' },
+                details: { type: 'object', nullable: true },
+                requestId: { type: 'string', example: '7e2c1f5a-8d2b-4e0d-9d6f-3a1d2e9b4c10' },
+              },
+            },
+          },
+        },
+        FieldValidationError: {
+          type: 'object',
+          properties: {
+            field: { type: 'string', example: 'email' },
+            message: { type: 'string', example: '"email" must be a valid email' },
+            rule: { type: 'string', example: 'string.email' },
+          },
+        },
+
+        // ── Legacy flat-error schema (kept for `/api-docs` UI that
+        //    referenced it before the RFC 7807 rollout).
         Error: {
           type: 'object',
+          deprecated: true,
           properties: {
             success: { type: 'boolean', example: false },
             message: { type: 'string', example: 'Error message' },
@@ -151,6 +208,56 @@ const options: swaggerJsdoc.Options = {
         },
       },
     },
+    responses: {
+      Problem400: {
+        description: 'Bad request (RFC 7807 Problem Details).',
+        content: {
+          'application/problem+json': {
+            schema: { $ref: '#/components/schemas/ProblemDetails' },
+          },
+        },
+      },
+      Problem401: {
+        description: 'Authentication required (RFC 7807 Problem Details).',
+        content: {
+          'application/problem+json': {
+            schema: { $ref: '#/components/schemas/ProblemDetails' },
+          },
+        },
+      },
+      Problem403: {
+        description: 'Forbidden (RFC 7807 Problem Details).',
+        content: {
+          'application/problem+json': {
+            schema: { $ref: '#/components/schemas/ProblemDetails' },
+          },
+        },
+      },
+      Problem404: {
+        description: 'Resource not found (RFC 7807 Problem Details).',
+        content: {
+          'application/problem+json': {
+            schema: { $ref: '#/components/schemas/ProblemDetails' },
+          },
+        },
+      },
+      Problem429: {
+        description: 'Rate limited (RFC 7807 Problem Details).',
+        content: {
+          'application/problem+json': {
+            schema: { $ref: '#/components/schemas/ProblemDetails' },
+          },
+        },
+      },
+      Problem500: {
+        description: 'Internal server error (RFC 7807 Problem Details).',
+        content: {
+          'application/problem+json': {
+            schema: { $ref: '#/components/schemas/ProblemDetails' },
+          },
+        },
+      },
+    },
     paths: {
       // ===== Health (Issue #178) =====
       '/health': {
@@ -249,8 +356,9 @@ const options: swaggerJsdoc.Options = {
           },
           responses: {
             201: { description: 'User registered successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
-            400: { description: 'Missing required fields or invalid role', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
-            409: { description: 'User already exists' },
+            400: { $ref: '#/components/responses/Problem400' },
+            409: { $ref: '#/components/responses/Problem409' },
+            500: { $ref: '#/components/responses/Problem500' },
           },
         },
       },
@@ -275,85 +383,9 @@ const options: swaggerJsdoc.Options = {
           },
           responses: {
             200: { description: 'Login successful', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
-            400: { description: 'Missing credentials' },
-            401: { description: 'Invalid credentials' },
-          },
-        },
-      },
-      '/api/auth/profile': {
-        get: {
-          tags: ['Authentication'],
-          summary: 'Get current user profile',
-          security: [{ bearerAuth: [] }],
-          responses: {
-            200: { description: 'User profile retrieved', content: { 'application/json': { schema: { type: 'object', properties: { user: { $ref: '#/components/schemas/User' } } } } } },
-            404: { description: 'User not found' },
-          },
-        },
-        put: {
-          tags: ['Authentication'],
-          summary: 'Update user profile',
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    username: { type: 'string' },
-                    email: { type: 'string', format: 'email' },
-                    currentPassword: { type: 'string', format: 'password' },
-                    newPassword: { type: 'string', format: 'password' },
-                  },
-                },
-              },
-            },
-          },
-          responses: {
-            200: { description: 'Profile updated successfully' },
-            400: { description: 'Validation error' },
-            404: { description: 'User not found' },
-          },
-        },
-      },
-      '/api/auth/assign-role/{userId}': {
-        put: {
-          tags: ['Authentication'],
-          summary: 'Assign role to user (Admin only)',
-          security: [{ bearerAuth: [] }],
-          parameters: [{ in: 'path', name: 'userId', required: true, schema: { type: 'string' } }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['role'],
-                  properties: { role: { type: 'string', enum: ['student', 'educator', 'admin'] } },
-                },
-              },
-            },
-          },
-          responses: {
-            200: { description: 'Role assigned successfully' },
-            400: { description: 'Invalid role' },
-            404: { description: 'User not found' },
-          },
-        },
-      },
-      '/api/auth/users': {
-        get: {
-          tags: ['Authentication'],
-          summary: 'Get all users (Admin only)',
-          security: [{ bearerAuth: [] }],
-          parameters: [
-            { in: 'query', name: 'page', schema: { type: 'integer', default: 1 } },
-            { in: 'query', name: 'limit', schema: { type: 'integer', default: 10 } },
-            { in: 'query', name: 'role', schema: { type: 'string', enum: ['student', 'educator', 'admin'] } },
-          ],
-          responses: {
-            200: { description: 'Users retrieved', content: { 'application/json': { schema: { type: 'object', properties: { users: { type: 'array', items: { $ref: '#/components/schemas/User' } }, pagination: { $ref: '#/components/schemas/Pagination' } } } } } },
+            400: { $ref: '#/components/responses/Problem400' },
+            401: { $ref: '#/components/responses/Problem401' },
+            500: { $ref: '#/components/responses/Problem500' },
           },
         },
       },
@@ -1121,10 +1153,9 @@ const options: swaggerJsdoc.Options = {
       },
     },
   },
-  apis: [
-    './src/routes/*.js',
-    './src/routes/*.ts',
-  ],
+  apis: [],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
+
+export default swaggerSpec;

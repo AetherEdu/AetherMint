@@ -1,4 +1,5 @@
 import logger from '../utils/logger';
+import { credentialIssuanceTotal, courseCompletionTotal, enrollmentTotal } from '../middleware/metrics';
 
 interface EventLog {
   id: number;
@@ -54,9 +55,7 @@ class EventLoggerService {
       });
 
       logger.info(`Course completion logged for user ${user}, course ${courseId}, event ID: ${eventId}`);
-      
-      // Create notification for course completion
-      // await this.createCompletionNotification(user, courseId, eventId);
+      courseCompletionTotal.inc();
       
       return eventId;
     } catch (error) {
@@ -89,6 +88,7 @@ class EventLoggerService {
       });
 
       logger.info(`Credential issuance logged for user ${user}, credential ${credentialId}, event ID: ${eventId}`);
+      credentialIssuanceTotal.inc({ type: 'standard' });
       
       return eventId;
     } catch (error) {
@@ -177,6 +177,7 @@ class EventLoggerService {
       });
 
       logger.info(`Course enrollment logged for user ${user}, course ${courseId}, event ID: ${eventId}`);
+      enrollmentTotal.inc();
       
       return eventId;
     } catch (error) {

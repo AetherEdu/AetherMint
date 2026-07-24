@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ForbiddenError } from '../utils/errors';
 import logger from '../utils/logger';
 
 const MAX_STRING_LENGTH = 10000;
@@ -144,10 +145,7 @@ export const detectSuspiciousPatterns = (req: Request, res: Response, next: Next
       method: req.method,
       userAgent: req.headers['user-agent']
     });
-    return res.status(403).json({
-      success: false,
-      message: 'Request rejected due to suspicious patterns.',
-    });
+    return next(new ForbiddenError('Request rejected due to suspicious patterns.'));
   }
 
   next();

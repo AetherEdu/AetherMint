@@ -74,3 +74,44 @@ export const requireStudent = requireRole([UserRole.STUDENT, UserRole.EDUCATOR, 
 export const authenticateToken = authMiddleware;
 export const authenticate = authMiddleware;
 export const requireEducatorOrAdmin = requireInstructor;
+
+/**
+ * Like {@link authMiddleware} but does not reject requests without a token.
+ * Used on routes that change behaviour based on the caller's identity if
+ * present but are otherwise public (e.g. feature-flag evaluation for an
+ * anonymous SPA boot).
+ *
+ * Invalid tokens fall through as anonymous rather than rejecting the
+ * request, so degraded-mode clients can still load.
+ */
+export const optionalAuth = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      next();
+      return;
+    }
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      next();
+      return;
+    }
+    const decoded = jwt.verify(token, jwtSecret) as any;
+    (req as any).user = {
+      id: decoded.id,
+      email: (decoded as any).email || '',
+      role: decoded.role,
+      username: decoded.username,
+      address: (decoded as any).address,
+    };
+    next();
+  } catch {
+    // Treat invalid tokens as anonymous so a partially degraded client
+    // can still proceed.
+    next();
+  }
+};
