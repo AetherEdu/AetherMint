@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import '../styles/features.css';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const CredentialMarketplace = () => {
   const [filter, setFilter] = useState('All');
@@ -15,7 +16,8 @@ const CredentialMarketplace = () => {
   ];
 
   return (
-    <div className="feature-container">
+    <ErrorBoundary variant="default" errorTitle="Credential Marketplace Error" errorMessage="Failed to load the credential marketplace. Please try again.">
+      <div className="feature-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>MICRO-CREDENTIAL MARKETPLACE</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -64,7 +66,9 @@ const CredentialMarketplace = () => {
           </div>
         ))}
       </div>
-    </div>
+      </div>
+      </ErrorBoundary>
+    );
   );
 };
 
