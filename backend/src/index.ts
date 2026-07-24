@@ -95,7 +95,7 @@ const smartWalletRoutes = resolveRoute(require('./routes/smartWallet'));
 
 // AGI Tutor routes
 // @ts-ignore
-const agiTutorRoutes = require('./routes/agiTutorRoutes');
+const agiTutorRoutes = resolveRoute(require('./routes/agiTutorRoutes'));
 
 // Analytics routes
 // @ts-ignore
@@ -103,7 +103,7 @@ const analyticsRoutes = require('./routes/analytics');
 
 // CSP Violation Reporting route
 // @ts-ignore
-const cspViolationRoutes = require('./routes/cspViolationRoutes');
+const cspViolationRoutes = resolveRoute(require('./routes/cspViolationRoutes'));
 
 // Health check routes (Issue #178) — liveness and readiness probes.
 // @ts-ignore
@@ -166,6 +166,15 @@ app.use(requestSanitizer);
 
 // ── OpenAPI documentation endpoints ────────────────────────────────────────
 
+// Raw OpenAPI JSON spec  →  GET /api/docs/json
+// MUST be registered BEFORE the Swagger UI middleware – otherwise the
+// wildcard `app.use('/api/docs', …)` intercepts the sub-path and serves
+// HTML instead of JSON.
+app.get('/api/docs/json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(openApiSpec);
+});
+
 // Primary interactive Swagger UI  →  GET /api/docs
 app.use(
   '/api/docs',
@@ -181,12 +190,6 @@ app.use(
     },
   }),
 );
-
-// Raw OpenAPI JSON spec  →  GET /api/docs/json
-app.get('/api/docs/json', (_req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(openApiSpec);
-});
 
 // Legacy alias kept for backward-compat  →  GET /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -233,12 +236,12 @@ app.use('/api/bridge', bridgeRoutes);
 
 // Time-Locked Credential routes with idempotency (Issue #264)
 // @ts-ignore
-const timeLockCredentialsRoutes = require('./routes/timeLockCredentials');
+const timeLockCredentialsRoutes = resolveRoute(require('./routes/timeLockCredentials'));
 app.use('/api/time-lock', idempotency(), timeLockCredentialsRoutes);
 
 // VRF (Verifiable Random Function) routes
 // @ts-ignore
-const vrfRoutes = require('./routes/vrf');
+const vrfRoutes = resolveRoute(require('./routes/vrf'));
 app.use('/api/vrf', vrfRoutes);
 
 // Real-time Translation routes
@@ -266,7 +269,7 @@ app.use('/api/feature-flags', publicFeatureFlagRouter);
 
 // Cross-Protocol Bridge routes
 // @ts-ignore
-const crossProtocolBridgeRoutes = require('./routes/crossProtocolBridge');
+const crossProtocolBridgeRoutes = resolveRoute(require('./routes/crossProtocolBridge'));
 app.use('/api/cross-protocol-bridge', crossProtocolBridgeRoutes);
 
 // Audit routes

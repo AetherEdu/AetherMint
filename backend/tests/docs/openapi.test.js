@@ -21,13 +21,17 @@ jest.mock('../../src/utils/logger', () => ({
   warn: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),
+  log: jest.fn(),
 }));
 
 // Lazy-load app inside tests so mocks are in place first
 let app;
 
 beforeAll(() => {
-  app = require('../../src/index');
+  // `index.ts` uses `export default app`; when required via CJS the module
+  // object is `{ default: expressApp }` – supertest needs the actual app.
+  const mod = require('../../src/index');
+  app = mod.default || mod;
 });
 
 // ── Helper: load spec directly for structural assertions ────────────────────

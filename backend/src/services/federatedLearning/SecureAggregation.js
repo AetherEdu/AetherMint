@@ -1,5 +1,11 @@
 const crypto = require('crypto');
-const { paillier } = require('paillier-js');
+// `paillier-js` exports its API at the top level (`generateRandomKeys`,
+// `PublicKey`, `PrivateKey`) – not as a nested `paillier` object. The
+// previous `const { paillier } = require('paillier-js')` destructure
+// returned undefined and crashed eager initialisation in the
+// FederatedLearningController. Issue #178 surfaced this in CI while
+// reviewing pre-existing openapi.test.js failures.
+const paillier = require('paillier-js');
 const BigInteger = require('big-integer');
 const logger = require('../../utils/logger');
 
@@ -71,7 +77,11 @@ class SecureAggregation {
     
     for (const [key, value] of Object.entries(parameters)) {
       // Convert to BigInteger for encryption
-      const bigIntValue = BigInteger(value * 1000000); // Preserve precision
+      // Round to integer before constructing the BigInteger so floating-point
+      // error from the multiplication doesn't produce a non-integer argument
+      // (paillier.PublicKey#encrypt requires a BigInteger). Mult by 10^6
+      // preserves 6-decimal precision, which is what the publicKey encrypts.
+      const bigIntValue = BigInteger(Math.round(value * 1000000));
       const encrypted = this.publicKey.encrypt(bigIntValue);
       encryptedParams[key] = {
         ciphertext: encrypted.ciphertext.toString(),
