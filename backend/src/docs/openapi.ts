@@ -502,6 +502,62 @@ const components = {
       },
     },
 
+    // ── Health (Issue #178) ────────────────────────────────────────────────
+    LivenessResponse: {
+      type: 'object',
+      description: 'Cheap, dependency-free liveness probe response.',
+      required: ['status', 'timestamp', 'uptime'],
+      properties: {
+        status: { type: 'string', enum: ['healthy'], example: 'healthy' },
+        timestamp: { type: 'string', format: 'date-time' },
+        uptime: { type: 'number', description: 'Process uptime in seconds', example: 4289.31 },
+      },
+    },
+    ShuttingDownResponse: {
+      type: 'object',
+      description: 'Returned with HTTP 503 once a graceful shutdown has begun.',
+      required: ['status', 'timestamp'],
+      properties: {
+        status: { type: 'string', enum: ['shutting_down'], example: 'shutting_down' },
+        timestamp: { type: 'string', format: 'date-time' },
+      },
+    },
+    DependencyReport: {
+      type: 'object',
+      description: 'Per-dependency result surfaced in the readiness payload.',
+      required: ['status'],
+      additionalProperties: true,
+      properties: {
+        status: { type: 'string', enum: ['up', 'down'] },
+        latencyMs: { type: 'number', description: 'Probe round-trip latency in ms.' },
+        httpStatus: { type: 'number', description: 'Last HTTP status (Stellar/IPFS probes only).' },
+        error: { type: 'string', description: 'Error class when status is down.' },
+        freeBytes: { type: 'number' },
+        totalBytes: { type: 'number' },
+        usagePercent: { type: 'number' },
+        thresholdBytes: { type: 'number' },
+        circuitBreakerOpen: { type: 'boolean' },
+        latency: { type: 'number' },
+        endpoint: { type: 'string', description: 'Endpoint probed for network deps.' },
+      },
+    },
+    ReadinessResponse: {
+      type: 'object',
+      description: 'Aggregate readiness payload – 200 when all deps are up, 503 otherwise.',
+      required: ['status', 'timestamp', 'uptime', 'cached', 'dependencies'],
+      properties: {
+        status: { type: 'string', enum: ['ok', 'degraded'], example: 'ok' },
+        timestamp: { type: 'string', format: 'date-time' },
+        uptime: { type: 'number' },
+        cached: { type: 'boolean', description: 'True when served from in-process cache.' },
+        dependencies: {
+          type: 'object',
+          description: 'Per-dependency result (database, redis, ipfs, stellar, disk).',
+          additionalProperties: { $ref: '#/components/schemas/DependencyReport' },
+        },
+      },
+    },
+
     // ── Content (IPFS) ──────────────────────────────────────────────────────
     IPFSContent: {
       type: 'object',
