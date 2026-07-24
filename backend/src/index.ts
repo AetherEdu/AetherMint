@@ -233,6 +233,11 @@ app.use('/api/vrf', vrfRoutes);
 const translationRoutes = require('./routes/translation');
 app.use('/api/translate', translationRoutes);
 
+// Bulk operations routes (Admin) – Issue #262
+// @ts-ignore
+const bulkOperationsRoutes = resolveRoute(require('./routes/bulkOperations'));
+app.use('/api/admin/bulk', bulkOperationsRoutes);
+
 // Cross-Protocol Bridge routes
 // @ts-ignore
 const crossProtocolBridgeRoutes = require('./routes/crossProtocolBridge');
