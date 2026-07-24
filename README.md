@@ -169,10 +169,7 @@ aethermint-education/
 │   │   └── utils/         # Helper functions
 │   └── package.json        # Backend dependencies
 ├── docs/                   # Project documentation
-├── scripts/                # Deployment and utility scripts
-└── .github/               # GitHub workflows and templates
-    ├── workflows/           # CI/CD pipelines
-    └── ISSUE_TEMPLATE/      # Issue templates
+└── scripts/                # Deployment and utility scripts
 ```
 
 ## 🔧 Smart Contracts
@@ -302,6 +299,30 @@ soroban contract invoke \
   --fn generate_gas_report \
   --wasm target/wasm32-unknown-unknown/release/aethermint_education.wasm
 ```
+
+## 📖 API Documentation
+
+AetherMint ships with fully interactive API reference documentation built on OpenAPI 3.0 / Swagger.
+
+| Resource | URL | Description |
+|----------|-----|-------------|
+| **Swagger UI** | `http://localhost:3001/api/docs` | Interactive browser-based API explorer |
+| **Raw OpenAPI spec** | `http://localhost:3001/api/docs/json` | Machine-readable JSON spec for tooling |
+| **Developer Portal** | `http://localhost:3002` | Full playground with code generation and auth docs |
+| **Auth Docs** | `http://localhost:3002/auth-docs` | JWT flow, API key usage, roles & error codes |
+| **Published docs** | [GitHub Pages](https://jobbykings.github.io/aethermint-education/) | Auto-updated on every push to `main` |
+
+To start the documentation locally:
+
+```bash
+# Swagger UI is served automatically by the backend
+cd backend && npm run dev           # → http://localhost:3001/api/docs
+
+# Developer portal (API Playground + Auth Docs)
+cd backend/portal && npm run dev    # → http://localhost:3002
+```
+
+The OpenAPI spec is validated on every CI run — a PR fails if fewer than 10 paths are documented or the spec is structurally invalid.
 
 ## �🌐 API Endpoints
 

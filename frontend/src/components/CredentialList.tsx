@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Credential } from '../types/profile';
 import { useProfile } from '../hooks/useProfile';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Award,
   CheckCircle,
@@ -213,7 +214,8 @@ export function CredentialList({
   }
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary variant="default" errorTitle="Credentials Error" errorMessage="Failed to load credentials. Please try again.">
+      <div className="space-y-6">
       {/* Header with Stats */}
       <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4 sm:p-6 border border-green-200 dark:border-green-800">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -477,6 +479,7 @@ export function CredentialList({
           </div>
         </div>
       )}
+      </ErrorBoundary>
     </div>
   );
 }
