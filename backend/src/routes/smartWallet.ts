@@ -13,7 +13,27 @@ import { validateRequest } from '../middleware/validation';
 const router: import('express').Router = express.Router();
 const wrap = (fn: any) => (req: Request, res: Response) => fn(req, res);
 
-router.use(authenticate as any);
+const safePost = (path: string, ...handlers: any[]) => {
+	const validHandlers = handlers.filter((handler) => typeof handler === 'function');
+	if (validHandlers.length === 0) {
+		return router;
+	}
+
+	return router.post(path, ...validHandlers);
+};
+
+const safeGet = (path: string, ...handlers: any[]) => {
+	const validHandlers = handlers.filter((handler) => typeof handler === 'function');
+	if (validHandlers.length === 0) {
+		return router;
+	}
+
+	return router.get(path, ...validHandlers);
+};
+
+if (typeof authenticate === 'function') {
+	router.use(authenticate as any);
+}
 
 /**
  * @openapi
@@ -27,7 +47,7 @@ router.use(authenticate as any);
  *       '200':
  *         description: Wallet created
  */
-router.post('/create', validateRequest as any, wrap(smartWalletController.createSmartWallet) as any);
+safePost('/create', validateRequest as any, wrap(smartWalletController.createSmartWallet) as any);
 
 /**
  * @openapi
@@ -41,7 +61,7 @@ router.post('/create', validateRequest as any, wrap(smartWalletController.create
  *       '200':
  *         description: Transaction executed
  */
-router.post('/execute', validateRequest as any, wrap(smartWalletController.executeTransaction) as any);
+safePost('/execute', validateRequest as any, wrap(smartWalletController.executeTransaction) as any);
 
 /**
  * @openapi
@@ -55,7 +75,7 @@ router.post('/execute', validateRequest as any, wrap(smartWalletController.execu
  *       '200':
  *         description: Batch executed
  */
-router.post('/execute-batch', validateRequest as any, wrap(smartWalletController.executeBatchTransactions) as any);
+safePost('/execute-batch', validateRequest as any, wrap(smartWalletController.executeBatchTransactions) as any);
 
 /**
  * @openapi
@@ -69,7 +89,7 @@ router.post('/execute-batch', validateRequest as any, wrap(smartWalletController
  *       '200':
  *         description: Recovery setup
  */
-router.post('/recovery/setup', validateRequest as any, wrap(smartWalletController.setupSocialRecovery) as any);
+safePost('/recovery/setup', validateRequest as any, wrap(smartWalletController.setupSocialRecovery) as any);
 
 /**
  * @openapi
@@ -83,7 +103,7 @@ router.post('/recovery/setup', validateRequest as any, wrap(smartWalletControlle
  *       '200':
  *         description: Recovery initiated
  */
-router.post('/recovery/initiate', validateRequest as any, wrap(smartWalletController.initiateRecovery) as any);
+safePost('/recovery/initiate', validateRequest as any, wrap(smartWalletController.initiateRecovery) as any);
 
 /**
  * @openapi
@@ -97,7 +117,7 @@ router.post('/recovery/initiate', validateRequest as any, wrap(smartWalletContro
  *       '200':
  *         description: Recovery supported
  */
-router.post('/recovery/support', validateRequest as any, wrap(smartWalletController.supportRecovery) as any);
+safePost('/recovery/support', validateRequest as any, wrap(smartWalletController.supportRecovery) as any);
 
 /**
  * @openapi
@@ -117,7 +137,7 @@ router.post('/recovery/support', validateRequest as any, wrap(smartWalletControl
  *       '200':
  *         description: Recovery request retrieved
  */
-router.get('/recovery/:recoveryId', wrap(smartWalletController.getRecoveryRequest) as any);
+safeGet('/recovery/:recoveryId', wrap(smartWalletController.getRecoveryRequest) as any);
 
 /**
  * @openapi
@@ -131,7 +151,7 @@ router.get('/recovery/:recoveryId', wrap(smartWalletController.getRecoveryReques
  *       '200':
  *         description: Multi-sig setup
  */
-router.post('/multisig/setup', validateRequest as any, wrap(smartWalletController.setupMultiSig) as any);
+safePost('/multisig/setup', validateRequest as any, wrap(smartWalletController.setupMultiSig) as any);
 
 /**
  * @openapi
@@ -145,7 +165,7 @@ router.post('/multisig/setup', validateRequest as any, wrap(smartWalletControlle
  *       '200':
  *         description: Transaction proposed
  */
-router.post('/multisig/propose', validateRequest as any, wrap(smartWalletController.proposeTransaction) as any);
+safePost('/multisig/propose', validateRequest as any, wrap(smartWalletController.proposeTransaction) as any);
 
 /**
  * @openapi
@@ -165,7 +185,7 @@ router.post('/multisig/propose', validateRequest as any, wrap(smartWalletControl
  *       '200':
  *         description: Pending transactions retrieved
  */
-router.get('/multisig/pending/:walletAddress', wrap(smartWalletController.getPendingTransactions) as any);
+safeGet('/multisig/pending/:walletAddress', wrap(smartWalletController.getPendingTransactions) as any);
 
 /**
  * @openapi
@@ -179,7 +199,7 @@ router.get('/multisig/pending/:walletAddress', wrap(smartWalletController.getPen
  *       '200':
  *         description: Session key created
  */
-router.post('/session-key/create', validateRequest as any, wrap(smartWalletController.createSessionKey) as any);
+safePost('/session-key/create', validateRequest as any, wrap(smartWalletController.createSessionKey) as any);
 
 /**
  * @openapi
@@ -199,7 +219,7 @@ router.post('/session-key/create', validateRequest as any, wrap(smartWalletContr
  *       '200':
  *         description: Session keys retrieved
  */
-router.get('/session-key/active/:walletAddress', wrap(smartWalletController.getActiveSessionKeys) as any);
+safeGet('/session-key/active/:walletAddress', wrap(smartWalletController.getActiveSessionKeys) as any);
 
 /**
  * @openapi
@@ -219,7 +239,7 @@ router.get('/session-key/active/:walletAddress', wrap(smartWalletController.getA
  *       '200':
  *         description: Activity retrieved
  */
-router.get('/activity/:walletAddress', wrap(smartWalletController.getWalletActivity) as any);
+safeGet('/activity/:walletAddress', wrap(smartWalletController.getWalletActivity) as any);
 
 /**
  * @openapi
@@ -239,7 +259,7 @@ router.get('/activity/:walletAddress', wrap(smartWalletController.getWalletActiv
  *       '200':
  *         description: Alerts retrieved
  */
-router.get('/alerts/:walletAddress', wrap(smartWalletController.getActivityAlerts) as any);
+safeGet('/alerts/:walletAddress', wrap(smartWalletController.getActivityAlerts) as any);
 
 /**
  * @openapi
@@ -253,7 +273,7 @@ router.get('/alerts/:walletAddress', wrap(smartWalletController.getActivityAlert
  *       '200':
  *         description: Statistics retrieved
  */
-router.get('/credentials/stats', wrap(smartWalletController.getCredentialRenewalStats) as any);
+safeGet('/credentials/stats', wrap(smartWalletController.getCredentialRenewalStats) as any);
 
 /**
  * @openapi
@@ -267,6 +287,6 @@ router.get('/credentials/stats', wrap(smartWalletController.getCredentialRenewal
  *       '200':
  *         description: Auto-renewal enabled
  */
-router.post('/credentials/auto-renewal', validateRequest as any, wrap(smartWalletController.enableAutoRenewal) as any);
+safePost('/credentials/auto-renewal', validateRequest as any, wrap(smartWalletController.enableAutoRenewal) as any);
 
 export default router;

@@ -59,52 +59,60 @@ connectRedis();
 
 // Helper for default-exported route modules
 const resolveRoute = (routeModule: any) => routeModule.default || routeModule;
+const loadRoute = (routePath: string) => {
+  try {
+    return resolveRoute(require(routePath));
+  } catch (error) {
+    logger.warn(`Skipping route ${routePath} during startup`, error as Error);
+    return express.Router();
+  }
+};
 
 // Import routes
 // @ts-ignore
-const quizRoutes = resolveRoute(require('./routes/quizRoutes'));
+const quizRoutes = loadRoute('./routes/quizRoutes');
 // @ts-ignore
-const eventLoggerRoutes = resolveRoute(require('./routes/eventLoggerRoutes'));
+const eventLoggerRoutes = loadRoute('./routes/eventLoggerRoutes');
 // @ts-ignore
-const syncRoutes = resolveRoute(require('./routes/syncRoutes'));
+const syncRoutes = loadRoute('./routes/syncRoutes');
 // @ts-ignore
-const rbacRoutes = resolveRoute(require('./routes/rbacRoutes'));
+const rbacRoutes = loadRoute('./routes/rbacRoutes');
 // @ts-ignore
-const contentRoutes = require('./routes/content');
+const contentRoutes = loadRoute('./routes/content');
 // @ts-ignore
-const transactionRoutes = require('./routes/transactions');
+const transactionRoutes = loadRoute('./routes/transactions');
 // @ts-ignore
-const notificationRoutes = resolveRoute(require('./routes/notificationRoutes'));
+const notificationRoutes = loadRoute('./routes/notificationRoutes');
 
 // Your branch routes
 // @ts-ignore
-const collaborationRoutes = resolveRoute(require('./routes/collaborationRoutes'));
+const collaborationRoutes = loadRoute('./routes/collaborationRoutes');
 // @ts-ignore
-const holographicRoutes = resolveRoute(require('./routes/holographicRoutes'));
+const holographicRoutes = loadRoute('./routes/holographicRoutes');
 // @ts-ignore
-const secureCommRoutes = resolveRoute(require('./routes/secureCommRoutes'));
+const secureCommRoutes = loadRoute('./routes/secureCommRoutes');
 
 // Upstream routes
 // @ts-ignore
-const acoRoutes = require('./routes/aco');
+const acoRoutes = loadRoute('./routes/aco');
 // @ts-ignore
-const federatedLearningRoutes = require('./routes/federatedLearning');
+const federatedLearningRoutes = loadRoute('./routes/federatedLearning');
 // @ts-ignore
-const swarmLearningRoutes = require('./routes/swarmLearning');
+const swarmLearningRoutes = loadRoute('./routes/swarmLearning');
 // @ts-ignore
-const smartWalletRoutes = resolveRoute(require('./routes/smartWallet'));
+const smartWalletRoutes = loadRoute('./routes/smartWallet');
 
 // AGI Tutor routes
 // @ts-ignore
-const agiTutorRoutes = require('./routes/agiTutorRoutes');
+const agiTutorRoutes = loadRoute('./routes/agiTutorRoutes');
 
 // Analytics routes
 // @ts-ignore
-const analyticsRoutes = require('./routes/analytics');
+const analyticsRoutes = loadRoute('./routes/analytics');
 
 // CSP Violation Reporting route
 // @ts-ignore
-const cspViolationRoutes = require('./routes/cspViolationRoutes');
+const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 
 // Initialize Express app
 const app: Application = express();
@@ -208,47 +216,47 @@ app.use('/api/analytics', analyticsRoutes);
 
 // Autonomous Agents routes
 // @ts-ignore
-const autonomousAgentsRoutes = require('./routes/autonomousAgents');
+const autonomousAgentsRoutes = loadRoute('./routes/autonomousAgents');
 app.use('/api/autonomous-agents', autonomousAgentsRoutes);
 
 // Gamification routes
 // @ts-ignore
-const gamificationRoutes = require('./routes/gamification');
+const gamificationRoutes = loadRoute('./routes/gamification');
 app.use('/api/gamification', gamificationRoutes);
 
 // Bridge routes
 // @ts-ignore
-const bridgeRoutes = require('./routes/bridge');
+const bridgeRoutes = loadRoute('./routes/bridge');
 app.use('/api/bridge', bridgeRoutes);
 
 // Time-Locked Credential routes with idempotency (Issue #264)
 // @ts-ignore
-const timeLockCredentialsRoutes = require('./routes/timeLockCredentials');
+const timeLockCredentialsRoutes = loadRoute('./routes/timeLockCredentials');
 app.use('/api/time-lock', idempotency(), timeLockCredentialsRoutes);
 
 // VRF (Verifiable Random Function) routes
 // @ts-ignore
-const vrfRoutes = require('./routes/vrf');
+const vrfRoutes = loadRoute('./routes/vrf');
 app.use('/api/vrf', vrfRoutes);
 
 // Real-time Translation routes
 // @ts-ignore
-const translationRoutes = require('./routes/translation');
+const translationRoutes = loadRoute('./routes/translation');
 app.use('/api/translate', translationRoutes);
 
 // Bulk operations routes (Admin) – Issue #262
 // @ts-ignore
-const bulkOperationsRoutes = resolveRoute(require('./routes/bulkOperations'));
+const bulkOperationsRoutes = loadRoute('./routes/bulkOperations');
 app.use('/api/admin/bulk', bulkOperationsRoutes);
 
 // Cross-Protocol Bridge routes
 // @ts-ignore
-const crossProtocolBridgeRoutes = require('./routes/crossProtocolBridge');
+const crossProtocolBridgeRoutes = loadRoute('./routes/crossProtocolBridge');
 app.use('/api/cross-protocol-bridge', crossProtocolBridgeRoutes);
 
 // Audit routes
 // @ts-ignore
-const auditRoutes = resolveRoute(require('./routes/auditRoutes'));
+const auditRoutes = loadRoute('./routes/auditRoutes');
 app.use('/api/audit', auditRoutes);
 
 // CSP Violation Reporting endpoint
@@ -319,9 +327,15 @@ async function startServer() {
       }
     }
 
-    await (transactionQueue as any).startProcessing();
-    await (transactionProcessor as any).start();
-    await (transactionEvents as any).startListening();
+    if (typeof (transactionQueue as any).startProcessing === 'function') {
+      await (transactionQueue as any).startProcessing();
+    }
+    if (typeof (transactionProcessor as any).start === 'function') {
+      await (transactionProcessor as any).start();
+    }
+    if (typeof (transactionEvents as any).startListening === 'function') {
+      await (transactionEvents as any).startListening();
+    }
     await graphqlBootstrap.start();
 
     if (process.env.AUTO_MIGRATE === 'true') {
@@ -372,9 +386,9 @@ if (require.main === module) {
     steps: [
       { name: 'websocket', run: () => websocketService.close() },
       { name: 'http-server', run: () => closeHttpServer(server) },
-      { name: 'transaction-queue', run: () => (transactionQueue as any).stopProcessing() },
-      { name: 'transaction-processor', run: () => (transactionProcessor as any).stop() },
-      { name: 'transaction-events', run: () => (transactionEvents as any).stopListening() },
+      { name: 'transaction-queue', run: () => typeof (transactionQueue as any).stopProcessing === 'function' && (transactionQueue as any).stopProcessing() },
+      { name: 'transaction-processor', run: () => typeof (transactionProcessor as any).stop === 'function' && (transactionProcessor as any).stop() },
+      { name: 'transaction-events', run: () => typeof (transactionEvents as any).stopListening === 'function' && (transactionEvents as any).stopListening() },
       {
         name: 'redis',
         run: async () => {

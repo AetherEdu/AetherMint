@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import securityConfig from '../config/security';
 import logger from '../utils/logger';
 import redisConfig from '../config/redis';
-import * as securityService from '../services/securityService';
+import securityService from '../services/securityService';
 import { sanitizeInput } from './sanitizer';
 
 /**

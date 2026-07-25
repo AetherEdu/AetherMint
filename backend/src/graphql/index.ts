@@ -13,18 +13,20 @@ import { resolvers } from './resolvers';
 import { createGraphQLContext, GraphQLContext } from './context';
 import { formatGraphQLError } from './errors';
 
-const MAX_QUERY_DEPTH = Number.parseInt(process.env.GRAPHQL_MAX_DEPTH || '10', 10);
-const MAX_QUERY_COMPLEXITY = Number.parseInt(process.env.GRAPHQL_MAX_COMPLEXITY || '200', 10);
+const getMaxDepth = () => Number.parseInt(process.env.GRAPHQL_MAX_DEPTH || '10', 10);
+const getMaxComplexity = () => Number.parseInt(process.env.GRAPHQL_MAX_COMPLEXITY || '200', 10);
 
 export function createApolloServer(): ApolloServer {
   const isDev = process.env.NODE_ENV !== 'production';
+  const maxDepth = getMaxDepth();
+  const maxComplexity = getMaxComplexity();
 
   return new ApolloServer({
     typeDefs,
     resolvers: resolvers as any,
     context: ({ req }: { req: Request }) => createGraphQLContext({ req }),
     introspection: isDev,
-    validationRules: [depthLimit(MAX_QUERY_DEPTH)],
+    validationRules: [depthLimit(maxDepth)],
     formatError: formatGraphQLError as any,
     plugins: [
       isDev
@@ -38,6 +40,7 @@ export function createApolloServer(): ApolloServer {
         async requestDidStart() {
           return {
             async didResolveOperation(requestContext: any) {
+              const currentMaxComplexity = getMaxComplexity();
               const complexity = getComplexity({
                 schema: requestContext.schema,
                 operationName: requestContext.request.operationName,
@@ -49,14 +52,14 @@ export function createApolloServer(): ApolloServer {
                 ],
               });
 
-              if (complexity > MAX_QUERY_COMPLEXITY) {
+              if (complexity > currentMaxComplexity) {
                 throw new GraphQLError(
-                  `Query is too complex: ${complexity}. Maximum allowed complexity: ${MAX_QUERY_COMPLEXITY}`,
+                  `Query is too complex: ${complexity}. Maximum allowed complexity: ${currentMaxComplexity}`,
                   {
                     extensions: {
                       code: 'QUERY_TOO_COMPLEX',
                       complexity,
-                      maxComplexity: MAX_QUERY_COMPLEXITY,
+                      maxComplexity: currentMaxComplexity,
                       http: { status: 400 },
                     },
                   }
@@ -107,8 +110,8 @@ export function createGraphQLPlaceholder(): {
       logger.info('GraphQL endpoint ready', {
         path: '/graphql',
         playground: process.env.NODE_ENV !== 'production',
-        maxDepth: MAX_QUERY_DEPTH,
-        maxComplexity: MAX_QUERY_COMPLEXITY,
+        maxDepth: getMaxDepth(),
+        maxComplexity: getMaxComplexity(),
       });
 
       return apolloServer;
@@ -138,8 +141,8 @@ export async function mountGraphQL(
   logger.info('GraphQL endpoint mounted', {
     path: '/graphql',
     playground: process.env.NODE_ENV !== 'production',
-    maxDepth: MAX_QUERY_DEPTH,
-    maxComplexity: MAX_QUERY_COMPLEXITY,
+    maxDepth: getMaxDepth(),
+    maxComplexity: getMaxComplexity(),
   });
 
   return apolloServer;

@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { paillier } = require('paillier-js');
+const paillier = require('paillier-js');
 const BigInteger = require('big-integer');
 const logger = require('../../utils/logger');
 
