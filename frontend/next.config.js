@@ -20,7 +20,12 @@ const envSchema = z.object({
   NEXT_PUBLIC_SOCKET_URL: z.string().url().optional(),
 });
 
-const parsed = envSchema.safeParse(process.env);
+// Validate environment variables at build/dev time.
+// Provides a valid testnet default for local development and CI.
+const parsed = envSchema.safeParse({
+  ...process.env,
+  NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: process.env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA',
+});
 if (!parsed.success) {
   const errors = parsed.error.errors
     .map((e) => `  ${e.path.join('.')}: ${e.message}`)

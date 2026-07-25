@@ -101,16 +101,19 @@ export default function AdminSidebar() {
 
     return (
       <div key={item.title} className="w-full">
-        <div
-          className={`
-            flex items-center justify-between w-full px-3 py-2 text-sm rounded-lg transition-colors
+        <div            className={`
+            flex items-center justify-between w-full px-3 py-2 text-sm rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
             ${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}
             ${isCollapsed && level === 0 ? 'justify-center' : ''}
           `}
           onClick={() => hasChildren && toggleExpanded(item.title)}
+          role="button"
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          aria-current={active ? 'page' : undefined}
+          tabIndex={0}
         >
           <div className="flex items-center gap-3">
-            <Icon className="w-5 h-5 flex-shrink-0" />
+            <Icon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
             {!isCollapsed && (
               <span className="font-medium">{item.title}</span>
             )}
@@ -144,24 +147,32 @@ export default function AdminSidebar() {
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
-            <h1 className="text-xl font-bold text-gray-800">Admin Panel</h1>
+            <h1 id="admin-sidebar-title" className="text-xl font-bold text-gray-800">Admin Panel</h1>
           )}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1 rounded hover:bg-gray-100 transition-colors"
+            className="p-1 rounded hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!isCollapsed}
           >
-            {isCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            {isCollapsed ? <Menu className="w-5 h-5" aria-hidden="true" /> : <X className="w-5 h-5" aria-hidden="true" />}
           </button>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {sidebarItems.map(item => renderSidebarItem(item))}
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto" aria-labelledby="admin-sidebar-title">
+        <ul role="list" className="space-y-2">
+          {sidebarItems.map(item => (
+            <li key={item.title} role="listitem">
+              {renderSidebarItem(item)}
+            </li>
+          ))}
+        </ul>
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-200" role="contentinfo" aria-label="Sidebar footer">
         <Link
           href="/"
           className={`
@@ -170,7 +181,7 @@ export default function AdminSidebar() {
             ${isCollapsed ? 'justify-center' : ''}
           `}
         >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
+          <LogOut className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
           {!isCollapsed && <span className="font-medium">Exit Admin</span>}
         </Link>
       </div>

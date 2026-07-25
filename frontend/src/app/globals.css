@@ -6,6 +6,10 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
+  /* WCAG 2.1 AA compliant focus ring */
+  --focus-ring-color: 59, 130, 246;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -26,7 +30,94 @@ body {
     rgb(var(--background-start-rgb));
 }
 
-/* Custom animations */
+/* ==========================================================================
+   Accessibility: Focus Management
+   ========================================================================== */
+
+/* Visible focus indicator for keyboard users — WCAG 2.4.7 */
+*:focus-visible {
+  outline: var(--focus-ring-width) solid rgb(var(--focus-ring-color));
+  outline-offset: var(--focus-ring-offset);
+  border-radius: 4px;
+}
+
+/* Remove focus outline for mouse users while keeping it for keyboard */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ==========================================================================
+   Accessibility: Reduced Motion (WCAG 2.3.3)
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ==========================================================================
+   Accessibility: High Contrast Mode (WCAG 1.4.6)
+   ========================================================================== */
+
+.high-contrast {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 255, 255, 255;
+  --background-end-rgb: 255, 255, 255;
+}
+
+.high-contrast * {
+  border-color: #000 !important;
+}
+
+.high-contrast a {
+  text-decoration: underline !important;
+}
+
+.high-contrast button {
+  border: 2px solid #000 !important;
+}
+
+/* ==========================================================================
+   Custom scrollbar (accessible colors)
+   ========================================================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #6b7280; /* gray-500 — meets contrast against #f1f1f1 */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563; /* gray-600 */
+}
+
+/* ==========================================================================
+   Custom animations
+   ========================================================================== */
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -40,20 +131,49 @@ body {
   animation: spin 1s linear infinite;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
+/* ==========================================================================
+   Accessibility: Color Blind Mode Filters
+   ========================================================================== */
+
+.colorblind-protanopia {
+  filter: url('#protanopia-filter') !important;
 }
 
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
+.colorblind-deuteranopia {
+  filter: url('#deuteranopia-filter') !important;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 3px;
+.colorblind-tritanopia {
+  filter: url('#tritanopia-filter') !important;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
+/* Simplified UI mode for cognitive accessibility */
+.simplified-ui .decorative,
+.simplified-ui [role="presentation"] {
+  display: none !important;
+}
+
+.simplified-ui .animate-spin,
+.simplified-ui .animate-pulse,
+.simplified-ui .animate-bounce {
+  animation: none !important;
+}
+
+/* Visual indicators for enhanced accessibility */
+.visual-indicators-enabled button:focus-visible,
+.visual-indicators-enabled a:focus-visible,
+.visual-indicators-enabled input:focus-visible,
+.visual-indicators-enabled select:focus-visible,
+.visual-indicators-enabled textarea:focus-visible {
+  box-shadow: 0 0 0 var(--focus-ring-width) rgb(var(--focus-ring-color)),
+              0 0 8px 2px rgba(var(--focus-ring-color), 0.4);
+}
+
+/* ==========================================================================
+   Keyboard navigation mode — show thicker outlines
+   ========================================================================== */
+
+.keyboard-nav-enabled *:focus {
+  outline: var(--focus-ring-width) solid rgb(var(--focus-ring-color)) !important;
+  outline-offset: var(--focus-ring-offset) !important;
 }
