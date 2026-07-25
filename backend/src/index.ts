@@ -50,7 +50,9 @@ import {
 import { detectSuspiciousPatterns } from './middleware/sanitizer';
 // @ts-ignore
 import { tieredRateLimiter, transactionLimiter } from './middleware/rateLimiter';
+import { rateLimits } from './middleware/rateLimit';
 import { idempotency } from './middleware/idempotency';
+import { createGraphQLPlaceholder } from './graphql';
 
 // Connect to Redis
 connectRedis();
@@ -252,6 +254,10 @@ app.use('/api/audit', auditRoutes);
 // CSP Violation Reporting endpoint
 app.use('/api/csp-violation', cspViolationRoutes);
 
+// GraphQL endpoint complementing REST — registered before the 404 handler.
+const graphqlBootstrap = createGraphQLPlaceholder();
+app.use('/graphql', rateLimits.graphql, graphqlBootstrap.middleware);
+
 // Root endpoint
 app.get('/', (req, res) => {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -316,6 +322,7 @@ async function startServer() {
     await (transactionQueue as any).startProcessing();
     await (transactionProcessor as any).start();
     await (transactionEvents as any).startListening();
+    await graphqlBootstrap.start();
 
     if (process.env.AUTO_MIGRATE === 'true') {
       logger.info('Auto-running pending migrations...');
