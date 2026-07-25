@@ -68,10 +68,11 @@ function mockSync({ queuedItems = 0, clearQueue = jest.fn() }: Partial<{
   mockUseOfflineSync.mockReturnValue({ syncStatus, clearQueue });
 }
 
-function mockCourses({ clearAll = jest.fn().mockResolvedValue(undefined) }: Partial<{
+function mockCourses({ clearAll = jest.fn().mockResolvedValue(undefined), courses = [] }: Partial<{
   clearAll: jest.Mock;
+  courses: Array<{ id: string }>;
 }> = {}) {
-  mockUseOfflineCourses.mockReturnValue({ clearAll });
+  mockUseOfflineCourses.mockReturnValue({ clearAll, courses });
 }
 
 describe('OfflineIndicator', () => {
@@ -112,6 +113,33 @@ describe('OfflineIndicator', () => {
     expect(chip.textContent).toBe('3');
     expect(screen.getByRole('alert').textContent).toMatch(
       /3 pending actions/
+    );
+  });
+
+  it('shows available cached content count when courses are available offline', async () => {
+    mockUseNetworkStatus.mockReturnValue({ isOnline: false });
+    mockCourses({ courses: [{ id: 'course-1' }, { id: 'course-2' }] });
+    render(<OfflineIndicator />);
+
+    const chip = await screen.findByTestId('offline-available-content');
+    expect(chip.textContent).toBe('2');
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /2 cached courses are available/
+    );
+  });
+
+  it('shows both pending and available counts when both are present', async () => {
+    mockUseNetworkStatus.mockReturnValue({ isOnline: false });
+    mockSync({ queuedItems: 1 });
+    mockCourses({ courses: [{ id: 'course-1' }] });
+    render(<OfflineIndicator />);
+
+    const pendingChip = await screen.findByTestId('offline-pending-count');
+    const contentChip = await screen.findByTestId('offline-available-content');
+    expect(pendingChip.textContent).toBe('1');
+    expect(contentChip.textContent).toBe('1');
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /1 cached course is available/
     );
   });
 
@@ -203,8 +231,9 @@ describe('OfflineIndicator', () => {
       expect(screen.getByTestId('offline-clear')).toBeInTheDocument();
     });
 
-    // Pending chip is hidden; banner copy now says data is cleared.
+    // Pending and content chips are hidden; banner copy now says data is cleared.
     expect(screen.queryByTestId('offline-pending-count')).toBeNull();
+    expect(screen.queryByTestId('offline-available-content')).toBeNull();
     expect(screen.getByRole('alert').textContent).toMatch(/cleared/i);
   });
 
@@ -230,7 +259,8 @@ describe('OfflineIndicator', () => {
       ).toMatch(/IDB write blocked/);
     });
     expect(clearAll).toHaveBeenCalledTimes(1);
-    // Chip stays hidden while we're in the error state.
+    // Chips stay hidden while we're in the error state.
     expect(screen.queryByTestId('offline-pending-count')).toBeNull();
+    expect(screen.queryByTestId('offline-available-content')).toBeNull();
   });
 });
