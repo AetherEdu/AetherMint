@@ -5,7 +5,7 @@
 #![allow(clippy::needless_range_loop)]
 extern crate alloc;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Symbol, Vec,
+    contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Vec,
 };
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
@@ -87,8 +87,16 @@ pub mod credentials;
 mod credentials_test;
 
 pub mod credential_events;
-// #[cfg(test)]
-// mod credential_events_test;
+#[cfg(test)]
+mod credential_events_test;
+
+pub mod course_events;
+#[cfg(test)]
+mod course_events_test;
+
+pub mod tokenomics_events;
+#[cfg(test)]
+mod tokenomics_events_test;
 
 pub mod credential_registry;
 #[cfg(test)]
@@ -137,6 +145,9 @@ pub mod utils;
 
 #[cfg(test)]
 mod pause_test;
+
+#[cfg(test)]
+mod fuzzing_test;
 
 use crate::profile_nft::ProfileNFT;
 #[contracttype]
@@ -343,7 +354,15 @@ impl AetherMintContract {
             .set(&DataKey::CredentialCount, &credential_id);
 
         // Update user credential count
-        Self::increment_user_credential_count(&env, recipient);
+        Self::increment_user_credential_count(&env, recipient.clone());
+
+        // Emit standardized credential lifecycle event (published on-chain + queryable record).
+        crate::credential_events::publish_credential_event(
+            &env,
+            crate::credential_events::CredentialLifecycleEvent::Issued,
+            credential_id,
+            issuer,
+        );
 
         credential_id
     }
@@ -420,10 +439,12 @@ impl AetherMintContract {
             .instance()
             .set(&DataKey::CourseCount, &course_id);
 
-        let now = env.ledger().timestamp();
-        env.events().publish(
-            (Symbol::new(&env, "course"), Symbol::new(&env, "created")),
-            (course_id, instructor, price, now),
+        // Emit standardized course lifecycle event (published on-chain + queryable record).
+        crate::course_events::publish_course_event(
+            &env,
+            crate::course_events::CourseLifecycleEvent::Created,
+            course_id,
+            instructor,
         );
 
         course_id

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { ValidationError, RateLimitError, InternalError } = require('../utils/errors');
 
 // Custom validation functions - must be defined before Joi.extend
 const validateStellarPublicKey = (value, helpers) => {
@@ -310,11 +311,7 @@ const validate = (schema, source = 'body') => {
         value: detail.context.value,
       }));
 
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors,
-      });
+      return next(new ValidationError('Validation failed', errors));
     }
 
     req[source] = value;
@@ -342,22 +339,16 @@ const validateTransactionDependencies = async (req, res, next) => {
     
     for (const depId of dependencies) {
       if (!uuidRegex.test(depId)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid dependency ID format',
-          error: `Dependency ${depId} is not a valid UUID`,
-        });
+        const err = new ValidationError('Invalid dependency ID format');
+        err.details = { dependencyId: depId };
+        return next(err);
       }
     }
 
     next();
   } catch (error) {
     console.error('Dependency validation error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Dependency validation failed',
-      error: error.message,
-    });
+    return next(new InternalError('Dependency validation failed'));
   }
 };
 
@@ -375,23 +366,19 @@ const validateUserTierLimits = async (req, res, next) => {
     const limits = securityConfig.tiers[roleKey] || securityConfig.tiers.default;
 
     if (transactions && transactions.length > (limits.burst || 10)) {
-      return res.status(429).json({
-        success: false,
-        message: 'Batch size exceeds tier limit',
-        error: `Maximum ${limits.burst || 10} transactions per batch for ${user.role} role`,
+      const err = new RateLimitError('Batch size exceeds tier limit');
+      err.details = {
         limit: limits.burst || 10,
         requested: transactions.length,
-      });
+        role: user.role,
+      };
+      return next(err);
     }
 
     next();
   } catch (error) {
     console.error('Tier limit validation error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Tier limit validation failed',
-      error: error.message,
-    });
+    return next(new InternalError('Tier limit validation failed'));
   }
 };
 

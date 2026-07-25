@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { hasPermission, hasRoleLevel, UserRole } = require('../utils/roles');
+const { AuthError, ForbiddenError } = require('../utils/errors');
 
 /**
  * JWT Authentication Middleware
@@ -10,20 +11,14 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
-    return res.status(401).json({ 
-      error: 'Access token required',
-      message: 'Please provide a valid JWT token'
-    });
+    return next(new AuthError('Authentication required'));
   }
 
   jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
     if (err) {
-      return res.status(403).json({ 
-        error: 'Invalid token',
-        message: 'The provided token is invalid or expired'
-      });
+      return next(new AuthError('Invalid or expired token'));
     }
-    
+
     req.user = user;
     next();
   });
@@ -47,19 +42,13 @@ const authorize = (allowedRoles) => {
 const requireRole = (allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        message: 'Please authenticate to access this resource'
-      });
+      return next(new AuthError('Authentication required'));
     }
 
     const userRole = req.user.role;
-    
+
     if (!allowedRoles.includes(userRole)) {
-      return res.status(403).json({ 
-        error: 'Insufficient permissions',
-        message: `Access denied. Required roles: ${allowedRoles.join(', ')}`
-      });
+      return next(new ForbiddenError(`Access denied. Required roles: ${allowedRoles.join(', ')}`));
     }
 
     next();
@@ -74,19 +63,13 @@ const requireRole = (allowedRoles) => {
 const requirePermission = (permission) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        message: 'Please authenticate to access this resource'
-      });
+      return next(new AuthError('Authentication required'));
     }
 
     const userRole = req.user.role;
-    
+
     if (!hasPermission(userRole, permission)) {
-      return res.status(403).json({ 
-        error: 'Insufficient permissions',
-        message: `Access denied. Required permission: ${permission}`
-      });
+      return next(new ForbiddenError(`Access denied. Required permission: ${permission}`));
     }
 
     next();
@@ -101,19 +84,13 @@ const requirePermission = (permission) => {
 const requireMinimumRole = (minimumRole) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        message: 'Please authenticate to access this resource'
-      });
+      return next(new AuthError('Authentication required'));
     }
 
     const userRole = req.user.role;
-    
+
     if (!hasRoleLevel(userRole, minimumRole)) {
-      return res.status(403).json({ 
-        error: 'Insufficient permissions',
-        message: `Access denied. Minimum role required: ${minimumRole}`
-      });
+      return next(new ForbiddenError(`Access denied. Minimum role required: ${minimumRole}`));
     }
 
     next();
@@ -128,10 +105,7 @@ const requireMinimumRole = (minimumRole) => {
 const requireSelfOrAdmin = (userIdParam = 'userId') => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        message: 'Please authenticate to access this resource'
-      });
+      return next(new AuthError('Authentication required'));
     }
 
     const userRole = req.user.role;
@@ -140,10 +114,7 @@ const requireSelfOrAdmin = (userIdParam = 'userId') => {
 
     // Admins can access any resource, users can only access their own
     if (userRole !== UserRole.ADMIN && currentUserId !== targetUserId) {
-      return res.status(403).json({ 
-        error: 'Access denied',
-        message: 'You can only access your own resources'
-      });
+      return next(new ForbiddenError('You can only access your own resources'));
     }
 
     next();

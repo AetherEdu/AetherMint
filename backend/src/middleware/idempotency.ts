@@ -15,6 +15,7 @@ import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import redisConfig from '../config/redis';
 import logger from '../utils/logger';
+import { ValidationError } from '../utils/errors';
 
 const IDEMPOTENCY_KEY_HEADER = 'idempotency-key';
 const DEFAULT_TTL_SECONDS = 24 * 60 * 60; // 24 hours
@@ -46,10 +47,7 @@ export function idempotency(options?: { ttlSeconds?: number }) {
 
     // Sanitise the key to prevent injection into Redis key names
     if (typeof key !== 'string' || key.length > 256) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid idempotency key',
-      });
+      next(new ValidationError('Invalid idempotency key'));
       return;
     }
 

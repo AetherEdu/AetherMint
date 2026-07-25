@@ -8,6 +8,7 @@ import swaggerUi from 'swagger-ui-express';
 import logger from './utils/logger';
 import requestId from './middleware/requestId';
 import requestLogger from './middleware/requestLogger';
+import { metricsMiddleware, websocketConnectionsActive } from './middleware/metrics';
 import { errorHandler } from './middleware/errorHandler';
 import { NotFoundError } from './utils/errors';
 import { connectRedis } from './utils/redis';
@@ -141,6 +142,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestId);
 app.use(requestLogger);
+app.use(metricsMiddleware);
 
 // Reject new traffic with 503 once a graceful shutdown has begun, while still
 // serving the health probe and root so orchestrators can read the drain state.
@@ -249,6 +251,19 @@ app.use('/api/translate', translationRoutes);
 const bulkOperationsRoutes = loadRoute('./routes/bulkOperations');
 app.use('/api/admin/bulk', bulkOperationsRoutes);
 
+// Feature flag admin routes – Issue #267
+// @ts-ignore
+const featureFlagRoutes = resolveRoute(require('./routes/admin/featureFlags'));
+app.use('/api/admin/feature-flags', featureFlagRoutes);
+
+// Public evaluation endpoint for SPA / mobile clients – Issue #267
+// First pulls `publicRouter` off the same module so the admin auth
+// middleware on the default export is not applied to public callers.
+// @ts-ignore
+const featureFlagModule = require('./routes/admin/featureFlags');
+const publicFeatureFlagRouter = (featureFlagModule as any).publicRouter ?? featureFlagModule;
+app.use('/api/feature-flags', publicFeatureFlagRouter);
+
 // Cross-Protocol Bridge routes
 // @ts-ignore
 const crossProtocolBridgeRoutes = loadRoute('./routes/crossProtocolBridge');
@@ -262,9 +277,10 @@ app.use('/api/audit', auditRoutes);
 // CSP Violation Reporting endpoint
 app.use('/api/csp-violation', cspViolationRoutes);
 
-// GraphQL endpoint complementing REST — registered before the 404 handler.
-const graphqlBootstrap = createGraphQLPlaceholder();
-app.use('/graphql', rateLimits.graphql, graphqlBootstrap.middleware);
+// Prometheus metrics endpoint
+// @ts-ignore
+const metricsRoutes = resolveRoute(require('./routes/metrics'));
+app.use('/api/metrics', metricsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -311,6 +327,9 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 
+// Track the WebSocket metrics interval for cleanup on shutdown
+let wsMetricsInterval: ReturnType<typeof setInterval> | undefined;
+
 async function startServer() {
   try {
     // Run migrations automatically if DATABASE_URL is configured
@@ -350,6 +369,17 @@ async function startServer() {
       }
     }
 
+// Periodically update WebSocket active connection count for Prometheus metrics
+wsMetricsInterval = setInterval(() => {
+  try {
+    const io = websocketService.getIO();
+    const count = io?.engine?.clientsCount ?? 0;
+    websocketConnectionsActive.set(count);
+  } catch {
+    // Silently ignore if WebSocket not available
+  }
+}, 15_000);
+
 server.listen(PORT, () => {
        logger.info('AetherMint Education Backend started', {
          port: PORT,
@@ -366,6 +396,7 @@ server.listen(PORT, () => {
            '/api/agi-tutor',
            '/api/secure-comm',
            '/api/audit',
+           '/api/metrics',
            '/api/health',
          ],
        });
@@ -385,6 +416,7 @@ if (require.main === module) {
     logger,
     steps: [
       { name: 'websocket', run: () => websocketService.close() },
+      { name: 'ws-metrics-interval', run: () => { if (wsMetricsInterval) clearInterval(wsMetricsInterval); } },
       { name: 'http-server', run: () => closeHttpServer(server) },
       { name: 'transaction-queue', run: () => typeof (transactionQueue as any).stopProcessing === 'function' && (transactionQueue as any).stopProcessing() },
       { name: 'transaction-processor', run: () => typeof (transactionProcessor as any).stop === 'function' && (transactionProcessor as any).stop() },
