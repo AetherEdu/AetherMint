@@ -1,0 +1,5 @@
+{
+  "maxInitialJsGzipKb": 200,
+  "enforce": false,
+  "ignoreRoutes": ["/_error", "/404", "/500"]
+}
