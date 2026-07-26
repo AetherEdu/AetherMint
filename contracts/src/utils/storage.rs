@@ -112,6 +112,9 @@ pub enum StorageKey {
 
     /// Global admin
     Admin,
+
+    /// Pause state
+    Paused,
 }
 
 /// Storage utilities for efficient data management
