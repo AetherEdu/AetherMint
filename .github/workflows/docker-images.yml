@@ -5,6 +5,11 @@ name: Docker Images (size & scan)
 # with Trivy. This complements ci-pr.yml, whose Trivy step scans the source
 # filesystem (scan-type: fs) rather than the built images.
 #
+# The image build is best-effort: matching this repository's "report, don't
+# block" posture, a build failure is surfaced as a warning annotation and in the
+# run summary but does NOT fail the workflow. Size and scan steps run only when
+# the image built successfully.
+#
 # Uses `pull_request` (not `pull_request_target`) so it runs safely for fork
 # PRs with a read-only token and no secrets, matching ci-pr.yml.
 
@@ -22,8 +27,7 @@ on:
   workflow_dispatch:
 
 # Target size budget per image. Issue #282 targets < 200 MB. Exceeding it emits
-# a warning annotation rather than failing, matching the repository's existing
-# "report, don't block" security posture.
+# a warning annotation rather than failing.
 env:
   MAX_IMAGE_MB: 200
 
@@ -50,6 +54,8 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build ${{ matrix.name }} image
+        id: build
+        continue-on-error: true
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -62,7 +68,15 @@ jobs:
             VERSION=ci
             NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS=${{ secrets.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA' }}
 
+      - name: Report build failure (non-blocking)
+        if: steps.build.outcome != 'success'
+        run: |
+          echo "::warning title=Image build failed::aethermint-${{ matrix.name }} image did not build; size and scan steps were skipped. See the build step logs."
+          echo "### ${{ matrix.name }} image: build FAILED" >> "$GITHUB_STEP_SUMMARY"
+          echo "The image did not build, so the size budget check and Trivy image scan were skipped. See the build step logs for details." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Report image size vs budget
+        if: steps.build.outcome == 'success'
         run: |
           BYTES=$(docker image inspect aethermint-${{ matrix.name }}:ci --format '{{.Size}}')
           MB=$(( BYTES / 1000000 ))
@@ -73,6 +87,7 @@ jobs:
           fi
 
       - name: Scan final image with Trivy
+        if: steps.build.outcome == 'success'
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
