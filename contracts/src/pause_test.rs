@@ -19,7 +19,12 @@ fn setup_test() -> (Env, Address, AetherMintContractClient<'static>) {
 }
 
 /// Setup that also returns the contract_id for persistence tests
-fn setup_test_with_id() -> (Env, Address, AetherMintContractClient<'static>, soroban_sdk::Address) {
+fn setup_test_with_id() -> (
+    Env,
+    Address,
+    AetherMintContractClient<'static>,
+    soroban_sdk::Address,
+) {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
@@ -124,8 +129,12 @@ fn test_pause_blocks_all_mutating_operations() {
     assert!(client.is_paused());
 
     // All mutating operations should fail
-    assert!(client.try_issue_credential(&admin, &user, &title, &desc, &course, &ipfs).is_err());
-    assert!(client.try_create_course(&admin, &title, &desc, &100).is_err());
+    assert!(client
+        .try_issue_credential(&admin, &user, &title, &desc, &course, &ipfs)
+        .is_err());
+    assert!(client
+        .try_create_course(&admin, &title, &desc, &100)
+        .is_err());
     assert!(client
         .try_issue_credential_with_expiration(&admin, &user, &title, &desc, &course, &ipfs, &3600)
         .is_err());
@@ -149,11 +158,9 @@ fn test_unpause_restores_mutating_operations() {
     let ipfs = String::from_str(&env, "IPFS");
 
     // Should fail while paused
-    assert!(
-        client
-            .try_issue_credential(&admin, &user, &title, &desc, &course, &ipfs)
-            .is_err()
-    );
+    assert!(client
+        .try_issue_credential(&admin, &user, &title, &desc, &course, &ipfs)
+        .is_err());
 
     // Unpause
     client.unpause(&admin);
@@ -182,9 +189,8 @@ fn test_credential_registry_paused() {
 
     // Issue a credential first (need to unpause temporarily)
     client.unpause(&admin);
-    let cred_id = client.issue_credential_with_expiration(
-        &admin, &user, &title, &desc, &course, &ipfs, &3600,
-    );
+    let cred_id = client
+        .issue_credential_with_expiration(&admin, &user, &title, &desc, &course, &ipfs, &3600);
     client.pause(&admin);
     assert!(client.is_paused());
 
