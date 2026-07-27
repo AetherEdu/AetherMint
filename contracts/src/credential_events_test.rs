@@ -1,9 +1,8 @@
 #![cfg(test)]
 
 use crate::credential_events::{
-    get_actor_events, get_credential_event, get_credential_event_count,
-    get_credential_events, publish_credential_event, record_event,
-    CredentialLifecycleEvent,
+    get_actor_events, get_credential_event, get_credential_event_count, get_credential_events,
+    publish_credential_event, record_event, CredentialLifecycleEvent,
 };
 use soroban_sdk::{testutils::Address as _, Address, Env};
 
@@ -82,9 +81,18 @@ fn test_publish_appends_multiple_events_per_credential() {
 
     let cred_events = get_credential_events(&env, cred_id);
     assert_eq!(cred_events.len(), 3);
-    assert_eq!(cred_events.get(0).unwrap().event_type, CredentialLifecycleEvent::Issued);
-    assert_eq!(cred_events.get(1).unwrap().event_type, CredentialLifecycleEvent::Verified);
-    assert_eq!(cred_events.get(2).unwrap().event_type, CredentialLifecycleEvent::Revoked);
+    assert_eq!(
+        cred_events.get(0).unwrap().event_type,
+        CredentialLifecycleEvent::Issued
+    );
+    assert_eq!(
+        cred_events.get(1).unwrap().event_type,
+        CredentialLifecycleEvent::Verified
+    );
+    assert_eq!(
+        cred_events.get(2).unwrap().event_type,
+        CredentialLifecycleEvent::Revoked
+    );
 
     assert_eq!(get_actor_events(&env, admin.clone()).len(), 1);
     assert_eq!(get_actor_events(&env, verifier.clone()).len(), 1);
@@ -99,12 +107,7 @@ fn test_publish_distinguishes_credentials_by_id() {
     let actor = Address::generate(&env);
     publish_credential_event(&env, CredentialLifecycleEvent::Issued, 1, actor.clone());
     publish_credential_event(&env, CredentialLifecycleEvent::Issued, 2, actor.clone());
-    publish_credential_event(
-        &env,
-        CredentialLifecycleEvent::Renewed,
-        1,
-        actor.clone(),
-    );
+    publish_credential_event(&env, CredentialLifecycleEvent::Renewed, 1, actor.clone());
 
     assert_eq!(get_credential_events(&env, 1).len(), 2);
     assert_eq!(get_credential_events(&env, 2).len(), 1);

@@ -110,33 +110,35 @@ pub mod user_profile;
 // pub mod marketplace;
 
 #[cfg(test)]
-mod time_lock_credential_test;
-#[cfg(test)]
-mod vrf_system_test;
-#[cfg(test)]
-mod progress_test;
-#[cfg(test)]
-mod event_logger_test;
-#[cfg(test)]
-mod user_profile_test;
-#[cfg(test)]
 mod analyticsStorage_test;
 #[cfg(test)]
 mod consciousness_test;
 #[cfg(test)]
 mod courseMetadata_test;
 #[cfg(test)]
+mod event_logger_test;
+#[cfg(test)]
+mod progress_test;
+#[cfg(test)]
 mod syncCoordination_test;
+#[cfg(test)]
+mod time_lock_credential_test;
+#[cfg(test)]
+mod user_profile_test;
+#[cfg(test)]
+mod vrf_system_test;
+
+#[cfg(test)]
+mod access_control_test;
 
 pub mod utils;
 
-pub mod dna_storage;
 pub mod dna_services;
-#[cfg(test)]
-mod dna_storage_test;
+pub mod dna_storage;
 #[cfg(test)]
 mod dna_storage_checkpoint_test;
-
+#[cfg(test)]
+mod dna_storage_test;
 
 /// Optimized user profile with packed storage
 #[contracttype]
@@ -171,7 +173,7 @@ impl PrivacyLevel {
             PrivacyLevel::FriendsOnly => 2,
         }
     }
-    
+
     pub fn from_u8(value: u8) -> Self {
         match value & 0x03 {
             0 => PrivacyLevel::Public,
@@ -270,9 +272,13 @@ impl AetherMintContract {
         }
 
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::CredentialCount, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::CredentialCount, &0u64);
         env.storage().instance().set(&DataKey::CourseCount, &0u64);
-        env.storage().instance().set(&DataKey::AchievementCount, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::AchievementCount, &0u64);
     }
 
     /// Issue a new credential with optimized storage
@@ -292,7 +298,9 @@ impl AetherMintContract {
         validate_string_length(&env, &course_id, MAX_SHORT_TEXT_LENGTH);
         validate_string_length(&env, &ipfs_hash, MAX_URI_LENGTH);
 
-        let admin: Address = env.storage().instance()
+        let admin: Address = env
+            .storage()
+            .instance()
             .get(&DataKey::Admin)
             .unwrap_or_else(|| panic!("Admin not found"));
 
@@ -300,7 +308,9 @@ impl AetherMintContract {
             panic!("Only admin can issue credentials");
         }
 
-        let count: u64 = env.storage().instance()
+        let count: u64 = env
+            .storage()
+            .instance()
             .get(&DataKey::CredentialCount)
             .unwrap_or(0);
         let credential_id = count + 1;
@@ -320,8 +330,12 @@ impl AetherMintContract {
             ipfs_hash,
         };
 
-        env.storage().instance().set(&DataKey::Credential(credential_id), &credential);
-        env.storage().instance().set(&DataKey::CredentialCount, &credential_id);
+        env.storage()
+            .instance()
+            .set(&DataKey::Credential(credential_id), &credential);
+        env.storage()
+            .instance()
+            .set(&DataKey::CredentialCount, &credential_id);
 
         // Update user credential count
         Self::increment_user_credential_count(&env, recipient);
@@ -343,7 +357,8 @@ impl AetherMintContract {
 
     /// Get credential details
     pub fn get_credential(env: Env, credential_id: u64) -> Credential {
-        env.storage().instance()
+        env.storage()
+            .instance()
             .get(&DataKey::Credential(credential_id))
             .unwrap_or_else(|| panic!("Credential not found"))
     }
@@ -361,7 +376,9 @@ impl AetherMintContract {
         validate_string_length(&env, &description, MAX_DESCRIPTION_LENGTH);
         validate_positive_u64(&env, price);
 
-        let admin: Address = env.storage().instance()
+        let admin: Address = env
+            .storage()
+            .instance()
             .get(&DataKey::Admin)
             .unwrap_or_else(|| panic!("Admin not found"));
 
@@ -369,12 +386,14 @@ impl AetherMintContract {
             panic!("Only admin can create courses");
         }
 
-        let course_count: u64 = env.storage().instance()
+        let course_count: u64 = env
+            .storage()
+            .instance()
             .get(&DataKey::CourseCount)
             .unwrap_or(0);
-        
+
         let course_id = course_count + 1;
-        
+
         // Pack flags - bit 0 = active status
         let flags = 1u32; // Active = true
 
@@ -387,8 +406,12 @@ impl AetherMintContract {
             flags,
         };
 
-        env.storage().instance().set(&DataKey::Course(course_id), &course);
-        env.storage().instance().set(&DataKey::CourseCount, &course_id);
+        env.storage()
+            .instance()
+            .set(&DataKey::Course(course_id), &course);
+        env.storage()
+            .instance()
+            .set(&DataKey::CourseCount, &course_id);
 
         course_id
     }
@@ -406,7 +429,8 @@ impl AetherMintContract {
 
     /// Get total credential count
     pub fn get_credential_count(env: Env) -> u64 {
-        env.storage().instance()
+        env.storage()
+            .instance()
             .get(&DataKey::CredentialCount)
             .unwrap_or(0)
     }
@@ -424,14 +448,16 @@ impl AetherMintContract {
 
     /// Get total course count
     pub fn get_course_count(env: Env) -> u64 {
-        env.storage().instance()
+        env.storage()
+            .instance()
             .get(&DataKey::CourseCount)
             .unwrap_or(0)
     }
 
     /// Get total achievement count
     pub fn get_achievement_count(env: Env) -> u64 {
-        env.storage().instance()
+        env.storage()
+            .instance()
             .get(&DataKey::AchievementCount)
             .unwrap_or(0)
     }
@@ -450,7 +476,14 @@ impl AetherMintContract {
         validity_duration: u64,
     ) -> u64 {
         credential_registry::issue_credential_with_expiration(
-            &env, issuer, recipient, title, description, course_id, ipfs_hash, validity_duration
+            &env,
+            issuer,
+            recipient,
+            title,
+            description,
+            course_id,
+            ipfs_hash,
+            validity_duration,
         )
     }
 
@@ -471,7 +504,10 @@ impl AetherMintContract {
     }
 
     /// Get credential with current expiration status
-    pub fn get_credential_with_status(env: Env, credential_id: u64) -> credential_registry::CredentialRegistry {
+    pub fn get_credential_with_status(
+        env: Env,
+        credential_id: u64,
+    ) -> credential_registry::CredentialRegistry {
         credential_registry::get_credential(&env, credential_id)
     }
 
@@ -486,7 +522,10 @@ impl AetherMintContract {
     }
 
     /// Get renewal history for a credential
-    pub fn get_credential_renewal_history(env: Env, credential_id: u64) -> Vec<credential_registry::RenewalRecord> {
+    pub fn get_credential_renewal_history(
+        env: Env,
+        credential_id: u64,
+    ) -> Vec<credential_registry::RenewalRecord> {
         credential_registry::get_renewal_history(&env, credential_id)
     }
 
@@ -524,22 +563,12 @@ impl AetherMintContract {
     }
 
     /// Evolve an NFT based on achievement
-    pub fn evolve_nft(
-        env: Env,
-        token_id: u64,
-        achievement_id: u64,
-        new_metadata: String,
-    ) -> bool {
+    pub fn evolve_nft(env: Env, token_id: u64, achievement_id: u64, new_metadata: String) -> bool {
         dynamic_nft::evolve_nft(&env, token_id, achievement_id, new_metadata)
     }
 
     /// Fuse two NFTs to create a new one
-    pub fn fuse_nfts(
-        env: Env,
-        token1_id: u64,
-        token2_id: u64,
-        recipient: Address,
-    ) -> u64 {
+    pub fn fuse_nfts(env: Env, token1_id: u64, token2_id: u64, recipient: Address) -> u64 {
         dynamic_nft::fuse_nfts(&env, token1_id, token2_id, recipient)
     }
 

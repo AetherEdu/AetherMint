@@ -1,9 +1,9 @@
-use soroban_sdk::{contracttype, Address, Bytes, Env, String, Vec, Symbol};
-use crate::utils::storage::{StorageUtils, EntityType};
+use crate::utils::storage::{EntityType, StorageUtils};
 use crate::utils::validation::{
     validate_distinct_addresses, validate_non_zero_address, validate_optional_string_length,
     validate_string_length, MAX_METADATA_LENGTH, MAX_URI_LENGTH,
 };
+use soroban_sdk::{contracttype, Address, Bytes, Env, String, Symbol, Vec};
 
 /// Contract version for upgradeable pattern
 #[contracttype]
@@ -16,7 +16,11 @@ pub struct ContractVersion {
 
 impl ContractVersion {
     pub fn new(major: u32, minor: u32, patch: u32) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 
     pub fn to_string(&self, env: &Env) -> String {
@@ -40,7 +44,7 @@ impl ContractVersion {
 pub enum UpgradeableKey {
     ContractVersion,
     ImplementationHash(String), // version -> hash
-    MigrationFlag(u32), // migration version -> bool
+    MigrationFlag(u32),         // migration version -> bool
 }
 
 /// Dynamic NFT credential with evolution capabilities
@@ -165,48 +169,65 @@ pub enum DynamicNFTKey {
 /// Soroban NFT events
 #[contracttype]
 pub enum NFTEvent {
-    Transfer(Address, Address, u64), // from, to, token_id
+    Transfer(Address, Address, u64),                // from, to, token_id
     Evolution(u64, EvolutionStage, EvolutionStage), // token_id, from_stage, to_stage
-    AchievementUnlocked(u64, u64), // token_id, achievement_id
-    Fusion(u64, u64, u64), // token1_id, token2_id, new_token_id
+    AchievementUnlocked(u64, u64),                  // token_id, achievement_id
+    Fusion(u64, u64, u64),                          // token1_id, token2_id, new_token_id
 }
 
 /// Initialize upgradeable contract with version
 pub fn initialize_upgradeable(env: &Env, admin: Address, initial_version: ContractVersion) {
-    if env.storage().instance().has(&UpgradeableKey::ContractVersion) {
+    if env
+        .storage()
+        .instance()
+        .has(&UpgradeableKey::ContractVersion)
+    {
         panic!("Contract already initialized");
     }
-    
-    env.storage().instance().set(&UpgradeableKey::ContractVersion, &initial_version);
-    env.storage().instance().set(&soroban_sdk::Symbol::new(env, "admin"), &admin);
+
+    env.storage()
+        .instance()
+        .set(&UpgradeableKey::ContractVersion, &initial_version);
+    env.storage()
+        .instance()
+        .set(&soroban_sdk::Symbol::new(env, "admin"), &admin);
 }
 
 /// Get current contract version
 pub fn get_contract_version(env: &Env) -> ContractVersion {
-    env.storage().instance()
+    env.storage()
+        .instance()
         .get(&UpgradeableKey::ContractVersion)
         .unwrap_or_else(|| ContractVersion::new(1, 0, 0))
 }
 
 /// Upgrade contract to new version
-pub fn upgrade_contract(env: &Env, new_version: ContractVersion, implementation_hash: String) -> bool {
-    let admin: Address = env.storage().instance()
+pub fn upgrade_contract(
+    env: &Env,
+    new_version: ContractVersion,
+    implementation_hash: String,
+) -> bool {
+    let admin: Address = env
+        .storage()
+        .instance()
         .get(&soroban_sdk::Symbol::new(env, "admin"))
         .unwrap_or_else(|| panic!("Admin not found"));
-    
+
     admin.require_auth();
-    
+
     let current_version = get_contract_version(env);
     if !new_version.is_compatible(&current_version) {
         panic!("Incompatible version upgrade");
     }
-    
-    env.storage().instance().set(&UpgradeableKey::ContractVersion, &new_version);
+
+    env.storage()
+        .instance()
+        .set(&UpgradeableKey::ContractVersion, &new_version);
     env.storage().instance().set(
-        &UpgradeableKey::ImplementationHash(new_version.to_string(env)), 
-        &implementation_hash
+        &UpgradeableKey::ImplementationHash(new_version.to_string(env)),
+        &implementation_hash,
     );
-    
+
     true
 }
 
@@ -216,17 +237,17 @@ pub fn verify_ipfs_metadata(env: &Env, metadata: &IPFSMetadata) -> bool {
     if metadata.hash.len() < 46 {
         return false;
     }
-    
+
     // Check if metadata is not too old (24 hours)
     let now = env.ledger().timestamp();
     let max_age = 24 * 60 * 60; // 24 hours in seconds
     if now > metadata.verification_timestamp + max_age {
         return false;
     }
-    
+
     // Verify content type
     // Content type validation removed - relies on IPFS hash verification
-    
+
     true
 }
 
@@ -235,28 +256,32 @@ pub fn store_enhanced_metadata(env: &Env, token_id: u64, metadata: EnhancedMetad
     if !verify_ipfs_metadata(env, &metadata.ipfs_metadata) {
         panic!("Invalid IPFS metadata");
     }
-    
-    let mut nft: DynamicNFT = env.storage().persistent()
+
+    let mut nft: DynamicNFT = env
+        .storage()
+        .persistent()
         .get(&DynamicNFTKey::Token(token_id))
         .unwrap_or_else(|| panic!("NFT not found"));
-    
+
     // Update metadata with verification timestamp
     nft.metadata_ipfs = metadata.ipfs_metadata.hash.clone();
     nft.last_evolved = env.ledger().timestamp();
-    
+
     // Store enhanced metadata separately for detailed queries
-    env.storage().persistent().set(&DynamicNFTKey::Token(token_id), &nft);
-    env.storage().persistent().set(
-        &soroban_sdk::Symbol::new(env, "enhanced"), 
-        &metadata
-    );
-    
+    env.storage()
+        .persistent()
+        .set(&DynamicNFTKey::Token(token_id), &nft);
+    env.storage()
+        .persistent()
+        .set(&soroban_sdk::Symbol::new(env, "enhanced"), &metadata);
+
     true
 }
 
 /// Get enhanced metadata for NFT
 pub fn get_enhanced_metadata(env: &Env, _token_id: u64) -> Option<EnhancedMetadata> {
-    env.storage().persistent()
+    env.storage()
+        .persistent()
         .get(&soroban_sdk::Symbol::new(env, "enhanced"))
 }
 
@@ -275,7 +300,9 @@ pub fn mint_dynamic_nft(
     validate_string_length(env, &base_uri, MAX_URI_LENGTH);
     validate_optional_string_length(env, &initial_metadata, MAX_METADATA_LENGTH);
 
-    let admin: Address = env.storage().instance()
+    let admin: Address = env
+        .storage()
+        .instance()
         .get(&Symbol::new(env, "admin"))
         .unwrap_or_else(|| panic!("Admin not set"));
     if creator != admin {
@@ -311,38 +338,42 @@ pub fn mint_dynamic_nft(
     };
 
     // Store NFT
-    env.storage().persistent().set(&DynamicNFTKey::Token(token_id), &nft);
-    
+    env.storage()
+        .persistent()
+        .set(&DynamicNFTKey::Token(token_id), &nft);
+
     // Update owner's token list
     let mut owner_tokens = get_owner_tokens(env, recipient.clone());
     owner_tokens.push_back(token_id);
-    env.storage().persistent().set(&DynamicNFTKey::OwnerTokens(recipient.clone()), &owner_tokens);
+    env.storage().persistent().set(
+        &DynamicNFTKey::OwnerTokens(recipient.clone()),
+        &owner_tokens,
+    );
 
     // Update token count
-    env.storage().instance().set(&DynamicNFTKey::TokenCount, &token_id);
+    env.storage()
+        .instance()
+        .set(&DynamicNFTKey::TokenCount, &token_id);
 
     // Emit transfer event (from: zero address sentinel)
     // In Soroban, use current_contract_address for mint events
     let zero_addr = env.current_contract_address();
     env.events().publish(
         (Symbol::new(env, "Transfer"),),
-        (zero_addr, recipient, token_id)
+        (zero_addr, recipient, token_id),
     );
 
     token_id
 }
 
 /// Evolve NFT based on new achievement
-pub fn evolve_nft(
-    env: &Env,
-    token_id: u64,
-    achievement_id: u64,
-    new_metadata: String,
-) -> bool {
+pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: String) -> bool {
     // Validate inputs before any state access (issue #117).
     validate_optional_string_length(env, &new_metadata, MAX_METADATA_LENGTH);
 
-    let mut nft: DynamicNFT = env.storage().persistent()
+    let mut nft: DynamicNFT = env
+        .storage()
+        .persistent()
         .get(&DynamicNFTKey::Token(token_id))
         .unwrap_or_else(|| panic!("NFT not found"));
 
@@ -353,7 +384,7 @@ pub fn evolve_nft(
 
     // Add achievement
     nft.achievements.push_back(achievement_id);
-    
+
     // Calculate XP reward for achievement
     let xp_reward = calculate_achievement_xp(env, achievement_id);
     nft.experience_points += xp_reward;
@@ -362,7 +393,9 @@ pub fn evolve_nft(
     let timestamp = env.ledger().timestamp();
 
     // Check for evolution
-    if let Some(new_stage) = check_evolution_requirements(env, nft.current_level, nft.experience_points) {
+    if let Some(new_stage) =
+        check_evolution_requirements(env, nft.current_level, nft.experience_points)
+    {
         nft.evolution_stage = new_stage.clone();
         nft.current_level += 1;
         nft.last_evolved = timestamp;
@@ -383,7 +416,7 @@ pub fn evolve_nft(
         // Emit evolution event
         env.events().publish(
             (Symbol::new(env, "Evolution"),),
-            (token_id, old_stage, new_stage)
+            (token_id, old_stage, new_stage),
         );
     }
 
@@ -391,35 +424,36 @@ pub fn evolve_nft(
     nft.metadata_ipfs = new_metadata;
 
     // Store updated NFT
-    env.storage().persistent().set(&DynamicNFTKey::Token(token_id), &nft);
+    env.storage()
+        .persistent()
+        .set(&DynamicNFTKey::Token(token_id), &nft);
 
     // Emit achievement unlock event
     env.events().publish(
         (Symbol::new(env, "AchievementUnlocked"),),
-        (token_id, achievement_id)
+        (token_id, achievement_id),
     );
 
     true
 }
 
 /// Fuse two NFTs to create a new one
-pub fn fuse_nfts(
-    env: &Env,
-    token1_id: u64,
-    token2_id: u64,
-    recipient: Address,
-) -> u64 {
+pub fn fuse_nfts(env: &Env, token1_id: u64, token2_id: u64, recipient: Address) -> u64 {
     // Validate inputs before any state access (issue #117).
     validate_non_zero_address(env, &recipient);
     if token1_id == token2_id {
         panic!("Cannot fuse an NFT with itself");
     }
 
-    let nft1: DynamicNFT = env.storage().persistent()
+    let nft1: DynamicNFT = env
+        .storage()
+        .persistent()
         .get(&DynamicNFTKey::Token(token1_id))
         .unwrap_or_else(|| panic!("NFT 1 not found"));
-    
-    let nft2: DynamicNFT = env.storage().persistent()
+
+    let nft2: DynamicNFT = env
+        .storage()
+        .persistent()
         .get(&DynamicNFTKey::Token(token2_id))
         .unwrap_or_else(|| panic!("NFT 2 not found"));
 
@@ -460,12 +494,16 @@ pub fn fuse_nfts(
     };
 
     // Store new NFT
-    env.storage().persistent().set(&DynamicNFTKey::Token(new_token_id), &fused_nft);
-    
+    env.storage()
+        .persistent()
+        .set(&DynamicNFTKey::Token(new_token_id), &fused_nft);
+
     // Update owner's token list
     let mut owner_tokens = get_owner_tokens(env, recipient.clone());
     owner_tokens.push_back(new_token_id);
-    env.storage().persistent().set(&DynamicNFTKey::OwnerTokens(recipient), &owner_tokens);
+    env.storage()
+        .persistent()
+        .set(&DynamicNFTKey::OwnerTokens(recipient), &owner_tokens);
 
     // Burn original NFTs
     burn_nft(env, token1_id);
@@ -474,7 +512,7 @@ pub fn fuse_nfts(
     // Emit fusion event
     env.events().publish(
         (Symbol::new(env, "Fusion"),),
-        (token1_id, token2_id, new_token_id)
+        (token1_id, token2_id, new_token_id),
     );
 
     new_token_id
@@ -488,7 +526,9 @@ pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
     validate_non_zero_address(env, &to);
     validate_distinct_addresses(env, &from, &to);
 
-    let mut nft: DynamicNFT = env.storage().persistent()
+    let mut nft: DynamicNFT = env
+        .storage()
+        .persistent()
         .get(&DynamicNFTKey::Token(token_id))
         .unwrap_or_else(|| panic!("NFT not found"));
 
@@ -512,41 +552,48 @@ pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
     }
     let index = found_idx;
     from_tokens.remove(index as u32);
-    env.storage().persistent().set(&DynamicNFTKey::OwnerTokens(from.clone()), &from_tokens);
+    env.storage()
+        .persistent()
+        .set(&DynamicNFTKey::OwnerTokens(from.clone()), &from_tokens);
 
     // Add to new owner's tokens
     let mut to_tokens = get_owner_tokens(env, to.clone());
     to_tokens.push_back(token_id);
-    env.storage().persistent().set(&DynamicNFTKey::OwnerTokens(to.clone()), &to_tokens);
+    env.storage()
+        .persistent()
+        .set(&DynamicNFTKey::OwnerTokens(to.clone()), &to_tokens);
 
     // Update NFT owner
     nft.owner = to.clone();
-    env.storage().persistent().set(&DynamicNFTKey::Token(token_id), &nft);
+    env.storage()
+        .persistent()
+        .set(&DynamicNFTKey::Token(token_id), &nft);
 
     // Emit transfer event
-    env.events().publish(
-        (Symbol::new(env, "Transfer"),),
-        (from, to, token_id)
-    );
+    env.events()
+        .publish((Symbol::new(env, "Transfer"),), (from, to, token_id));
 }
 
 /// Get NFT details
 pub fn get_nft(env: &Env, token_id: u64) -> DynamicNFT {
-    env.storage().persistent()
+    env.storage()
+        .persistent()
         .get(&DynamicNFTKey::Token(token_id))
         .unwrap_or_else(|| panic!("NFT not found"))
 }
 
 /// Get all tokens owned by an address
 pub fn get_owner_tokens(env: &Env, owner: Address) -> Vec<u64> {
-    env.storage().persistent()
+    env.storage()
+        .persistent()
         .get(&DynamicNFTKey::OwnerTokens(owner))
         .unwrap_or_else(|| Vec::new(env))
 }
 
 /// Get total token count
 pub fn get_total_supply(env: &Env) -> u64 {
-    env.storage().instance()
+    env.storage()
+        .instance()
         .get(&DynamicNFTKey::TokenCount)
         .unwrap_or(0)
 }
@@ -559,7 +606,11 @@ fn calculate_achievement_xp(_env: &Env, achievement_id: u64) -> u64 {
 }
 
 /// Check if NFT should evolve based on XP and level
-fn check_evolution_requirements(_env: &Env, _current_level: u32, xp: u64) -> Option<EvolutionStage> {
+fn check_evolution_requirements(
+    _env: &Env,
+    _current_level: u32,
+    xp: u64,
+) -> Option<EvolutionStage> {
     let xp_thresholds = [
         (0, EvolutionStage::Novice),
         (500, EvolutionStage::Apprentice),
@@ -646,7 +697,7 @@ fn determine_fusion_stage(stage1: &EvolutionStage, stage2: &EvolutionStage) -> E
     let stage1_value = *stage1 as u8;
     let stage2_value = *stage2 as u8;
     let fused_value = (stage1_value + stage2_value) / 2 + 1;
-    
+
     match fused_value.min(5) {
         0 => EvolutionStage::Novice,
         1 => EvolutionStage::Apprentice,
@@ -659,7 +710,9 @@ fn determine_fusion_stage(stage1: &EvolutionStage, stage2: &EvolutionStage) -> E
 
 /// Burn (destroy) an NFT
 fn burn_nft(env: &Env, token_id: u64) {
-    env.storage().persistent().remove(&DynamicNFTKey::Token(token_id));
+    env.storage()
+        .persistent()
+        .remove(&DynamicNFTKey::Token(token_id));
 }
 
 /// Get NFT metadata URI
@@ -670,7 +723,9 @@ pub fn token_uri(env: &Env, token_id: u64) -> String {
 
 /// Check if NFT exists
 pub fn nft_exists(env: &Env, token_id: u64) -> bool {
-    env.storage().persistent().has(&DynamicNFTKey::Token(token_id))
+    env.storage()
+        .persistent()
+        .has(&DynamicNFTKey::Token(token_id))
 }
 
 /// Get owner of NFT
