@@ -84,8 +84,8 @@ export class AuthError extends AppError {
 // ─── 403 ──────────────────────────────────────────────────────────────────────
 
 export class ForbiddenError extends AppError {
-  constructor(message = 'Forbidden action') {
-    super(message, 403, 'FORBIDDEN');
+  constructor(message = 'Forbidden action', details?: unknown) {
+    super(message, 403, 'FORBIDDEN', true, details);
   }
 }
 

@@ -49,6 +49,7 @@ import {
   securityHeadersMiddleware
 } from './middleware/security';
 import { detectSuspiciousPatterns } from './middleware/sanitizer';
+// @ts-ignore - CommonJS module without type declarations
 import { validateFileUpload } from './middleware/sanitizeMiddleware';
 // @ts-ignore
 import { tieredRateLimiter, transactionLimiter } from './middleware/rateLimiter';

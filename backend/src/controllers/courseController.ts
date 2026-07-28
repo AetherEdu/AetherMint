@@ -85,10 +85,10 @@ router.post(
       ]),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { query: searchQuery, filters = {}, sessionId } = req.body;
-      const userId = req.user?.id; // Assuming auth middleware sets req.user
+      const userId = req.user?.id;
 
       logger.info(`Search request - Query: ${searchQuery}, User: ${userId}`);
 
@@ -129,7 +129,7 @@ router.get(
     query("limit").optional().isInt({ min: 1, max: 10 }),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { q: searchQuery, limit = 5 } = req.query;
 
@@ -166,7 +166,7 @@ router.get(
   "/trending",
   [query("limit").optional().isInt({ min: 1, max: 50 })],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const limit = parseInt((req.query.limit as string) || "10");
 
@@ -204,7 +204,7 @@ router.get(
     query("limit").optional().isInt({ min: 1, max: 20 }),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { courseId } = req.params;
       const limit = parseInt((req.query.limit as string) || "5");
@@ -268,7 +268,7 @@ router.post(
     query("limit").optional().isInt({ min: 1, max: 30 }),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const context = req.body as RecommendationContext;
       const limit = parseInt((req.query.limit as string) || "10");
@@ -329,7 +329,7 @@ router.post(
     body("data").optional().isObject(),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { userId, activityType, courseId, data } = req.body;
 
@@ -364,7 +364,7 @@ router.post(
  * @example
  * GET /api/courses/categories
  */
-router.get("/categories", async (req: Request, res: Response) => {
+router.get("/categories", async (req: Request, res: Response, next: NextFunction) => {
   try {
     logger.info("Categories request");
 
@@ -388,7 +388,7 @@ router.get("/categories", async (req: Request, res: Response) => {
  * @example
  * GET /api/courses/categories/tree
  */
-router.get("/categories/tree", async (req: Request, res: Response) => {
+router.get("/categories/tree", async (req: Request, res: Response, next: NextFunction) => {
   try {
     logger.info("Category tree request");
 
@@ -436,7 +436,7 @@ router.post(
     body("parentCategory").optional().isString(),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const category: CourseCategory = req.body;
       const actor = req.user?.address || 'anonymous';
@@ -505,7 +505,7 @@ router.put(
     body("parentCategory").optional().isString(),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const category: CourseCategory = req.body;
       const actor = req.user?.address || 'anonymous';
@@ -560,7 +560,7 @@ router.put(
  */
 router.delete(
   "/categories/:categoryId",
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { categoryId } = req.params;
       const actor = req.user?.address || 'anonymous';
@@ -616,7 +616,7 @@ router.get(
   "/analytics/popular-searches",
   [query("limit").optional().isInt({ min: 1, max: 50 })],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const limit = parseInt((req.query.limit as string) || "10");
 
@@ -646,7 +646,7 @@ router.get(
  * @example
  * GET /api/courses/analytics/search/javascript
  */
-router.get("/analytics/search/:query", async (req: Request, res: Response) => {
+router.get("/analytics/search/:query", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { query } = req.params;
 
