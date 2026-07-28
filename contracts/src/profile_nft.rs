@@ -6,8 +6,8 @@
 use crate::utils::pause::PauseUtils;
 use crate::utils::storage::StorageUtils;
 use crate::utils::validation::{
-    validate_non_zero_address, validate_string_length,
-    MAX_DESCRIPTION_LENGTH, MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
+    validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH,
+    MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
 };
 use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
 

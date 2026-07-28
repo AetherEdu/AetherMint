@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod profile_nft_test {
-use soroban_sdk::testutils::{Address as _, Ledger};
-use soroban_sdk::{vec, Address, Env, String};
+    use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::{vec, Address, Env, String};
 
-use crate::profile_nft::*;
-use crate::utils::pause::PauseUtils;
+    use crate::profile_nft::*;
+    use crate::utils::pause::PauseUtils;
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -177,15 +177,7 @@ use crate::utils::pause::PauseUtils;
         let avatar = String::from_str(&env, "ipfs://avatar");
         let skills = vec![&env, String::from_str(&env, "Rust")];
 
-        mint_profile_nft(
-            &env,
-            user.clone(),
-            name,
-            bio,
-            avatar,
-            skills,
-            None,
-        );
+        mint_profile_nft(&env, user.clone(), name, bio, avatar, skills, None);
 
         let nft = get_profile_nft_by_owner(&env, user.clone()).unwrap();
         assert_eq!(nft.owner, user);

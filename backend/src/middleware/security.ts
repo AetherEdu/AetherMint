@@ -220,8 +220,7 @@ export const checkBlacklist = async (req: Request, res: Response, next: NextFunc
     const blockReason = await (securityService as any).isIPBlocked(ip);
     if (blockReason) {
       logger.warn(`Blocked request from blacklisted IP: ${ip} Reason: ${blockReason}`);
-      const err = new ForbiddenError('Access denied from this IP.');
-      err.details = { reason: blockReason };
+      const err = new ForbiddenError('Access denied from this IP.', { reason: blockReason });
       return next(err);
     }
 

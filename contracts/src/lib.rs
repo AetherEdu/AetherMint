@@ -4,9 +4,7 @@
 #![allow(clippy::manual_checked_ops)]
 #![allow(clippy::needless_range_loop)]
 extern crate alloc;
-use soroban_sdk::{
-    contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Vec,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Vec};
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
 use crate::utils::pause::PauseUtils;
