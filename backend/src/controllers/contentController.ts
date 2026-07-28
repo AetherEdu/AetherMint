@@ -202,7 +202,7 @@ export class ContentController {
         throw new AuthError('Unauthorized');
       }
 
-      if (!req.file) {
+      if (!(req as any).file) {
         throw new ValidationError('No file uploaded');
       }
 
@@ -216,9 +216,9 @@ export class ContentController {
       };
 
       const result = await this.mediaService.uploadMedia(
-        req.file.buffer,
-        req.file.originalname,
-        req.file.mimetype,
+        (req as any).file.buffer,
+        (req as any).file.originalname,
+        (req as any).file.mimetype,
         userId,
         options
       );
@@ -352,12 +352,12 @@ export class ContentController {
         throw new AuthError('Unauthorized');
       }
 
-      if (!req.file) {
+      if (!(req as any).file) {
         throw new ValidationError('No file uploaded');
       }
 
       const format = req.body.format || 'json';
-      const data = req.file.buffer.toString('utf-8');
+      const data = (req as any).file.buffer.toString('utf-8');
       
       const result = await this.contentService.importContent(data, format, userId);
 
