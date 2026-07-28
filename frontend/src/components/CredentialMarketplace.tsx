@@ -66,9 +66,8 @@ const CredentialMarketplace = () => {
         ))}
       </div>
       </div>
-      </ErrorBoundary>
     );
-  );
+  }
 };
 
 export default CredentialMarketplace;
