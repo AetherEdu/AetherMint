@@ -112,15 +112,8 @@ pub fn issue_credential_with_expiration(
     validate_string_length(env, &ipfs_hash, MAX_URI_LENGTH);
     validate_duration(env, validity_duration);
 
-    let admin: Address = env
-        .storage()
-        .instance()
-        .get(&Symbol::new(env, "admin"))
-        .unwrap_or_else(|| panic!("Admin not found"));
-
-    if issuer != admin {
-        panic!("Unauthorized issuer");
-    }
+    // RBAC: require Issuer role (Admin also satisfies via role inheritance)
+    crate::access_control::require_role(env, &issuer, crate::access_control::Role::Issuer);
 
     let credential_id = StorageUtils::get_next_id(env, EntityType::Credential);
     let current_time = env.ledger().timestamp();
@@ -367,15 +360,8 @@ pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) -> boo
     StorageVersion::require_compatible_version(env);
     revoker.require_auth();
 
-    let admin: Address = env
-        .storage()
-        .instance()
-        .get(&Symbol::new(env, "admin"))
-        .unwrap_or_else(|| panic!("Admin not found"));
-
-    if revoker != admin {
-        panic!("Only admin can revoke credentials");
-    }
+    // RBAC: only Admin can revoke credentials
+    crate::access_control::require_role(env, &revoker, crate::access_control::Role::Admin);
 
     let mut credential: CredentialRegistry = env
         .storage()
@@ -531,16 +517,8 @@ pub fn issue_credentials_batch(
         panic!("Batch size exceeds maximum allowed limit");
     }
 
-    // Verify issuer is the admin.
-    let admin: Address = env
-        .storage()
-        .instance()
-        .get(&Symbol::new(env, "admin"))
-        .unwrap_or_else(|| panic!("Admin not found"));
-
-    if issuer != admin {
-        panic!("Unauthorized issuer");
-    }
+    // RBAC: require Issuer role
+    crate::access_control::require_role(env, &issuer, crate::access_control::Role::Issuer);
 
     // Validate all params up-front before touching storage (all-or-nothing).
     for i in 0..batch_len {
