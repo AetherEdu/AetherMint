@@ -57,4 +57,12 @@ export const rateLimits = {
     name: 'static',
     scope: 'ip',
   }),
+  graphql: rateLimitMiddleware({
+    ...rateLimitConfig.public,
+    max: Math.max(60, Math.floor(rateLimitConfig.public.max / 2)),
+    burstMax: Math.max(10, Math.floor(rateLimitConfig.public.burstMax / 2)),
+    name: 'graphql',
+    scope: 'endpoint',
+    message: 'GraphQL rate limit exceeded. Please try again shortly.',
+  }),
 };

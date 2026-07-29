@@ -5,7 +5,7 @@
 
 import { PaymentMethod, PaymentStatus, StellarPayment } from './Enrollment';
 
-export { PaymentMethod, PaymentStatus, StellarPayment } from './Enrollment';
+export { PaymentMethod, PaymentStatus, type StellarPayment } from './Enrollment';
 
 // Type aliases used across the codebase
 export type Payment = PaymentTransaction;
