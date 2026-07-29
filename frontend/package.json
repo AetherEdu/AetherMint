@@ -20,6 +20,7 @@
     "postinstall": "node scripts/postinstall.js",
     "prepare": "husky install",
     "analyze": "ANALYZE=true next build",
+    "bundle-budget": "node scripts/check-bundle-budget.mjs",
     "lighthouse": "lighthouse http://localhost:3000 --output=json --output-path=./lighthouse-report.json",
     "performance-test": "npm run build && npm run lighthouse"
   },
