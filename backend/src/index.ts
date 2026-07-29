@@ -51,6 +51,8 @@ import {
   securityHeadersMiddleware
 } from './middleware/security';
 import { detectSuspiciousPatterns } from './middleware/sanitizer';
+// @ts-ignore - CommonJS module without type declarations
+import { validateFileUpload } from './middleware/sanitizeMiddleware';
 // @ts-ignore
 import { tieredRateLimiter, transactionLimiter } from './middleware/rateLimiter';
 import { rateLimits } from './middleware/rateLimit';
@@ -169,6 +171,9 @@ app.use(detectSuspiciousPatterns);
 
 // NEW/Updated: Sanitize all inputs
 app.use(requestSanitizer);
+
+// File upload validation (type, size, content, blocked extensions)
+app.use(validateFileUpload);
 
 // ── OpenAPI documentation endpoints ────────────────────────────────────────
 
