@@ -70,13 +70,14 @@ export function OfflineIndicator({
   // useful control panel. We disable autoSync because this component is
   // about visibility, not background flushing.
   const { syncStatus, clearQueue } = useOfflineSync({ autoSync: false });
-  const { clearAll } = useOfflineCourses();
+  const { clearAll, courses: offlineCourses } = useOfflineCourses();
   const [clearing, setClearing] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [clearedRecently, setClearedRecently] = useState(false);
   const [clearError, setClearError] = useState<string | null>(null);
 
   const pendingCount = syncStatus.queuedItems;
+  const availableContentCount = offlineCourses.length;
 
   const handleDismiss = () => {
     safeSetItem(storageKey, 'true');
@@ -118,6 +119,17 @@ export function OfflineIndicator({
     if (clearedRecently) {
       return <>Offline data cleared. Continuing to monitor the connection…</>;
     }
+    if (pendingCount > 0 && availableContentCount > 0) {
+      return (
+        <>
+          You&rsquo;re offline. {pendingCount} pending{' '}
+          {pendingCount === 1 ? 'action' : 'actions'} will sync when
+          you&rsquo;re back online. {availableContentCount} cached{' '}
+          {availableContentCount === 1 ? 'course is' : 'courses are'} available
+          for offline study.
+        </>
+      );
+    }
     if (pendingCount > 0) {
       return (
         <>
@@ -127,13 +139,22 @@ export function OfflineIndicator({
         </>
       );
     }
+    if (availableContentCount > 0) {
+      return (
+        <>
+          You&rsquo;re offline &mdash; {availableContentCount} cached{' '}
+          {availableContentCount === 1 ? 'course is' : 'courses are'} available
+          and progress will sync automatically once you&rsquo;re back online.
+        </>
+      );
+    }
     return (
       <>
         You&rsquo;re offline &mdash; cached content remains available and
         progress will sync automatically once you&rsquo;re back online.
       </>
     );
-  }, [clearError, clearedRecently, pendingCount]);
+  }, [clearError, clearedRecently, pendingCount, availableContentCount]);
 
   if (isOnline || dismissed) return null;
 
@@ -168,6 +189,15 @@ export function OfflineIndicator({
               className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-amber-700 px-2 py-0.5 text-xs font-semibold text-amber-50"
             >
               {pendingCount}
+            </span>
+          )}
+          {availableContentCount > 0 && !clearedRecently && !clearError && (
+            <span
+              data-testid="offline-available-content"
+              className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-green-700 px-2 py-0.5 text-xs font-semibold text-green-50"
+              title={`${availableContentCount} ${availableContentCount === 1 ? 'course' : 'courses'} available offline`}
+            >
+              {availableContentCount}
             </span>
           )}
           <span

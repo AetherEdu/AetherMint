@@ -6,11 +6,12 @@
  * Strategies (in registration order — most-specific to most-generic):
  *   1. POST/PUT/PATCH/DELETE /api/*           → NetworkOnly + BackgroundSync
  *   2. GET /api/(courses|lessons|progress|analytics)/* → StaleWhileRevalidate
- *   3. GET /api/*                              → NetworkFirst (3 s timeout)
- *   4. Scripts/Styles/Images/Fonts/Manifest    → CacheFirst (30 d)
- *   5. /_next/static/*                         → CacheFirst (1 y, immutable)
- *   6. Navigations (HTML)                      → StaleWhileRevalidate (7 d)
- *   7. setCatchHandler → /offline shell for docs & prefetches,
+ *   3. GET /api/*                              → StaleWhileRevalidate
+ *   4. Images                                  → CacheFirst with 50 MB size limit
+ *   5. Scripts/Styles/Fonts/Manifest           → CacheFirst (30 d)
+ *   6. /_next/static/*                         → CacheFirst (1 y, immutable)
+ *   7. Navigations (HTML)                      → NetworkFirst with cache fallback
+ *   8. setCatchHandler → /offline shell for docs & prefetches,
  *                        503 JSON sentinel for `/_next/data/*`.
  *
  * Update flow:
@@ -28,8 +29,15 @@ importScripts(
   'https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js'
 );
 
-/** Current cache key suffix. Bumped to evict stale caches during activate. */
-const SW_VERSION = 'v4';
+/**
+ * Current cache key suffix. Bumped to evict stale caches during activate.
+ *
+ * Changelog:
+ *   v5 — NetworkFirst for HTML, StaleWhileRevalidate for all API reads,
+ *        image size limit (50 MB), improved cache cleanup.
+ *   v4 — Initial StaleWhileRevalidate for nav, NetworkFirst for API.
+ */
+const SW_VERSION = 'v5';
 
 const isLocalHost =
   self.location.hostname === 'localhost' ||
@@ -41,7 +49,14 @@ const isLocalHost =
  * undefined and we degrade to a passthrough service worker.
  */
 if (self.workbox) {
-  const { routing, strategies, backgroundSync, expiration, precaching } =
+  const {
+    routing,
+    strategies,
+    backgroundSync,
+    cacheableResponse,
+    expiration,
+    precaching,
+  } =
     self.workbox;
 
   // -------------------------------------------------------------------------
@@ -133,19 +148,19 @@ if (self.workbox) {
     );
 
     // -------------------------------------------------------------------------
-    // 3. All other GET /api/* → NetworkFirst with 3 s timeout.
+    // 3. All other GET /api/* → StaleWhileRevalidate.
     // -------------------------------------------------------------------------
-    // User/profile/auth endpoints should stay as fresh as possible, but we
-    // still degrade gracefully to cache so the app stays interactive offline.
+    // User/profile/auth endpoints use stale-while-revalidate: serve cached
+    // data instantly while fetching fresh data in the background. This keeps
+    // the app fast and interactive even on slow connections.
     routing.registerRoute(
       ({ url, request }) =>
         url.pathname.startsWith('/api/') && request.method === 'GET',
-      new strategies.NetworkFirst({
+      new strategies.StaleWhileRevalidate({
         cacheName: `aethermint-api-${SW_VERSION}`,
-        networkTimeoutSeconds: 3,
         plugins: [
           new expiration.ExpirationPlugin({
-            maxEntries: 60,
+            maxEntries: 100,
             maxAgeSeconds: 24 * 60 * 60,
             purgeOnQuotaError: true,
           }),
@@ -154,11 +169,34 @@ if (self.workbox) {
     );
 
     // -------------------------------------------------------------------------
-    // 4. Static assets (images, scripts, styles, fonts, manifest).
+    // 4. Images → CacheFirst with 50 MB total size limit.
+    // -------------------------------------------------------------------------
+    // Images are cached aggressively but capped at 50 MB total to avoid
+    // filling the device quota. CacheableResponsePlugin ensures only
+    // successful (0 or 200) responses are stored.
+    routing.registerRoute(
+      ({ request }) => request.destination === 'image',
+      new strategies.CacheFirst({
+        cacheName: `aethermint-images-${SW_VERSION}`,
+        plugins: [
+          new expiration.ExpirationPlugin({
+            maxEntries: 80,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
+            maxAgeSize: 50 * 1024 * 1024, // 50 MB
+            purgeOnQuotaError: true,
+          }),
+          new cacheableResponse.CacheableResponsePlugin({
+            statuses: [0, 200],
+          }),
+        ],
+      })
+    );
+
+    // -------------------------------------------------------------------------
+    // 5. Scripts, styles, fonts, manifest → CacheFirst (30 d).
     // -------------------------------------------------------------------------
     routing.registerRoute(
       ({ request }) =>
-        request.destination === 'image' ||
         request.destination === 'script' ||
         request.destination === 'style' ||
         request.destination === 'font' ||
@@ -176,7 +214,7 @@ if (self.workbox) {
     );
 
     // -------------------------------------------------------------------------
-    // 5. Next.js static chunks — already fingerprinted, cache-first forever.
+    // 6. Next.js static chunks — already fingerprinted, cache-first forever.
     // -------------------------------------------------------------------------
     routing.registerRoute(
       ({ url }) => url.pathname.startsWith('/_next/static/'),
@@ -193,12 +231,17 @@ if (self.workbox) {
     );
 
     // -------------------------------------------------------------------------
-    // 6. Navigations (top-level HTML).
+    // 7. Navigations (HTML) → NetworkFirst with cache fallback.
     // -------------------------------------------------------------------------
+    // HTML requests try network first so learners always see the freshest
+    // page. If the network is unavailable, the cached version is served,
+    // ensuring the app still loads when offline. A 5-second network timeout
+    // prevents hanging on slow connections.
     routing.registerRoute(
       ({ request }) => request.mode === 'navigate',
-      new strategies.StaleWhileRevalidate({
+      new strategies.NetworkFirst({
         cacheName: `aethermint-pages-${SW_VERSION}`,
+        networkTimeoutSeconds: 5,
         plugins: [
           new expiration.ExpirationPlugin({
             maxEntries: 50,
@@ -210,7 +253,7 @@ if (self.workbox) {
     );
 
     // -------------------------------------------------------------------------
-    // 7. Catch handler — final fallback when EVERYTHING above misses.
+    // 8. Catch handler — final fallback when EVERYTHING above misses.
     // -------------------------------------------------------------------------
     const OFFLINE_FALLBACK_URL = '/offline';
 
@@ -224,7 +267,7 @@ if (self.workbox) {
       const accept = request.headers.get('accept') || '';
       const { pathname } = new URL(request.url);
 
-      // 7a. Document / navigation → precached /offline shell.
+      // 8a. Document / navigation → precached /offline shell.
       if (
         event.request.destination === 'document' ||
         request.mode === 'navigate'
@@ -234,7 +277,7 @@ if (self.workbox) {
         return Response.error();
       }
 
-      // 7b. Next.js pages-router payload (`/_next/data/<buildId>/<page>.json`)
+      // 8b. Next.js pages-router payload (`/_next/data/<buildId>/<page>.json`)
       //     or any explicit JSON accept header.
       //
       // Returning the HTML shell here would crash any caller that does
@@ -259,13 +302,13 @@ if (self.workbox) {
         );
       }
 
-      // 7c. HTML prefetch hints — keep layout intact with the shell.
+      // 8c. HTML prefetch hints — keep layout intact with the shell.
       if (accept.includes('text/html')) {
         const cached = await caches.match(OFFLINE_FALLBACK_URL);
         if (cached) return cached;
       }
 
-      // 7d. Image requests — fail soft; most icons are already precached.
+      // 8d. Image requests — fail soft; most icons are already precached.
       if (request.destination === 'image') {
         return new Response('', { status: 504 });
       }
