@@ -168,6 +168,10 @@ tenantSchema.index({ subdomain: 1 });
 tenantSchema.index({ domain: 1 });
 tenantSchema.index({ status: 1 });
 tenantSchema.index({ 'subscription.endDate': 1 });
+tenantSchema.index({ createdAt: -1 });
+tenantSchema.index({ status: 1, createdAt: -1 });
+tenantSchema.index({ plan: 1, status: 1 });
+tenantSchema.index({ name: 'text' });
 
 // Virtual for checking if tenant is active
 tenantSchema.virtual('isActive').get(function() {

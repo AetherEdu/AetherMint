@@ -3,6 +3,8 @@
  * Defines the structure and interfaces for course enrollment data
  */
 
+import mongoose, { Document, Schema } from 'mongoose';
+
 export enum EnrollmentStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -234,3 +236,123 @@ export interface UserEnrollmentHistory {
   lastActivityDate: Date;
   enrollments: Enrollment[];
 }
+
+// ── Mongoose Schema ────────────────────────────────────────────────────────
+
+export interface IEnrollmentDocument extends Document {
+  userId: string;
+  courseId: string;
+  status: EnrollmentStatus;
+  enrolledAt: Date;
+  completedAt?: Date;
+  progress: number;
+  paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
+  amountPaid: number;
+  totalAmount: number;
+  currency: string;
+  transactionId?: string;
+  certificateIssued: boolean;
+  certificateId?: string;
+  prerequisitesMet: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const EnrollmentSchema = new Schema<IEnrollmentDocument>(
+  {
+    userId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    courseId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(EnrollmentStatus),
+      default: EnrollmentStatus.PENDING,
+      index: true,
+    },
+    enrolledAt: {
+      type: Date,
+      default: Date.now,
+    },
+    completedAt: {
+      type: Date,
+    },
+    progress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+    paymentStatus: {
+      type: String,
+      enum: Object.values(PaymentStatus),
+      default: PaymentStatus.PENDING,
+      index: true,
+    },
+    paymentMethod: {
+      type: String,
+      enum: Object.values(PaymentMethod),
+    },
+    amountPaid: {
+      type: Number,
+      default: 0,
+    },
+    totalAmount: {
+      type: Number,
+      default: 0,
+    },
+    currency: {
+      type: String,
+      default: 'USD',
+    },
+    transactionId: {
+      type: String,
+      sparse: true,
+    },
+    certificateIssued: {
+      type: Boolean,
+      default: false,
+    },
+    certificateId: {
+      type: String,
+      sparse: true,
+    },
+    prerequisitesMet: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Primary composite: user + course (unique enrollment)
+EnrollmentSchema.index({ userId: 1, courseId: 1 }, { unique: true });
+
+// Composite: course + status for course-level queries
+EnrollmentSchema.index({ courseId: 1, status: 1 });
+
+// Composite: user + status for user dashboard
+EnrollmentSchema.index({ userId: 1, status: 1 });
+
+// Composite: user + progress for progress tracking
+EnrollmentSchema.index({ userId: 1, progress: -1 });
+
+// Composite: course + enrolledAt for analytics
+EnrollmentSchema.index({ courseId: 1, enrolledAt: -1 });
+
+// Composite: status + enrolledAt for time-based filtering
+EnrollmentSchema.index({ status: 1, enrolledAt: -1 });
+
+// Composite: paymentStatus for billing queries
+EnrollmentSchema.index({ paymentStatus: 1, createdAt: -1 });
+
+export const EnrollmentModel = mongoose.model<IEnrollmentDocument>('Enrollment', EnrollmentSchema);

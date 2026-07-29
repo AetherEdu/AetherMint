@@ -22,6 +22,7 @@ import {
   isShuttingDown,
   closeHttpServer,
 } from './utils/shutdown';
+import mongoose from 'mongoose';
 import { MigrationRunner, createPool } from './utils/migrate';
 import * as path from 'path';
 // @ts-ignore
@@ -317,11 +318,62 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 
+/**
+ * Ensure all registered Mongoose model indexes are created on existing
+ * collections. If a MONGODB_URI env var is set and Mongoose is not yet
+ * connected, a connection is established first.
+ *
+ * Called at startup so deployments against an existing database pick up any
+ * new index definitions added to the schemas without requiring a manual
+ * migration step.  (Issue #168)
+ */
+async function ensureMongooseIndexes(): Promise<void> {
+  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+
+  // Attempt to connect if a MongoDB URI is configured and not yet connected
+  if (mongoUri && mongoose.connection.readyState !== 1) {
+    try {
+      await mongoose.connect(mongoUri);
+      logger.info('MongoDB connected for index synchronization');
+    } catch (err) {
+      logger.warn('MongoDB connection failed, skipping index sync', err as Error);
+      return;
+    }
+  }
+
+  if (mongoose.connection.readyState !== 1) {
+    return;
+  }
+
+  const modelNames = mongoose.modelNames();
+  if (modelNames.length === 0) return;
+
+  logger.info(`Ensuring Mongoose indexes for ${modelNames.length} model(s)...`);
+
+  for (const name of modelNames) {
+    try {
+      const model = mongoose.model(name);
+      await model.createIndexes();
+      logger.debug(`✓ Indexes ensured for model: ${name}`);
+    } catch (err) {
+      // Duplicate-key errors or missing-field warnings are non-fatal at
+      // startup – the index definition may reference a field that does not
+      // yet exist in every document.
+      logger.warn(`Index creation for ${name} had warnings`, err as Error);
+    }
+  }
+
+  logger.info('Mongoose index synchronization complete');
+}
+
 // Track the WebSocket metrics interval for cleanup on shutdown
 let wsMetricsInterval: ReturnType<typeof setInterval> | undefined;
 
 async function startServer() {
   try {
+    // Ensure Mongoose indexes are created on existing collections (Issue #168)
+    await ensureMongooseIndexes();
+
     // Run migrations automatically if DATABASE_URL is configured
     const autoRunMigrations = process.env.AUTO_RUN_MIGRATIONS !== 'false';
     if (process.env.DATABASE_URL && autoRunMigrations) {

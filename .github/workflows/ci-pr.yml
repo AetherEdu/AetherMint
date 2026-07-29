@@ -159,7 +159,7 @@ jobs:
       - name: Install cargo-audit
         run: |
           if ! command -v cargo-audit &> /dev/null; then
-            cargo install --locked cargo-audit --version 0.21.2
+            cargo install --locked cargo-audit
           fi
 
       - name: cargo audit (Rust dependencies, non-blocking)
