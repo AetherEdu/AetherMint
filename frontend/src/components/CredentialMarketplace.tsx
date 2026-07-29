@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import '../styles/features.css';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const CredentialMarketplace = () => {
   const [filter, setFilter] = useState('All');
@@ -67,8 +66,7 @@ const CredentialMarketplace = () => {
           ))}
         </div>
       </div>
-    </ErrorBoundary>
-  );
-};
+    );
+  };
 
 export default CredentialMarketplace;

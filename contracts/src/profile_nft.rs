@@ -191,7 +191,7 @@ pub fn update_profile_nft(
 pub fn get_profile_nft(env: &Env, token_id: u64) -> ProfileNFT {
     env.storage()
         .persistent()
-        .get(&ProfileNFTKey::Token(token_id))
+        .get::<_, ProfileNFT>(&ProfileNFTKey::Token(token_id))
         .unwrap_or_else(|| panic!("Profile NFT not found"))
 }
 
@@ -213,7 +213,7 @@ pub fn get_token_id_for_owner(env: &Env, owner: Address) -> Option<u64> {
 pub fn owner_of(env: &Env, token_id: u64) -> Address {
     env.storage()
         .persistent()
-        .get(&ProfileNFTKey::TokenOwner(token_id))
+        .get::<_, Address>(&ProfileNFTKey::TokenOwner(token_id))
         .unwrap_or_else(|| panic!("Profile NFT not found"))
 }
 
@@ -294,7 +294,7 @@ pub fn unverify_profile_nft(env: &Env, admin: Address, token_id: u64) -> bool {
         .set(&ProfileNFTKey::Token(token_id), &nft);
 
     env.events().publish(
-        (symbol_short!("profile"), symbol_short!("unverify")),
+        (symbol_short!("profile"), Symbol::new(&env, "unverified")),
         (token_id, admin),
     );
 

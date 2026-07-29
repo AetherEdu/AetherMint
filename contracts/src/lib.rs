@@ -4,9 +4,7 @@
 #![allow(clippy::manual_checked_ops)]
 #![allow(clippy::needless_range_loop)]
 extern crate alloc;
-use soroban_sdk::{
-    contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Vec,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Vec};
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
 use crate::utils::pause::PauseUtils;
@@ -80,6 +78,8 @@ pub fn string_to_bytes(env: &Env, s: &String) -> Bytes {
     s.copy_into_slice(&mut buf[..buf_len]);
     Bytes::from_slice(env, &buf[..buf_len])
 }
+
+pub mod access_control;
 
 pub mod credentials;
 #[cfg(test)]
@@ -288,9 +288,16 @@ impl AetherMintContract {
             .instance()
             .set(&DataKey::CredentialCount, &0u64);
         env.storage().instance().set(&DataKey::CourseCount, &0u64);
-        env.storage()
-            .instance()
-            .set(&DataKey::AchievementCount, &0u64);
+        env.storage().instance().set(&DataKey::AchievementCount, &0u64);
+
+        // Stamp the storage schema version (issue #120). Initializing here
+        // means every later call into durable storage goes through
+        // StorageVersion::require_compatible_version and is rejected if the
+        // on-disk version isn't supported by this binary.
+        StorageVersion::initialize(&env);
+
+        // Bootstrap admin role for RBAC (issue #24)
+        access_control::set_initial_admin(&env, &admin);
     }
 
     /// Issue a new credential with optimized storage
@@ -303,7 +310,8 @@ impl AetherMintContract {
         course_id: String,
         ipfs_hash: String,
     ) -> u64 {
-        PauseUtils::require_not_paused(&env);
+        issuer.require_auth();
+
         // Validate inputs before any state access (issue #117).
         validate_non_zero_address(&env, &recipient);
         validate_string_length(&env, &title, MAX_TITLE_LENGTH);
@@ -311,15 +319,8 @@ impl AetherMintContract {
         validate_string_length(&env, &course_id, MAX_SHORT_TEXT_LENGTH);
         validate_string_length(&env, &ipfs_hash, MAX_URI_LENGTH);
 
-        let admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .unwrap_or_else(|| panic!("Admin not found"));
-
-        if issuer != admin {
-            panic!("Only admin can issue credentials");
-        }
+        // RBAC: require Issuer role (Admin also satisfies this via has_role)
+        access_control::require_role(&env, &issuer, access_control::Role::Issuer);
 
         let count: u64 = env
             .storage()
@@ -393,21 +394,15 @@ impl AetherMintContract {
         description: String,
         price: u64,
     ) -> u64 {
-        PauseUtils::require_not_paused(&env);
-        // Validate inputs before any state access (issue #117).
+        instructor.require_auth();
+
+        // Validate inputs
         validate_string_length(&env, &title, MAX_TITLE_LENGTH);
         validate_string_length(&env, &description, MAX_DESCRIPTION_LENGTH);
         validate_positive_u64(&env, price);
 
-        let admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .unwrap_or_else(|| panic!("Admin not found"));
-
-        if instructor != admin {
-            panic!("Only admin can create courses");
-        }
+        // RBAC: require Instructor role
+        access_control::require_role(&env, &instructor, access_control::Role::Instructor);
 
         let course_count: u64 = env
             .storage()
@@ -923,5 +918,79 @@ impl AetherMintContract {
     /// Check if the contract is paused
     pub fn is_paused(env: Env) -> bool {
         PauseUtils::is_paused(&env)
+    }
+
+    // ===== Marketplace Functions =====
+
+    /// Create a marketplace listing for an item (credential, course, or NFT).
+    pub fn list_item(
+        env: Env,
+        seller: Address,
+        item_id: u64,
+        price: u64,
+        item_type: u32,
+    ) -> u64 {
+        marketplace::list_item(&env, &seller, item_id, price, item_type)
+    }
+
+    /// Buy an item — transfers ownership with escrow holding funds.
+    pub fn buy_item(env: Env, buyer: Address, listing_id: u64) {
+        marketplace::buy_item(&env, &buyer, listing_id)
+    }
+
+    /// Cancel an active listing by the seller.
+    pub fn cancel_listing(env: Env, seller: Address, listing_id: u64) {
+        marketplace::cancel_listing(&env, &seller, listing_id)
+    }
+
+    /// Release escrow funds to the seller after successful transfer.
+    pub fn release_escrow(env: Env, listing_id: u64) {
+        marketplace::release_escrow(&env, listing_id)
+    }
+
+    /// Refund escrow to buyer on dispute or cancellation.
+    pub fn refund_escrow(env: Env, listing_id: u64) {
+        marketplace::refund_escrow(&env, listing_id)
+    }
+
+    /// Get listing details.
+    pub fn get_listing(env: Env, listing_id: u64) -> marketplace::ItemListing {
+        marketplace::get_listing(&env, listing_id)
+    }
+
+    /// Get escrow details.
+    pub fn get_escrow(env: Env, escrow_id: u64) -> marketplace::Escrow {
+        marketplace::get_escrow(&env, escrow_id)
+    }
+
+    // ===== RBAC Management (issue #24) =====
+
+    /// Grant a role to an address. Caller must have Admin role.
+    pub fn grant_role(env: Env, caller: Address, target: Address, role: u32) {
+        let r = role_from_u32(role);
+        access_control::grant_role(&env, caller, target, r);
+    }
+
+    /// Revoke a role from an address. Caller must have Admin role.
+    pub fn revoke_role(env: Env, caller: Address, target: Address, role: u32) {
+        let r = role_from_u32(role);
+        access_control::revoke_role(&env, caller, target, r);
+    }
+
+    /// Check whether an address has a specific role.
+    pub fn has_role(env: Env, addr: Address, role: u32) -> bool {
+        let r = role_from_u32(role);
+        access_control::has_role(&env, &addr, r)
+    }
+}
+
+/// Map u32 to Role enum (0=Admin,1=Issuer,2=Instructor,3=Student)
+fn role_from_u32(role: u32) -> access_control::Role {
+    match role {
+        0 => access_control::Role::Admin,
+        1 => access_control::Role::Issuer,
+        2 => access_control::Role::Instructor,
+        3 => access_control::Role::Student,
+        _ => panic!("Unknown role"),
     }
 }

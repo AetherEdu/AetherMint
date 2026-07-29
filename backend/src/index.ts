@@ -51,11 +51,21 @@ import {
   securityHeadersMiddleware
 } from './middleware/security';
 import { detectSuspiciousPatterns } from './middleware/sanitizer';
+// @ts-ignore - CommonJS module without type declarations
+import { validateFileUpload } from './middleware/sanitizeMiddleware';
 // @ts-ignore
 import { tieredRateLimiter, transactionLimiter } from './middleware/rateLimiter';
 import { rateLimits } from './middleware/rateLimit';
 import { idempotency } from './middleware/idempotency';
 import { createGraphQLPlaceholder } from './graphql';
+
+// API versioning middleware
+import {
+  versioningMiddleware,
+  apiVersionHeader,
+  rejectUnsupportedVersion,
+  API_VERSIONS,
+} from './middleware/apiVersion';
 
 // Connect to Redis
 connectRedis();
@@ -169,6 +179,9 @@ app.use(detectSuspiciousPatterns);
 
 // NEW/Updated: Sanitize all inputs
 app.use(requestSanitizer);
+
+// File upload validation (type, size, content, blocked extensions)
+app.use(validateFileUpload);
 
 // ── OpenAPI documentation endpoints ────────────────────────────────────────
 
@@ -289,6 +302,77 @@ const metricsRoutes = resolveRoute(require('./routes/metrics'));
 app.use('/api/metrics', metricsRoutes);
 
 // Root endpoint
+// ── Versioned API routes (/api/v1/*) ────────────────────────────────────────
+//
+// All route groups are mounted a second time under /api/v1/ so consumers
+// who opt into URL-based versioning can pin to v1 explicitly.
+//
+// The apiVersionHeader middleware sets X-API-Version on responses so clients
+// can always introspect which version served the request.
+
+app.use('/api/v1', apiVersionHeader);
+
+app.use('/api/v1/quizzes', quizRoutes);
+app.use('/api/v1/events', eventLoggerRoutes);
+app.use('/api/v1/sync', syncRoutes);
+app.use('/api/v1/content', contentRoutes);
+app.use('/api/v1/rbac', rbacRoutes);
+app.use('/api/v1/transactions', transactionLimiter, transactionRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/collaboration', collaborationRoutes);
+app.use('/api/v1/holographic', holographicRoutes);
+app.use('/api/v1/aco', acoRoutes);
+app.use('/api/v1/federated-learning', federatedLearningRoutes);
+app.use('/api/v1/swarm-learning', swarmLearningRoutes);
+app.use('/api/v1/smart-wallet', smartWalletRoutes);
+app.use('/api/v1/secure-comm', secureCommRoutes);
+app.use('/api/v1/agi-tutor', agiTutorRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/autonomous-agents', autonomousAgentsRoutes);
+app.use('/api/v1/gamification', gamificationRoutes);
+app.use('/api/v1/bridge', bridgeRoutes);
+app.use('/api/v1/time-lock', timeLockCredentialsRoutes);
+app.use('/api/v1/vrf', vrfRoutes);
+app.use('/api/v1/translate', translationRoutes);
+app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
+app.use('/api/v1/audit', auditRoutes);
+app.get('/api/v1/health', (req, res) => {
+  if (isShuttingDown()) {
+    res.status(503).json({
+      status: 'shutting down',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    });
+    return;
+  }
+
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
+// ── API version information endpoint ───────────────────────────────────────
+//
+// Returns the current API version, supported versions, and sunset dates
+// so clients can programmatically determine their upgrade path.
+
+app.get('/api/version', (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      currentVersion: API_VERSIONS.CURRENT,
+      supportedVersions: API_VERSIONS.SUPPORTED,
+      deprecationDate: '2026-07-28',
+      sunsetDate: '2027-01-28',
+      compatibilityPeriod: '6 months from deprecation date',
+      description: 'Non-versioned /api/* routes are deprecated. Upgrade to /api/v1/*.',
+      migrationGuide: '/api/docs',
+    },
+  });
+});
+
 app.get('/', (req, res) => {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
   res.json({

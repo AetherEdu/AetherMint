@@ -166,10 +166,22 @@ fn test_multiple_events_accumulate_by_actor() {
     assert_eq!(get_tokenomics_event_count(&env), 4);
     let actor_events = get_tokenomics_actor_events(&env, user);
     assert_eq!(actor_events.len(), 4);
-    assert_eq!(actor_events.get(0).unwrap().event_type, TokenomicsEvent::Minted);
-    assert_eq!(actor_events.get(1).unwrap().event_type, TokenomicsEvent::Staked);
-    assert_eq!(actor_events.get(2).unwrap().event_type, TokenomicsEvent::Voted);
-    assert_eq!(actor_events.get(3).unwrap().event_type, TokenomicsEvent::Unstaked);
+    assert_eq!(
+        actor_events.get(0).unwrap().event_type,
+        TokenomicsEvent::Minted
+    );
+    assert_eq!(
+        actor_events.get(1).unwrap().event_type,
+        TokenomicsEvent::Staked
+    );
+    assert_eq!(
+        actor_events.get(2).unwrap().event_type,
+        TokenomicsEvent::Voted
+    );
+    assert_eq!(
+        actor_events.get(3).unwrap().event_type,
+        TokenomicsEvent::Unstaked
+    );
 }
 
 #[test]
@@ -245,9 +257,24 @@ fn test_topic_mapping_is_stable_and_distinct() {
     );
 
     // All topics are distinct.
-    assert_ne!(TokenomicsEvent::Minted.topic(), TokenomicsEvent::Staked.topic());
-    assert_ne!(TokenomicsEvent::Staked.topic(), TokenomicsEvent::Unstaked.topic());
-    assert_ne!(TokenomicsEvent::Unstaked.topic(), TokenomicsEvent::Voted.topic());
-    assert_ne!(TokenomicsEvent::Voted.topic(), TokenomicsEvent::ProposalCreated.topic());
-    assert_ne!(TokenomicsEvent::Minted.topic(), TokenomicsEvent::ProposalCreated.topic());
+    assert_ne!(
+        TokenomicsEvent::Minted.topic(),
+        TokenomicsEvent::Staked.topic()
+    );
+    assert_ne!(
+        TokenomicsEvent::Staked.topic(),
+        TokenomicsEvent::Unstaked.topic()
+    );
+    assert_ne!(
+        TokenomicsEvent::Unstaked.topic(),
+        TokenomicsEvent::Voted.topic()
+    );
+    assert_ne!(
+        TokenomicsEvent::Voted.topic(),
+        TokenomicsEvent::ProposalCreated.topic()
+    );
+    assert_ne!(
+        TokenomicsEvent::Minted.topic(),
+        TokenomicsEvent::ProposalCreated.topic()
+    );
 }
