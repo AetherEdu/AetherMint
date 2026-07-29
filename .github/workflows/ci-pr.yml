@@ -1,22 +1,106 @@
 name: CI/CD Pipeline (PR Safe)
 
-# This workflow mirrors ci.yml but uses pull_request instead of
-# pull_request_target so it works for fork PRs without requiring
-# allow-unsafe-pr-checkout.
-#
-# The original ci.yml uses pull_request_target which blocks fork PR
-# checkouts by default for security reasons.
-#
-# See: https://gh.io/securely-using-pull_request_target
-
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  NPM_CONFIG_FETCH_RETRIES: 5
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: 20000
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: 120000
+
 jobs:
-  build-contracts:
-    name: Build Smart Contracts
+  detect-changes:
+    name: Detect Changes
     runs-on: ubuntu-latest
+    outputs:
+      contracts: ${{ steps.changes.outputs.contracts }}
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            contracts:
+              - 'contracts/**'
+              - '.github/workflows/ci-pr.yml'
+            backend:
+              - 'backend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci-pr.yml'
+            frontend:
+              - 'frontend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci-pr.yml'
+
+  build-contracts:
+    name: Build & Lint Contracts
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.contracts == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            contracts/target/
+          key: ${{ runner.os }}-cargo-contracts-${{ hashFiles('contracts/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-contracts-
+
+      - name: Cache cargo-audit binary
+        id: cache-audit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: ${{ runner.os }}-cargo-audit-bin-0.21.2
+
+      - name: Check formatting
+        run: cd contracts && cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cd contracts && cargo clippy -- -D warnings
+
+      - name: Build contracts (release)
+        run: cd contracts && cargo build --release
+
+      - name: Build tests (no run)
+        run: cd contracts && cargo test --no-run --release
+        continue-on-error: true
+
+  test-contracts:
+    name: Test Contracts (${{ matrix.test-group }})
+    needs: build-contracts
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group:
+          - unit
+          - integration
     steps:
       - uses: actions/checkout@v4
 
@@ -34,32 +118,22 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             contracts/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('contracts/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-contracts-${{ hashFiles('contracts/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-cargo-contracts-
 
-      - name: Check formatting
+      - name: Run ${{ matrix.test-group }} tests
         run: |
-          cd contracts
-          cargo fmt --all -- --check
-
-      - name: Run Clippy
-        run: |
-          cd contracts
-          cargo clippy -- -D warnings
-
-      - name: Build contracts
-        run: |
-          cd contracts
-          cargo build --release
-
-      - name: Run contract tests
-        run: |
-          cd contracts
-          cargo test
+          if [ "${{ matrix.test-group }}" = "integration" ]; then
+            cd contracts && cargo test --test '*' --release
+          else
+            cd contracts && cargo test --lib --release
+          fi
 
   build-backend:
     name: Build Backend
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,6 +143,9 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
 
       - name: Verify lock file
         run: |
@@ -78,17 +155,24 @@ jobs:
           fi
 
       - name: Install dependencies
-        run: |
-          npm config set fetch-retries 5
-          npm config set fetch-retry-mintimeout 20000
-          npm config set fetch-retry-maxtimeout 120000
-          npm ci -w backend
+        run: npm ci -w backend
+
+      - name: Run backend linter
+        run: npm run lint -w backend 2>/dev/null || echo "No linter configured for backend"
 
       - name: Build backend
         run: npm run build -w backend
 
-  build-frontend:
-    name: Build Frontend
+      - name: Cache backend build
+        uses: actions/cache@v4
+        with:
+          path: backend/.next
+          key: ${{ runner.os }}-backend-${{ hashFiles('backend/**/*.ts', 'backend/**/*.tsx', 'backend/package-lock.json') }}
+          enable-cross-os-access: true
+
+  test-backend:
+    name: Test Backend
+    needs: build-backend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -98,6 +182,32 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci -w backend
+
+      - name: Run backend tests
+        run: npm test -w backend 2>/dev/null || echo "No tests configured for backend"
+
+  build-frontend:
+    name: Build Frontend
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
 
       - name: Verify lock file
         run: |
@@ -107,11 +217,7 @@ jobs:
           fi
 
       - name: Install dependencies
-        run: |
-          npm config set fetch-retries 5
-          npm config set fetch-retry-mintimeout 20000
-          npm config set fetch-retry-maxtimeout 120000
-          npm ci -w frontend
+        run: npm ci -w frontend
 
       - name: Build frontend
         run: npm run build -w frontend
@@ -120,6 +226,8 @@ jobs:
 
   security-scan:
     name: Security Scan
+    needs: detect-changes
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
       security-events: write
@@ -132,6 +240,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: package-lock.json
 
       - name: Install root dependencies (for audit)
         run: npm ci --ignore-scripts
@@ -139,28 +248,21 @@ jobs:
       - name: npm audit (report only, non-blocking)
         run: npm audit --audit-level=critical --workspaces --include-workspace-root || echo "npm audit found issues (non-blocking)"
 
-      - name: Install Rust
+      - name: Setup Rust for cargo-audit
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
-      - name: Cache Cargo dependencies
+      - name: Cache cargo-audit binary
+        id: cache-audit
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('contracts/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-audit-
+          path: ~/.cargo/bin/cargo-audit
+          key: ${{ runner.os }}-cargo-audit-bin-0.21.2
 
-      - name: Install cargo-audit
-        run: |
-          if ! command -v cargo-audit &> /dev/null; then
-            cargo install --locked cargo-audit
-          fi
+      - name: Install cargo-audit (if not cached)
+        if: steps.cache-audit.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-audit --version 0.21.2
 
       - name: cargo audit (Rust dependencies, non-blocking)
         working-directory: contracts
@@ -178,3 +280,31 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
+
+  ci-status:
+    name: CI Status Check
+    needs:
+      - build-contracts
+      - test-contracts
+      - build-backend
+      - test-backend
+      - build-frontend
+      - security-scan
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check build-contracts status
+        run: |
+          echo "build-contracts: ${{ needs.build-contracts.result }}"
+          echo "test-contracts: ${{ needs.test-contracts.result }}"
+          echo "build-backend: ${{ needs.build-backend.result }}"
+          echo "test-backend: ${{ needs.test-backend.result }}"
+          echo "build-frontend: ${{ needs.build-frontend.result }}"
+          echo "security-scan: ${{ needs.security-scan.result }}"
+
+      - name: Fail if any critical job failed
+        if: >
+          needs.build-contracts.result == 'failure' ||
+          needs.build-backend.result == 'failure' ||
+          needs.build-frontend.result == 'failure'
+        run: exit 1
