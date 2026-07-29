@@ -479,7 +479,7 @@ export function CredentialList({
           </div>
         </div>
       )}
-    </div>
+      </div>
     </ErrorBoundary>
   );
 }

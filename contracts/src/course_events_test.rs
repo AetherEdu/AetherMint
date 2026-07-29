@@ -14,8 +14,12 @@ fn test_publish_records_event_and_indexes_it() {
     let instructor = Address::generate(&env);
     let course_id: u64 = 1;
 
-    let event_id =
-        publish_course_event(&env, CourseLifecycleEvent::Created, course_id, instructor.clone());
+    let event_id = publish_course_event(
+        &env,
+        CourseLifecycleEvent::Created,
+        course_id,
+        instructor.clone(),
+    );
 
     assert_eq!(event_id, 1);
     assert_eq!(get_course_event_count(&env), 1);
@@ -47,12 +51,24 @@ fn test_publish_appends_multiple_events_per_course() {
     let student = Address::generate(&env);
     let course_id: u64 = 5;
 
-    let created_id =
-        publish_course_event(&env, CourseLifecycleEvent::Created, course_id, instructor.clone());
-    let enrolled_id =
-        publish_course_event(&env, CourseLifecycleEvent::Enrolled, course_id, student.clone());
-    let completed_id =
-        publish_course_event(&env, CourseLifecycleEvent::Completed, course_id, student.clone());
+    let created_id = publish_course_event(
+        &env,
+        CourseLifecycleEvent::Created,
+        course_id,
+        instructor.clone(),
+    );
+    let enrolled_id = publish_course_event(
+        &env,
+        CourseLifecycleEvent::Enrolled,
+        course_id,
+        student.clone(),
+    );
+    let completed_id = publish_course_event(
+        &env,
+        CourseLifecycleEvent::Completed,
+        course_id,
+        student.clone(),
+    );
 
     assert_eq!(created_id, 1);
     assert_eq!(enrolled_id, 2);
@@ -61,9 +77,18 @@ fn test_publish_appends_multiple_events_per_course() {
 
     let events = get_course_events(&env, course_id);
     assert_eq!(events.len(), 3);
-    assert_eq!(events.get(0).unwrap().event_type, CourseLifecycleEvent::Created);
-    assert_eq!(events.get(1).unwrap().event_type, CourseLifecycleEvent::Enrolled);
-    assert_eq!(events.get(2).unwrap().event_type, CourseLifecycleEvent::Completed);
+    assert_eq!(
+        events.get(0).unwrap().event_type,
+        CourseLifecycleEvent::Created
+    );
+    assert_eq!(
+        events.get(1).unwrap().event_type,
+        CourseLifecycleEvent::Enrolled
+    );
+    assert_eq!(
+        events.get(2).unwrap().event_type,
+        CourseLifecycleEvent::Completed
+    );
 
     // Instructor only has the Created event.
     assert_eq!(get_course_actor_events(&env, instructor).len(), 1);
@@ -98,7 +123,12 @@ fn test_publish_emits_on_chain_event_with_expected_topics_and_payload() {
     let instructor = Address::generate(&env);
     let course_id: u64 = 99;
 
-    publish_course_event(&env, CourseLifecycleEvent::Created, course_id, instructor.clone());
+    publish_course_event(
+        &env,
+        CourseLifecycleEvent::Created,
+        course_id,
+        instructor.clone(),
+    );
 
     let all = env.events().all();
     assert_eq!(all.len(), 1);
@@ -242,6 +272,12 @@ fn test_updated_event_emitted_on_course_update() {
 
     let events = get_course_events(&env, 1);
     assert_eq!(events.len(), 2);
-    assert_eq!(events.get(0).unwrap().event_type, CourseLifecycleEvent::Created);
-    assert_eq!(events.get(1).unwrap().event_type, CourseLifecycleEvent::Updated);
+    assert_eq!(
+        events.get(0).unwrap().event_type,
+        CourseLifecycleEvent::Created
+    );
+    assert_eq!(
+        events.get(1).unwrap().event_type,
+        CourseLifecycleEvent::Updated
+    );
 }

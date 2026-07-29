@@ -4,7 +4,7 @@ mod profile_nft_test {
     use soroban_sdk::{vec, Address, Env, String};
 
     use crate::profile_nft::*;
-    use crate::AetherMintContract;
+    use crate::utils::pause::PauseUtils;
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -186,19 +186,17 @@ mod profile_nft_test {
 
     #[test]
     fn test_get_profile_nft_by_owner() {
-        let (env, cid, user) = setup();
+        let (env, user) = setup();
 
-        env.as_contract(&cid, || {
-            let name = String::from_str(&env, "Alice");
-            let bio = String::from_str(&env, "Bio");
-            let avatar = String::from_str(&env, "ipfs://avatar");
-            let skills = vec![&env, String::from_str(&env, "Rust")];
+        let name = String::from_str(&env, "Alice");
+        let bio = String::from_str(&env, "Bio");
+        let avatar = String::from_str(&env, "ipfs://avatar");
+        let skills = vec![&env, String::from_str(&env, "Rust")];
 
-            mint_profile_nft(&env, user.clone(), name, bio, avatar, skills, None);
+        mint_profile_nft(&env, user.clone(), name, bio, avatar, skills, None);
 
-            let nft = get_profile_nft_by_owner(&env, user.clone()).unwrap();
-            assert_eq!(nft.owner, user);
-        });
+        let nft = get_profile_nft_by_owner(&env, user.clone()).unwrap();
+        assert_eq!(nft.owner, user);
     }
 
     #[test]

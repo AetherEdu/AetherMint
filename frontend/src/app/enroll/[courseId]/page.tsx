@@ -364,7 +364,7 @@ const EnrollmentPage: React.FC = () => {
           onEnrollmentError={handleEnrollmentError}
         />
       </div>
-    </div>
+      </div>
     </ErrorBoundary>
   );
 };
