@@ -1,12 +1,9 @@
-use crate::credential_events::{
-    publish_credential_event, CredentialLifecycleEvent,
-};
-use crate::utils::storage::{EntityType, StorageUtils, StorageVersion};
+use crate::credential_events::{publish_credential_event, CredentialLifecycleEvent};
+use crate::utils::storage::{EntityType, StorageUtils};
 use crate::utils::validation::{
     validate_duration, validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH,
     MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
 };
-use crate::utils::pause::PauseUtils;
 use soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec};
 
 /// Credential status enumeration
@@ -66,8 +63,8 @@ pub enum CredentialRegistryKey {
     UserCredentials(Address),
     CredentialCount,
     ExpiredCredentials,
-    RenewalHistory(u64),    // credential_id -> Vec<RenewalRecord>
-    AttestationCount(u64),  // credential_id -> number of active attestations
+    RenewalHistory(u64),   // credential_id -> Vec<RenewalRecord>
+    AttestationCount(u64), // credential_id -> number of active attestations
 }
 
 /// Renewal record for tracking credential renewals
@@ -162,12 +159,7 @@ pub fn issue_credential_with_expiration(
 
     // Emit credential lifecycle event with consistent
     // (credential_id, actor, timestamp) payload and queryable record.
-    publish_credential_event(
-        env,
-        CredentialLifecycleEvent::Issued,
-        credential_id,
-        issuer,
-    );
+    publish_credential_event(env, CredentialLifecycleEvent::Issued, credential_id, issuer);
 
     credential_id
 }

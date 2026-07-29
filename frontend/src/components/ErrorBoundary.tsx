@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { ErrorDisplay } from './LoadingFallback';
 import { ErrorFallback, ErrorVariant } from './ErrorFallback';
 
 interface Props {
@@ -30,39 +29,28 @@ interface State {
 
 /**
  * Logs an error to the console and optionally to a monitoring service.
- * Extend this function to integrate with Sentry, Datadog, etc.
  */
 function logError(error: Error, errorInfo: ErrorInfo) {
-  // Console logging (always)
   console.error('[ErrorBoundary] Uncaught error:', {
     error: error.toString(),
     componentStack: errorInfo.componentStack,
     timestamp: new Date().toISOString(),
   });
 
-  // Structured error logging for monitoring services
-  const errorPayload = {
-    name: error.name,
-    message: error.message,
-    stack: error.stack,
-    componentStack: errorInfo.componentStack,
-    timestamp: new Date().toISOString(),
-    url: typeof window !== 'undefined' ? window.location.href : undefined,
-    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-  };
-
-  // Attempt to send to a monitoring endpoint (fire-and-forget)
   if (process.env.NEXT_PUBLIC_ERROR_MONITORING_ENDPOINT) {
     try {
       fetch(process.env.NEXT_PUBLIC_ERROR_MONITORING_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(errorPayload),
-        // Use keepalive so the request completes even if the page navigates away
+        body: JSON.stringify({
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          componentStack: errorInfo.componentStack,
+          timestamp: new Date().toISOString(),
+        }),
         keepalive: true,
-      }).catch(() => {
-        // Silently ignore monitoring failures
-      });
+      }).catch(() => {});
     } catch {
       // Ignore monitoring send failures
     }
@@ -70,7 +58,6 @@ function logError(error: Error, errorInfo: ErrorInfo) {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  public state: State = { hasError: false };
   public state: State = {
     hasError: false,
   };
@@ -80,13 +67,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
-    // Invoke the external onError callback (e.g., for Sentry)
     this.props.onError?.(error, errorInfo);
-
-    // Log to console and monitoring service
     logError(error, errorInfo);
-
     this.setState({ error, errorInfo });
   }
 
@@ -95,7 +77,6 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public componentDidUpdate(prevProps: Props) {
-    // Reset the boundary when resetKey changes
     if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
       this.handleRetry();
     }
@@ -103,23 +84,6 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
-      if (this.props.fallback) return this.props.fallback;
-
-      const details = this.state.error
-        ? [this.state.error.toString(), this.state.errorInfo?.componentStack].filter(Boolean).join('\n\n')
-        : undefined;
-
-      return (
-        <div className="min-h-[200px] flex items-center justify-center p-4">
-          <ErrorDisplay
-            title="Something went wrong"
-            message="An unexpected error occurred. Please try again or contact support if the problem persists."
-            details={details}
-            onRetry={this.handleRetry}
-            className="max-w-md w-full"
-          />
-        </div>
-      // Use custom fallback if provided
       if (this.props.fallback) {
         return this.props.fallback;
       }

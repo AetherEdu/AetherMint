@@ -29,7 +29,11 @@ fn setup() -> (Env, Address, Address) {
     (env, contract_id, admin)
 }
 
-fn create_credential(client: &AetherMintContractClient, admin: &Address, recipient: &Address) -> u64 {
+fn create_credential(
+    client: &AetherMintContractClient,
+    admin: &Address,
+    recipient: &Address,
+) -> u64 {
     let env = client.env.clone();
     client.issue_credential_with_expiration(
         admin,
@@ -101,7 +105,10 @@ fn test_attest_and_verify_credential() {
     let record = attestations.get(0).unwrap();
     assert_eq!(record.attester, attester.clone());
     assert_eq!(record.credential_id, credential_id);
-    assert_eq!(record.metadata, String::from_str(&env, "verified transcript"));
+    assert_eq!(
+        record.metadata,
+        String::from_str(&env, "verified transcript")
+    );
 
     assert_eq!(client.get_attestation_count(&credential_id), 1);
     assert_eq!(client.get_attester(&attester).attestation_count, 1);
@@ -119,8 +126,18 @@ fn test_multiple_attesters() {
     client.register_attester(&attester_a, &String::from_str(&env, "MIT"), &key(&env));
     client.register_attester(&attester_b, &String::from_str(&env, "Stanford"), &key(&env));
 
-    client.attest_credential(&attester_a, &credential_id, &sig(&env), &String::from_str(&env, "a"));
-    client.attest_credential(&attester_b, &credential_id, &sig(&env), &String::from_str(&env, "b"));
+    client.attest_credential(
+        &attester_a,
+        &credential_id,
+        &sig(&env),
+        &String::from_str(&env, "a"),
+    );
+    client.attest_credential(
+        &attester_b,
+        &credential_id,
+        &sig(&env),
+        &String::from_str(&env, "b"),
+    );
 
     assert_eq!(client.get_attestations(&credential_id).len(), 2);
     assert_eq!(client.get_attestation_count(&credential_id), 2);
@@ -138,8 +155,18 @@ fn test_duplicate_attestation_fails() {
 
     let credential_id = create_credential(&client, &admin, &recipient);
     client.register_attester(&attester, &String::from_str(&env, "MIT"), &key(&env));
-    client.attest_credential(&attester, &credential_id, &sig(&env), &String::from_str(&env, "x"));
-    client.attest_credential(&attester, &credential_id, &sig(&env), &String::from_str(&env, "y"));
+    client.attest_credential(
+        &attester,
+        &credential_id,
+        &sig(&env),
+        &String::from_str(&env, "x"),
+    );
+    client.attest_credential(
+        &attester,
+        &credential_id,
+        &sig(&env),
+        &String::from_str(&env, "y"),
+    );
 }
 
 #[test]
@@ -151,7 +178,12 @@ fn test_revoke_attestation() {
 
     let credential_id = create_credential(&client, &admin, &recipient);
     client.register_attester(&attester, &String::from_str(&env, "MIT"), &key(&env));
-    client.attest_credential(&attester, &credential_id, &sig(&env), &String::from_str(&env, "x"));
+    client.attest_credential(
+        &attester,
+        &credential_id,
+        &sig(&env),
+        &String::from_str(&env, "x"),
+    );
     assert_eq!(client.get_attestation_count(&credential_id), 1);
 
     client.revoke_attestation(&attester, &credential_id);
@@ -182,7 +214,12 @@ fn test_attest_by_unregistered_attester_fails() {
     let recipient = Address::generate(&env);
     let attester = Address::generate(&env);
     let credential_id = create_credential(&client, &admin, &recipient);
-    client.attest_credential(&attester, &credential_id, &sig(&env), &String::from_str(&env, "x"));
+    client.attest_credential(
+        &attester,
+        &credential_id,
+        &sig(&env),
+        &String::from_str(&env, "x"),
+    );
 }
 
 #[test]
@@ -211,7 +248,12 @@ fn test_deactivate_and_reactivate_attester() {
     client.reactivate_attester(&admin, &attester);
     assert!(client.get_attester(&attester).is_active);
 
-    client.attest_credential(&attester, &credential_id, &sig(&env), &String::from_str(&env, "x"));
+    client.attest_credential(
+        &attester,
+        &credential_id,
+        &sig(&env),
+        &String::from_str(&env, "x"),
+    );
     assert!(client.is_attested_by(&credential_id, &attester));
 }
 
@@ -226,7 +268,12 @@ fn test_deactivated_attester_cannot_attest() {
     let credential_id = create_credential(&client, &admin, &recipient);
     client.register_attester(&attester, &String::from_str(&env, "MIT"), &key(&env));
     client.deactivate_attester(&admin, &attester);
-    client.attest_credential(&attester, &credential_id, &sig(&env), &String::from_str(&env, "x"));
+    client.attest_credential(
+        &attester,
+        &credential_id,
+        &sig(&env),
+        &String::from_str(&env, "x"),
+    );
 }
 
 #[test]

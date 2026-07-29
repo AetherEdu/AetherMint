@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
   course,
@@ -301,7 +302,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
   }
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg w-full" role="form" aria-label="Course enrollment form">
+    <ErrorBoundary variant="payment" errorTitle="Payment Error" errorMessage="There was a problem processing your payment. Please verify your balance and try again.">
+      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg w-full" role="form" aria-label="Course enrollment form">
       {/* Progress Steps - improved for mobile */}
       <nav aria-label="Enrollment progress" className="px-4 sm:px-6 py-4 border-b border-gray-200 overflow-x-auto scrollbar-hide">
         <div className="flex items-center justify-between min-w-0" role="list">
@@ -408,6 +410,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 

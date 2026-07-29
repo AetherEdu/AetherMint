@@ -1,15 +1,17 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
+#![allow(deprecated)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::manual_checked_ops)]
+#![allow(clippy::needless_range_loop)]
 extern crate alloc;
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Symbol, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Vec};
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
-use crate::utils::storage::{MigrationRecord, StorageVersion};
+use crate::utils::pause::PauseUtils;
 use crate::utils::validation::{
     validate_non_zero_address, validate_positive_u64, validate_string_length,
     MAX_DESCRIPTION_LENGTH, MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
 };
-use crate::utils::pause::PauseUtils;
-use crate::utils::storage::StorageKey;
 
 /// Helper: convert u64 to Soroban String without format! macro
 pub fn u64_to_string(env: &Env, num: u64, prefix: &str) -> String {
@@ -34,9 +36,7 @@ pub fn u64_to_string(env: &Env, num: u64, prefix: &str) -> String {
         let mut i = start;
         let mut j = pos - 1;
         while i < j {
-            let tmp = buf[i];
-            buf[i] = buf[j];
-            buf[j] = tmp;
+            buf.swap(i, j);
             i += 1;
             j -= 1;
         }
@@ -86,8 +86,16 @@ pub mod credentials;
 mod credentials_test;
 
 pub mod credential_events;
-// #[cfg(test)]
-// mod credential_events_test;
+#[cfg(test)]
+mod credential_events_test;
+
+pub mod course_events;
+#[cfg(test)]
+mod course_events_test;
+
+pub mod tokenomics_events;
+#[cfg(test)]
+mod tokenomics_events_test;
 
 pub mod credential_registry;
 #[cfg(test)]
@@ -112,68 +120,39 @@ pub mod user_profile;
 // pub mod courseMetadata;
 // pub mod syncCoordination;
 pub mod proctoring;
-// pub mod tokenomics;
-pub mod dynamic_fees;
-pub mod marketplace;
-
-// #[cfg(test)]
-// mod time_lock_credential_test;
-// #[cfg(test)]
-// mod vrf_system_test;
-// #[cfg(test)]
-// mod progress_test;
-// #[cfg(test)]
-// mod event_logger_test;
-// #[cfg(test)]
-// mod user_profile_test;
-// #[cfg(test)]
-// mod analyticsStorage_test;
-// #[cfg(test)]
-// mod consciousness_test;
-// #[cfg(test)]
-// mod courseMetadata_test;
-// #[cfg(test)]
-// mod syncCoordination_test;
-
-pub mod governance;
-// Temporarily disabled: these test modules reference commented-out modules or have pre-existing issues
-// #[cfg(test)]
-// mod time_lock_credential_test;
-// #[cfg(test)]
-// mod vrf_system_test;
-// #[cfg(test)]
-// mod progress_test;
-// #[cfg(test)]
-// mod event_logger_test;
-// #[cfg(test)]
-// mod user_profile_test;
-// #[cfg(test)]
-// mod analyticsStorage_test;
-// #[cfg(test)]
-// mod consciousness_test;
-// #[cfg(test)]
-// mod courseMetadata_test;
-// #[cfg(test)]
-// mod syncCoordination_test;
+pub mod tokenomics;
 #[cfg(test)]
-mod proctoring_test;
+mod analyticsStorage_test;
 #[cfg(test)]
-mod marketplace_test;
-
-pub mod utils;
-
-// pub mod dna_storage;
-// pub mod dna_services;
-// #[cfg(test)]
-// mod dna_storage_test;
-// #[cfg(test)]
-// mod dna_storage_checkpoint_test;
+mod consciousness_test;
+#[cfg(test)]
+mod courseMetadata_test;
+#[cfg(test)]
+mod event_logger_test;
+#[cfg(test)]
+mod progress_test;
+#[cfg(test)]
+mod syncCoordination_test;
+#[cfg(test)]
+mod time_lock_credential_test;
+#[cfg(test)]
+mod user_profile_test;
+#[cfg(test)]
+mod vrf_system_test;
 
 #[cfg(test)]
 mod pause_test;
 
+pub mod utils;
 
-/// Optimized user profile with packed storage
+pub mod dna_services;
+pub mod dna_storage;
+#[cfg(test)]
+mod dna_storage_checkpoint_test;
+#[cfg(test)]
+mod dna_storage_test;
+
+use crate::profile_nft::ProfileNFT;
 #[contracttype]
 #[derive(Clone)]
 pub struct UserProfile {
@@ -206,7 +185,7 @@ impl PrivacyLevel {
             PrivacyLevel::FriendsOnly => 2,
         }
     }
-    
+
     pub fn from_u8(value: u8) -> Self {
         match value & 0x03 {
             0 => PrivacyLevel::Public,
@@ -305,7 +284,9 @@ impl AetherMintContract {
         }
 
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::CredentialCount, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::CredentialCount, &0u64);
         env.storage().instance().set(&DataKey::CourseCount, &0u64);
         env.storage().instance().set(&DataKey::AchievementCount, &0u64);
 
@@ -341,7 +322,9 @@ impl AetherMintContract {
         // RBAC: require Issuer role (Admin also satisfies this via has_role)
         access_control::require_role(&env, &issuer, access_control::Role::Issuer);
 
-        let count: u64 = env.storage().instance()
+        let count: u64 = env
+            .storage()
+            .instance()
             .get(&DataKey::CredentialCount)
             .unwrap_or(0);
         let credential_id = count + 1;
@@ -361,11 +344,23 @@ impl AetherMintContract {
             ipfs_hash,
         };
 
-        env.storage().instance().set(&DataKey::Credential(credential_id), &credential);
-        env.storage().instance().set(&DataKey::CredentialCount, &credential_id);
+        env.storage()
+            .instance()
+            .set(&DataKey::Credential(credential_id), &credential);
+        env.storage()
+            .instance()
+            .set(&DataKey::CredentialCount, &credential_id);
 
         // Update user credential count
-        Self::increment_user_credential_count(&env, recipient);
+        Self::increment_user_credential_count(&env, recipient.clone());
+
+        // Emit standardized credential lifecycle event (published on-chain + queryable record).
+        crate::credential_events::publish_credential_event(
+            &env,
+            crate::credential_events::CredentialLifecycleEvent::Issued,
+            credential_id,
+            issuer,
+        );
 
         credential_id
     }
@@ -385,7 +380,8 @@ impl AetherMintContract {
 
     /// Get credential details
     pub fn get_credential(env: Env, credential_id: u64) -> Credential {
-        env.storage().instance()
+        env.storage()
+            .instance()
             .get(&DataKey::Credential(credential_id))
             .unwrap_or_else(|| panic!("Credential not found"))
     }
@@ -408,12 +404,14 @@ impl AetherMintContract {
         // RBAC: require Instructor role
         access_control::require_role(&env, &instructor, access_control::Role::Instructor);
 
-        let course_count: u64 = env.storage().instance()
+        let course_count: u64 = env
+            .storage()
+            .instance()
             .get(&DataKey::CourseCount)
             .unwrap_or(0);
-        
+
         let course_id = course_count + 1;
-        
+
         // Pack flags - bit 0 = active status
         let flags = 1u32; // Active = true
 
@@ -426,20 +424,18 @@ impl AetherMintContract {
             flags,
         };
 
-        env.storage().instance().set(&DataKey::Course(course_id), &course);
-        env.storage().instance().set(&DataKey::CourseCount, &course_id);
-
-        let now = env.ledger().timestamp();
-        env.events().publish(
-            (Symbol::new(&env, "course"), Symbol::new(&env, "created")),
-            (course_id, instructor, price, now),
-        );
+        env.storage()
+            .instance()
+            .set(&DataKey::Course(course_id), &course);
+        env.storage()
+            .instance()
+            .set(&DataKey::CourseCount, &course_id);
 
         course_id
     }
 
     /// Get user profile with optimized storage
-    pub fn get_profile(env: Env, user: Address) -> Profile {
+    pub fn get_profile(_env: Env, user: Address) -> Profile {
         // Simplified - returns default profile (user_profile module disabled to avoid conflicts)
         Profile {
             owner: user,
@@ -451,7 +447,8 @@ impl AetherMintContract {
 
     /// Get total credential count
     pub fn get_credential_count(env: Env) -> u64 {
-        env.storage().instance()
+        env.storage()
+            .instance()
             .get(&DataKey::CredentialCount)
             .unwrap_or(0)
     }
@@ -469,14 +466,16 @@ impl AetherMintContract {
 
     /// Get total course count
     pub fn get_course_count(env: Env) -> u64 {
-        env.storage().instance()
+        env.storage()
+            .instance()
             .get(&DataKey::CourseCount)
             .unwrap_or(0)
     }
 
     /// Get total achievement count
     pub fn get_achievement_count(env: Env) -> u64 {
-        env.storage().instance()
+        env.storage()
+            .instance()
             .get(&DataKey::AchievementCount)
             .unwrap_or(0)
     }
@@ -496,23 +495,6 @@ impl AetherMintContract {
     ) -> u64 {
         PauseUtils::require_not_paused(&env);
         credential_registry::issue_credential_with_expiration(
-            &env, issuer, recipient, title, description, course_id, ipfs_hash, validity_duration
-        )
-    }
-
-    /// Issue a proctored credential and link it to a completed proctoring session.
-    pub fn issue_proctored_cred_with_exp(
-        env: Env,
-        issuer: Address,
-        recipient: Address,
-        title: String,
-        description: String,
-        course_id: String,
-        ipfs_hash: String,
-        validity_duration: u64,
-        session_id: u64,
-    ) -> u64 {
-        credential_registry::issue_proctored_cred_with_exp(
             &env,
             issuer,
             recipient,
@@ -521,7 +503,6 @@ impl AetherMintContract {
             course_id,
             ipfs_hash,
             validity_duration,
-            session_id,
         )
     }
 
@@ -543,7 +524,10 @@ impl AetherMintContract {
     }
 
     /// Get credential with current expiration status
-    pub fn get_credential_with_status(env: Env, credential_id: u64) -> credential_registry::CredentialRegistry {
+    pub fn get_credential_with_status(
+        env: Env,
+        credential_id: u64,
+    ) -> credential_registry::CredentialRegistry {
         credential_registry::get_credential(&env, credential_id)
     }
 
@@ -558,7 +542,10 @@ impl AetherMintContract {
     }
 
     /// Get renewal history for a credential
-    pub fn get_credential_renewal_history(env: Env, credential_id: u64) -> Vec<credential_registry::RenewalRecord> {
+    pub fn get_credential_renewal_history(
+        env: Env,
+        credential_id: u64,
+    ) -> Vec<credential_registry::RenewalRecord> {
         credential_registry::get_renewal_history(&env, credential_id)
     }
 
@@ -642,15 +629,15 @@ impl AetherMintContract {
     }
 
     /// Get a stored proctoring session.
-    pub fn get_proctoring_session(
-        env: Env,
-        session_id: u64,
-    ) -> proctoring::ProctoringSession {
+    pub fn get_proctoring_session(env: Env, session_id: u64) -> proctoring::ProctoringSession {
         proctoring::get_proctoring_session(&env, session_id)
     }
 
     /// Get a stored proctoring result.
-    pub fn get_proctoring_result(env: Env, session_id: u64) -> Option<proctoring::ProctoringResult> {
+    pub fn get_proctoring_result(
+        env: Env,
+        session_id: u64,
+    ) -> Option<proctoring::ProctoringResult> {
         proctoring::get_proctoring_result(&env, session_id)
     }
 
@@ -690,23 +677,13 @@ impl AetherMintContract {
     }
 
     /// Evolve an NFT based on achievement
-    pub fn evolve_nft(
-        env: Env,
-        token_id: u64,
-        achievement_id: u64,
-        new_metadata: String,
-    ) -> bool {
+    pub fn evolve_nft(env: Env, token_id: u64, achievement_id: u64, new_metadata: String) -> bool {
         PauseUtils::require_not_paused(&env);
         dynamic_nft::evolve_nft(&env, token_id, achievement_id, new_metadata)
     }
 
     /// Fuse two NFTs to create a new one
-    pub fn fuse_nfts(
-        env: Env,
-        token1_id: u64,
-        token2_id: u64,
-        recipient: Address,
-    ) -> u64 {
+    pub fn fuse_nfts(env: Env, token1_id: u64, token2_id: u64, recipient: Address) -> u64 {
         PauseUtils::require_not_paused(&env);
         dynamic_nft::fuse_nfts(&env, token1_id, token2_id, recipient)
     }
@@ -730,6 +707,80 @@ impl AetherMintContract {
     /// Get NFT metadata URI
     pub fn token_uri(env: Env, token_id: u64) -> String {
         dynamic_nft::token_uri(&env, token_id)
+    }
+
+    // ===== Profile NFT Functions =====
+
+    /// Mint a profile NFT for the caller. One per address.
+    pub fn mint_profile_nft(
+        env: Env,
+        owner: Address,
+        name: String,
+        bio: String,
+        avatar_url: String,
+        skills: Vec<String>,
+        website: Option<String>,
+    ) -> u64 {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::mint_profile_nft(&env, owner, name, bio, avatar_url, skills, website)
+    }
+
+    /// Update an existing profile NFT's metadata.
+    pub fn update_profile_nft(
+        env: Env,
+        owner: Address,
+        name: String,
+        bio: String,
+        avatar_url: String,
+        skills: Vec<String>,
+        website: Option<String>,
+    ) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::update_profile_nft(&env, owner, name, bio, avatar_url, skills, website)
+    }
+
+    /// Get a profile NFT by token ID.
+    pub fn get_profile_nft(env: Env, token_id: u64) -> ProfileNFT {
+        profile_nft::get_profile_nft(&env, token_id)
+    }
+
+    /// Get a profile NFT by owner address.
+    pub fn get_profile_nft_by_owner(env: Env, owner: Address) -> Option<ProfileNFT> {
+        profile_nft::get_profile_nft_by_owner(&env, owner)
+    }
+
+    /// Check if an address has a profile NFT.
+    pub fn has_profile_nft(env: Env, owner: Address) -> bool {
+        profile_nft::has_profile_nft(&env, owner)
+    }
+
+    /// Burn the caller's profile NFT.
+    pub fn burn_profile_nft(env: Env, owner: Address) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::burn_profile_nft(&env, owner)
+    }
+
+    /// Admin-only: verify a profile NFT.
+    pub fn verify_profile_nft(env: Env, admin: Address, token_id: u64) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::verify_profile_nft(&env, admin, token_id)
+    }
+
+    /// Admin-only: unverify a profile NFT.
+    pub fn unverify_profile_nft(env: Env, admin: Address, token_id: u64) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::unverify_profile_nft(&env, admin, token_id)
+    }
+
+    /// Get total profile NFT supply.
+    pub fn get_profile_nft_supply(env: Env) -> u64 {
+        profile_nft::get_total_supply(&env)
+    }
+
+    /// Get the token ID for an owner, if one exists. Falls back to a default (0)
+    /// for backwards-compatibility so the return type remains u64.
+    pub fn get_profile_nft_token_id(env: Env, owner: Address) -> u64 {
+        profile_nft::get_token_id_for_owner(&env, owner).unwrap_or(0)
     }
 
     /// Check if NFT exists
@@ -842,33 +893,13 @@ impl AetherMintContract {
         MAX_BATCH_SIZE
     }
 
-    // ===== Storage Versioning (issue #120) =====
-
-    /// Return the current storage schema version. Equivalent to calling
-    /// [`StorageVersion::get_storage_version`].
-    pub fn storage_version(env: Env) -> u32 {
-        StorageVersion::get_storage_version(&env)
-    }
-
-    /// Admin-triggered migration to a newer storage layout. Performs the
-    /// version-to-version data transformation registered for the requested
-    /// `(current, new_version)` pair and appends a [`MigrationRecord`] to the
-    /// audit log. The caller must authorize as the contract admin.
-    pub fn migrate_storage(env: Env, admin: Address, new_version: u32) {
-        StorageVersion::migrate(&env, admin, new_version);
-    }
-
-    /// Read the migration audit log. Empty before any migrations have run.
-    pub fn migration_history(env: Env) -> Vec<MigrationRecord> {
-        StorageVersion::migration_history(&env)
-    }
-
-
-    // ===== Governance Functions =====
+    // ===== Pause / Unpause (Circuit Breaker) =====
 
     /// Pause the contract (Admin only)
     pub fn pause(env: Env, admin: Address) {
-        let stored_admin: Address = env.storage().instance()
+        let stored_admin: Address = env
+            .storage()
+            .instance()
             .get(&DataKey::Admin)
             .unwrap_or_else(|| panic!("Admin not found"));
         PauseUtils::pause(&env, admin, stored_admin);
@@ -876,7 +907,9 @@ impl AetherMintContract {
 
     /// Unpause the contract (Admin only)
     pub fn unpause(env: Env, admin: Address) {
-        let stored_admin: Address = env.storage().instance()
+        let stored_admin: Address = env
+            .storage()
+            .instance()
             .get(&DataKey::Admin)
             .unwrap_or_else(|| panic!("Admin not found"));
         PauseUtils::unpause(&env, admin, stored_admin);

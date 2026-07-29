@@ -225,7 +225,7 @@ impl StorageUtils {
             .get(&key)
             .unwrap_or_else(|| Vec::new(env));
 
-        if !list.contains(&id) {
+        if !list.contains(id) {
             list.push_back(id);
             env.storage().instance().set(&key, &list);
         }
@@ -526,9 +526,10 @@ impl StorageVersion {
         };
         // `transformed` is informational; surface it through the marker so
         // off-chain tooling can confirm side-effects were performed.
-        env.storage()
-            .instance()
-            .set(&StorageVersionKey::MigrationMarker(new_version), &transformed);
+        env.storage().instance().set(
+            &StorageVersionKey::MigrationMarker(new_version),
+            &transformed,
+        );
 
         // Bump the version.
         env.storage()

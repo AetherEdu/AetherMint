@@ -3,7 +3,6 @@
  * Handles media file processing, optimization, and IPFS integration
  */
 
-import { create } from 'ipfs-http-client';
 import { MediaFile, MediaFormat } from '../models/Content';
 import logger from '../utils/logger';
 
@@ -37,8 +36,16 @@ export class MediaService {
   private processingQueue: Map<string, Promise<MediaFile>> = new Map();
 
   constructor() {
-    // Initialize IPFS client
+    void this.initializeIpfsClient();
+  }
+
+  private async initializeIpfsClient(): Promise<void> {
+    if (this.ipfsClient) {
+      return;
+    }
+
     try {
+      const { create } = await import('ipfs-http-client');
       this.ipfsClient = create({
         host: process.env.IPFS_HOST || 'localhost',
         port: parseInt(process.env.IPFS_PORT || '5001'),

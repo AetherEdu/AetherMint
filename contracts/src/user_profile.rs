@@ -1,8 +1,6 @@
-use crate::utils::storage::{PackedTimestamps, PackedUserFlags};
 use crate::utils::pause::PauseUtils;
-use soroban_sdk::{
-    contract, contracttype, symbol_short, Address, Env, String, Vec,
-};
+use crate::utils::storage::{PackedTimestamps, PackedUserFlags};
+use soroban_sdk::{contract, contracttype, symbol_short, Address, Env, String, Vec};
 
 /// Optimized user profile with packed storage
 #[contracttype]
@@ -69,7 +67,7 @@ pub struct Achievement {
     pub user: Address,
     pub title: String,
     pub description: String,
-    pub timestamp: u64,     // Packed earned_at and verification status
+    pub timestamp: u64,  // Packed earned_at and verification status
     pub badge_hash: u64, // Hash of badge URL
 }
 
@@ -115,7 +113,7 @@ pub fn add_credential(env: &Env, user: Address, credential_id: u64) {
         .instance()
         .get(&ProfileKey::UserCredentials(user.clone()))
         .unwrap_or_else(|| Vec::new(env));
-    if !user_creds.contains(&credential_id) {
+    if !user_creds.contains(credential_id) {
         user_creds.push_back(credential_id);
         env.storage()
             .instance()
@@ -282,8 +280,12 @@ impl UserProfileContract {
 
         // Pack timestamp and verification status
         let packed_timestamp = timestamp << 1; // Reserve bit 0 for verification status
-        let badge_hash =
-            generate_string_hash(&badge_url.as_ref().cloned().unwrap_or_else(|| String::from_str(&env, "")));
+        let badge_hash = generate_string_hash(
+            &badge_url
+                .as_ref()
+                .cloned()
+                .unwrap_or_else(|| String::from_str(&env, "")),
+        );
 
         // Create achievement
         let achievement = Achievement {
@@ -406,7 +408,7 @@ impl UserProfileContract {
         {
             // Perform basic checks for authenticity
             // Here we just check that the profile exists and has a username
-            profile.username.len() > 0
+            !profile.username.is_empty()
         } else {
             false
         }
@@ -489,5 +491,4 @@ impl UserProfileContract {
             None
         }
     }
-
 }

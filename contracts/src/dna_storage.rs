@@ -529,10 +529,19 @@ fn verify_blockchain_reference(env: &Env, reference: &String) -> bool {
     // Simplified verification - check if credential exists on blockchain
     let mut reference_buf = [0u8; 64];
     let ref_len = reference.copy_into_slice(&mut reference_buf);
-    if ref_len >= 5 && reference_buf[0] == b'c' && reference_buf[1] == b'r' 
-        && reference_buf[2] == b'e' && reference_buf[3] == b'd' && reference_buf[4] == b'_' {
+    if ref_len >= 5
+        && reference_buf[0] == b'c'
+        && reference_buf[1] == b'r'
+        && reference_buf[2] == b'e'
+        && reference_buf[3] == b'd'
+        && reference_buf[4] == b'_'
+    {
         // Simplified: just check if any credential exists
-        if let Some(_) = env.storage().persistent().get::<_, u64>(&DNAStorageKey::DNACredentialCount) {
+        if let Some(_) = env
+            .storage()
+            .persistent()
+            .get::<_, u64>(&DNAStorageKey::DNACredentialCount)
+        {
             return true;
         }
     }
@@ -605,8 +614,8 @@ pub struct CheckpointMeta {
     pub checkpoint_id: u64,
     pub label: String,
     pub timestamp: u64,
-    pub data_size: u32,  // number of credential IDs captured
-    pub hash: u64,       // rolling hash of the snapshot
+    pub data_size: u32, // number of credential IDs captured
+    pub hash: u64,      // rolling hash of the snapshot
 }
 
 /// Storage keys for checkpoints.
@@ -687,9 +696,7 @@ pub fn create_checkpoint(env: &Env, label: String) -> u64 {
         .set(&CheckpointKey::Snapshot(checkpoint_id), &snapshot);
 
     index.push_back(checkpoint_id);
-    env.storage()
-        .instance()
-        .set(&CheckpointKey::Index, &index);
+    env.storage().instance().set(&CheckpointKey::Index, &index);
 
     // Verify integrity immediately after capture
     let recalc = snapshot_hash(&snapshot);

@@ -224,25 +224,25 @@ export function EnrollmentConfirmation({
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto px-3 xs:px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Success Header */}
       <Card className="border-green-200 bg-green-50">
-        <CardContent className="pt-6">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle className="w-8 h-8 text-green-600" />
+        <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
+          <div className="text-center space-y-3 sm:space-y-4">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle className="w-7 h-7 sm:w-8 sm:h-8 text-green-600" />
             </div>
             
             <div>
-              <h1 className="text-3xl font-bold text-green-800 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-green-800 mb-2">
                 Enrollment Confirmed!
               </h1>
-              <p className="text-green-700">
+              <p className="text-sm sm:text-base text-green-700 px-2">
                 You have successfully enrolled in <strong>{course.title}</strong>
               </p>
             </div>
 
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
               <Badge className={getEnrollmentStatusColor(enrollment.status)}>
                 {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
               </Badge>
@@ -255,7 +255,7 @@ export function EnrollmentConfirmation({
       </Card>
 
       {/* Enrollment Details */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* Course Information */}
         <Card>
           <CardHeader>
@@ -265,11 +265,14 @@ export function EnrollmentConfirmation({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-4">
+            <div className="flex gap-3 sm:gap-4">
               <img 
-                src={course.thumbnail} 
+                src={course.thumbnail}
+                srcSet={`${course.thumbnail}?w=80 80w, ${course.thumbnail}?w=160 160w`}
+                sizes="80px"
                 alt={course.title}
-                className="w-20 h-20 object-cover rounded-lg"
+                className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg flex-shrink-0"
+                loading="lazy"
               />
               <div className="flex-1">
                 <h3 className="font-semibold">{course.title}</h3>
@@ -381,14 +384,14 @@ export function EnrollmentConfirmation({
 
       {/* Actions */}
       <Card>
-        <CardHeader>
+        <CardHeader className="px-4 sm:px-6">
           <CardTitle>Next Steps</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 gap-4">
+        <CardContent className="px-4 sm:px-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <Button
               onClick={onGoToCourse}
-              className="w-full"
+              className="w-full min-h-[44px] touch-target"
               size="lg"
             >
               <BookOpen className="w-4 h-4 mr-2" />
@@ -398,7 +401,7 @@ export function EnrollmentConfirmation({
             <Button
               onClick={onViewDashboard}
               variant="outline"
-              className="w-full"
+              className="w-full min-h-[44px] touch-target"
               size="lg"
             >
               <ExternalLink className="w-4 h-4 mr-2" />
@@ -406,14 +409,14 @@ export function EnrollmentConfirmation({
             </Button>
           </div>
 
-          <Separator className="my-6" />
+          <Separator className="my-4 sm:my-6" />
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <Button
               onClick={handleDownloadReceipt}
               variant="outline"
               disabled={isDownloading || !receiptUrl}
-              className="w-full"
+              className="w-full min-h-[44px] touch-target"
             >
               {isDownloading ? (
                 <>
@@ -432,7 +435,7 @@ export function EnrollmentConfirmation({
               onClick={handleShareEnrollment}
               variant="outline"
               disabled={isSharing}
-              className="w-full"
+              className="w-full min-h-[44px] touch-target"
             >
               {isSharing ? (
                 <>
@@ -451,7 +454,7 @@ export function EnrollmentConfirmation({
               onClick={handleSendEmail}
               variant="outline"
               disabled={emailSent}
-              className="w-full"
+              className="w-full min-h-[44px] touch-target"
             >
               {emailSent ? (
                 <>

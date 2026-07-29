@@ -1,6 +1,4 @@
-use crate::credential_events::{
-    publish_credential_event, CredentialLifecycleEvent,
-};
+use crate::credential_events::{publish_credential_event, CredentialLifecycleEvent};
 use crate::utils::storage::{EntityType, StorageUtils};
 use soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec};
 
@@ -100,12 +98,7 @@ pub fn issue_credential(
         .set(&CredentialKey::CredentialCount, &credential_id);
 
     // Emit lifecycle event (publishes on-chain event + records for queryability)
-    publish_credential_event(
-        env,
-        CredentialLifecycleEvent::Issued,
-        credential_id,
-        issuer,
-    );
+    publish_credential_event(env, CredentialLifecycleEvent::Issued, credential_id, issuer);
 
     credential_id
 }
@@ -207,7 +200,7 @@ pub fn get_credential_revocation_time(env: &Env, credential_id: u64) -> Option<u
         .get(&CredentialKey::CredentialRevocations(credential_id))
 }
 
-    // Get credential count with optimized storage
+// Get credential count with optimized storage
 pub fn get_credential_count(env: &Env) -> u64 {
     env.storage()
         .instance()

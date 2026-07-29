@@ -33,7 +33,7 @@ Specifically:
 - **Shared contracts**: Frontend and backend both depend on contract ABIs/types
 - **API-first**: Backend exposes REST API consumed by both frontend and portal
 - **Event-driven**: WebSocket for real-time features (collaboration, proctoring)
-- **CI/CD per package**: GitHub Actions workflows build and test each package independently
+- **Independent build/test per package**: Each package can be built and tested independently
 
 ## Alternatives Considered
 
@@ -75,5 +75,4 @@ Specifically:
 
 - `pnpm-workspace.yaml` — Workspace configuration
 - `docker-compose.yml` — Multi-service orchestration
-- `.github/workflows/ci.yml` — Per-package CI jobs
 - `backend/Dockerfile`, `frontend/Dockerfile` — Independent container definitions

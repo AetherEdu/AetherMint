@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
+import { ForbiddenError } from '../utils/errors';
 import logger from '../utils/logger';
 
 const MAX_STRING_LENGTH = 10000;
+
+type RequestWithUploads = Request & {
+  file?: any;
+  files?: any[] | Record<string, any[]>;
+};
 
 /**
  * Encodes HTML entities to prevent XSS attacks.
@@ -86,24 +92,26 @@ const sanitizeFileMetadata = (file: any) => {
  * Middleware to sanitize all incoming request data.
  */
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
+  const uploadRequest = req as RequestWithUploads;
+
   try {
-    if (req.body) {
-      req.body = sanitizeRecursive(req.body);
+    if (uploadRequest.body) {
+      uploadRequest.body = sanitizeRecursive(uploadRequest.body);
     }
-    if (req.query) {
-      req.query = sanitizeRecursive(req.query);
+    if (uploadRequest.query) {
+      uploadRequest.query = sanitizeRecursive(uploadRequest.query);
     }
-    if (req.params) {
-      req.params = sanitizeRecursive(req.params);
+    if (uploadRequest.params) {
+      uploadRequest.params = sanitizeRecursive(uploadRequest.params);
     }
-    if (req.file) {
-      sanitizeFileMetadata(req.file);
+    if ((req as any).file) {
+      sanitizeFileMetadata((req as any).file);
     }
-    if (req.files) {
-      if (Array.isArray(req.files)) {
-        req.files.forEach(sanitizeFileMetadata);
+    if ((req as any).files) {
+      if (Array.isArray((req as any).files)) {
+        (req as any).files.forEach(sanitizeFileMetadata);
       } else {
-        Object.values(req.files).forEach((fileArray: any) => {
+        Object.values((req as any).files).forEach((fileArray: any) => {
           fileArray.forEach(sanitizeFileMetadata);
         });
       }
@@ -144,10 +152,7 @@ export const detectSuspiciousPatterns = (req: Request, res: Response, next: Next
       method: req.method,
       userAgent: req.headers['user-agent']
     });
-    return res.status(403).json({
-      success: false,
-      message: 'Request rejected due to suspicious patterns.',
-    });
+    return next(new ForbiddenError('Request rejected due to suspicious patterns.'));
   }
 
   next();

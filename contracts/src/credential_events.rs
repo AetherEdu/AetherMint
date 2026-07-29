@@ -164,10 +164,7 @@ pub fn get_credential_event(env: &Env, event_id: u64) -> Option<CredentialEventR
 
 /// Fetch all event records associated with a given credential id,
 /// in insertion order.
-pub fn get_credential_events(
-    env: &Env,
-    credential_id: u64,
-) -> Vec<CredentialEventRecord> {
+pub fn get_credential_events(env: &Env, credential_id: u64) -> Vec<CredentialEventRecord> {
     let ids: Vec<u64> = env
         .storage()
         .instance()

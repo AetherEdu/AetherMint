@@ -1,0 +1,98 @@
+name: Docker Images (size & scan)
+
+# Builds the backend and frontend production images, reports each image's size
+# against a target budget, and scans the FINAL images for known vulnerabilities
+# with Trivy. This complements ci-pr.yml, whose Trivy step scans the source
+# filesystem (scan-type: fs) rather than the built images.
+#
+# The image build is best-effort: matching this repository's "report, don't
+# block" posture, a build failure is surfaced as a warning annotation and in the
+# run summary but does NOT fail the workflow. Size and scan steps run only when
+# the image built successfully.
+#
+# Uses `pull_request` (not `pull_request_target`) so it runs safely for fork
+# PRs with a read-only token and no secrets, matching ci-pr.yml.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "frontend/**"
+      - "backend/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - ".github/workflows/docker-images.yml"
+  workflow_dispatch:
+
+# Target size budget per image. Issue #282 targets < 200 MB. Exceeding it emits
+# a warning annotation rather than failing.
+env:
+  MAX_IMAGE_MB: 200
+
+concurrency:
+  group: docker-images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-scan:
+    name: Build & scan ${{ matrix.name }} image
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            dockerfile: backend/Dockerfile
+          - name: frontend
+            dockerfile: frontend/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.name }} image
+        id: build
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          tags: aethermint-${{ matrix.name }}:ci
+          build-args: |
+            BUILD_DATE=ci
+            VCS_REF=${{ github.sha }}
+            VERSION=ci
+            NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS=${{ secrets.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA' }}
+
+      - name: Report build failure (non-blocking)
+        if: steps.build.outcome != 'success'
+        run: |
+          echo "::warning title=Image build failed::aethermint-${{ matrix.name }} image did not build; size and scan steps were skipped. See the build step logs."
+          echo "### ${{ matrix.name }} image: build FAILED" >> "$GITHUB_STEP_SUMMARY"
+          echo "The image did not build, so the size budget check and Trivy image scan were skipped. See the build step logs for details." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report image size vs budget
+        if: steps.build.outcome == 'success'
+        run: |
+          BYTES=$(docker image inspect aethermint-${{ matrix.name }}:ci --format '{{.Size}}')
+          MB=$(( BYTES / 1000000 ))
+          echo "Image aethermint-${{ matrix.name }}:ci is ${MB} MB (budget ${MAX_IMAGE_MB} MB)"
+          echo "### ${{ matrix.name }} image: ${MB} MB (budget ${MAX_IMAGE_MB} MB)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$MB" -gt "$MAX_IMAGE_MB" ]; then
+            echo "::warning title=Image over budget::aethermint-${{ matrix.name }} is ${MB} MB, exceeding the ${MAX_IMAGE_MB} MB target"
+          fi
+
+      - name: Scan final image with Trivy
+        if: steps.build.outcome == 'success'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: aethermint-${{ matrix.name }}:ci
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+          ignore-unfixed: true
+          exit-code: '0'
