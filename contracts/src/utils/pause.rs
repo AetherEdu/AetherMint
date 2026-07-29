@@ -34,7 +34,7 @@ impl PauseUtils {
         }
     }
 
-    /// Pause the contract.
+    /// Pause the contract. Only callable by admin.
     pub fn pause(env: &Env, admin: Address, stored_admin: Address) {
         admin.require_auth();
 
@@ -53,7 +53,7 @@ impl PauseUtils {
         );
     }
 
-    /// Unpause the contract.
+    /// Unpause the contract. Only callable by admin.
     pub fn unpause(env: &Env, admin: Address, stored_admin: Address) {
         admin.require_auth();
 

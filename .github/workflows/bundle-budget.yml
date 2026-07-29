@@ -1,0 +1,27 @@
+name: Bundle Budget
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+  workflow_dispatch:
+
+jobs:
+  bundle-budget:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        env:
+          NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA
+        run: npm run build
+      - name: Check bundle budget (report-only)
+        run: npm run bundle-budget

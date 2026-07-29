@@ -78,12 +78,41 @@ fn test_issue_and_verify_credential() {
         assert_eq!(cred.recipient, recipient);
     });
 
-    // Block 7: Lifecycle events (verify_credential emits Verified event even
-    // for revoked credentials, so we get Issued + Verified + Revoked + Verified = 4)
-    env.as_contract(&cid, || {
-        let issued_records = crate::credential_events::get_credential_events(&env, 1);
-        assert!(issued_records.len() >= 3, "should have at least 3 events");
-    });
+    // Revoke
+    revoke_credential(&env, cred_id, admin.clone());
+    let revoked_cred = get_credential(&env, cred_id);
+    assert!(revoked_cred.is_revoked());
+
+    // Verify should now return false
+    assert!(!verify_credential(&env, cred_id, verifier));
+
+    // User credential list
+    let user_creds: Vec<u64> = get_user_credentials(&env, recipient);
+    assert_eq!(user_creds.len(), 1);
+    assert_eq!(user_creds.get(0).unwrap(), 1);
+
+    // Integration: lifecycle events must be recorded by the unified
+    // credential_events module so off-chain indexers can subscribe to them.
+    let issued_records = crate::credential_events::get_credential_events(&env, cred_id);
+    assert_eq!(issued_records.len(), 3); // Issued, Verified, Revoked
+    assert_eq!(
+        issued_records.get(0).unwrap().event_type,
+        crate::credential_events::CredentialLifecycleEvent::Issued
+    );
+    assert_eq!(
+        issued_records.get(1).unwrap().event_type,
+        crate::credential_events::CredentialLifecycleEvent::Verified
+    );
+    assert_eq!(
+        issued_records.get(2).unwrap().event_type,
+        crate::credential_events::CredentialLifecycleEvent::Revoked
+    );
+
+    // And by-actor indexing routes admin -> Issued + Revoked and verifier -> Verified.
+    let admin_records = crate::credential_events::get_actor_events(&env, admin.clone());
+    assert_eq!(admin_records.len(), 2);
+    let verifier_records = crate::credential_events::get_actor_events(&env, verifier);
+    assert_eq!(verifier_records.len(), 1);
 }
 
 #[test]

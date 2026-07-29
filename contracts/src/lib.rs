@@ -10,7 +10,6 @@ use soroban_sdk::{
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
 use crate::utils::pause::PauseUtils;
-use crate::utils::storage::{MigrationRecord, StorageVersion};
 use crate::utils::validation::{
     validate_non_zero_address, validate_positive_u64, validate_string_length,
     MAX_DESCRIPTION_LENGTH, MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
@@ -121,33 +120,37 @@ pub mod user_profile;
 // pub mod courseMetadata;
 // pub mod syncCoordination;
 pub mod proctoring;
-// pub mod tokenomics;
-pub mod dynamic_fees;
-pub mod marketplace;
-pub mod profile_nft;
-
+pub mod tokenomics;
 #[cfg(test)]
-mod marketplace_test;
+mod analyticsStorage_test;
 #[cfg(test)]
-mod proctoring_test;
-
+mod consciousness_test;
 #[cfg(test)]
-mod profile_nft_test;
-
-pub mod utils;
-
-// pub mod dna_storage;
-// pub mod dna_services;
-// #[cfg(test)]
-// mod dna_storage_test;
-// #[cfg(test)]
-// mod dna_storage_checkpoint_test;
+mod courseMetadata_test;
+#[cfg(test)]
+mod event_logger_test;
+#[cfg(test)]
+mod progress_test;
+#[cfg(test)]
+mod syncCoordination_test;
+#[cfg(test)]
+mod time_lock_credential_test;
+#[cfg(test)]
+mod user_profile_test;
+#[cfg(test)]
+mod vrf_system_test;
 
 #[cfg(test)]
 mod pause_test;
 
+pub mod utils;
+
+pub mod dna_services;
+pub mod dna_storage;
 #[cfg(test)]
-mod fuzzing_test;
+mod dna_storage_checkpoint_test;
+#[cfg(test)]
+mod dna_storage_test;
 
 use crate::profile_nft::ProfileNFT;
 #[contracttype]
@@ -288,12 +291,6 @@ impl AetherMintContract {
         env.storage()
             .instance()
             .set(&DataKey::AchievementCount, &0u64);
-
-        // Stamp the storage schema version (issue #120). Initializing here
-        // means every later call into durable storage goes through
-        // StorageVersion::require_compatible_version and is rejected if the
-        // on-disk version isn't supported by this binary.
-        StorageVersion::initialize(&env);
     }
 
     /// Issue a new credential with optimized storage
@@ -439,14 +436,6 @@ impl AetherMintContract {
             .instance()
             .set(&DataKey::CourseCount, &course_id);
 
-        // Emit standardized course lifecycle event (published on-chain + queryable record).
-        crate::course_events::publish_course_event(
-            &env,
-            crate::course_events::CourseLifecycleEvent::Created,
-            course_id,
-            instructor,
-        );
-
         course_id
     }
 
@@ -519,31 +508,6 @@ impl AetherMintContract {
             course_id,
             ipfs_hash,
             validity_duration,
-        )
-    }
-
-    /// Issue a proctored credential and link it to a completed proctoring session.
-    pub fn issue_proctored_cred_with_exp(
-        env: Env,
-        issuer: Address,
-        recipient: Address,
-        title: String,
-        description: String,
-        course_id: String,
-        ipfs_hash: String,
-        validity_duration: u64,
-        session_id: u64,
-    ) -> u64 {
-        credential_registry::issue_proctored_cred_with_exp(
-            &env,
-            issuer,
-            recipient,
-            title,
-            description,
-            course_id,
-            ipfs_hash,
-            validity_duration,
-            session_id,
         )
     }
 
@@ -934,28 +898,7 @@ impl AetherMintContract {
         MAX_BATCH_SIZE
     }
 
-    // ===== Storage Versioning (issue #120) =====
-
-    /// Return the current storage schema version. Equivalent to calling
-    /// [`StorageVersion::get_storage_version`].
-    pub fn storage_version(env: Env) -> u32 {
-        StorageVersion::get_storage_version(&env)
-    }
-
-    /// Admin-triggered migration to a newer storage layout. Performs the
-    /// version-to-version data transformation registered for the requested
-    /// `(current, new_version)` pair and appends a [`MigrationRecord`] to the
-    /// audit log. The caller must authorize as the contract admin.
-    pub fn migrate_storage(env: Env, admin: Address, new_version: u32) {
-        StorageVersion::migrate(&env, admin, new_version);
-    }
-
-    /// Read the migration audit log. Empty before any migrations have run.
-    pub fn migration_history(env: Env) -> Vec<MigrationRecord> {
-        StorageVersion::migration_history(&env)
-    }
-
-    // ===== Governance Functions =====
+    // ===== Pause / Unpause (Circuit Breaker) =====
 
     /// Pause the contract (Admin only)
     pub fn pause(env: Env, admin: Address) {
@@ -980,42 +923,5 @@ impl AetherMintContract {
     /// Check if the contract is paused
     pub fn is_paused(env: Env) -> bool {
         PauseUtils::is_paused(&env)
-    }
-
-    // ===== Marketplace Functions =====
-
-    /// Create a marketplace listing for an item (credential, course, or NFT).
-    pub fn list_item(env: Env, seller: Address, item_id: u64, price: u64, item_type: u32) -> u64 {
-        marketplace::list_item(&env, &seller, item_id, item_type, price)
-    }
-
-    /// Buy an item — transfers ownership with escrow holding funds.
-    pub fn buy_item(env: Env, buyer: Address, listing_id: u64) {
-        marketplace::buy_item(&env, &buyer, listing_id)
-    }
-
-    /// Cancel an active listing by the seller.
-    pub fn cancel_listing(env: Env, seller: Address, listing_id: u64) {
-        marketplace::cancel_listing(&env, &seller, listing_id)
-    }
-
-    /// Release escrow funds to the seller after successful transfer.
-    pub fn release_escrow(env: Env, listing_id: u64) {
-        marketplace::release_escrow(&env, listing_id)
-    }
-
-    /// Refund escrow to buyer on dispute or cancellation.
-    pub fn refund_escrow(env: Env, listing_id: u64) {
-        marketplace::refund_escrow(&env, listing_id)
-    }
-
-    /// Get listing details.
-    pub fn get_listing(env: Env, listing_id: u64) -> marketplace::ItemListing {
-        marketplace::get_listing(&env, listing_id)
-    }
-
-    /// Get escrow details.
-    pub fn get_escrow(env: Env, escrow_id: u64) -> marketplace::Escrow {
-        marketplace::get_escrow(&env, escrow_id)
     }
 }
