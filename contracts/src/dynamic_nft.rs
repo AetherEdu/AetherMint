@@ -1,5 +1,4 @@
-use crate::utils::pause::PauseUtils;
-use crate::utils::storage::{EntityType, StorageUtils, StorageVersion};
+use crate::utils::storage::{EntityType, StorageUtils};
 use crate::utils::validation::{
     validate_distinct_addresses, validate_non_zero_address, validate_optional_string_length,
     validate_string_length, MAX_METADATA_LENGTH, MAX_URI_LENGTH,
@@ -208,7 +207,6 @@ pub fn upgrade_contract(
     new_version: ContractVersion,
     implementation_hash: String,
 ) -> bool {
-    PauseUtils::require_not_paused(env);
     let admin: Address = env
         .storage()
         .instance()
@@ -365,14 +363,7 @@ pub fn mint_dynamic_nft(
     let zero_addr = env.current_contract_address();
     env.events().publish(
         (Symbol::new(env, "Transfer"),),
-        (zero_addr, recipient.clone(), token_id),
-    );
-
-    // Emit explicit mint event with creator, recipient, and timestamp
-    let now = env.ledger().timestamp();
-    env.events().publish(
-        (Symbol::new(env, "nft"), Symbol::new(env, "minted")),
-        (token_id, creator, recipient, now),
+        (zero_addr, recipient, token_id),
     );
 
     token_id
@@ -380,8 +371,6 @@ pub fn mint_dynamic_nft(
 
 /// Evolve NFT based on new achievement
 pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: String) -> bool {
-    // Reject writes against an unrecognized storage layout (issue #120).
-    StorageVersion::require_compatible_version(env);
     // Validate inputs before any state access (issue #117).
     validate_optional_string_length(env, &new_metadata, MAX_METADATA_LENGTH);
 
@@ -410,7 +399,7 @@ pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: S
     if let Some(new_stage) =
         check_evolution_requirements(env, nft.current_level, nft.experience_points)
     {
-        nft.evolution_stage = new_stage;
+        nft.evolution_stage = new_stage.clone();
         nft.current_level += 1;
         nft.last_evolved = timestamp;
 
@@ -453,8 +442,6 @@ pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: S
 
 /// Fuse two NFTs to create a new one
 pub fn fuse_nfts(env: &Env, token1_id: u64, token2_id: u64, recipient: Address) -> u64 {
-    // Reject writes against an unrecognized storage layout (issue #120).
-    StorageVersion::require_compatible_version(env);
     // Validate inputs before any state access (issue #117).
     validate_non_zero_address(env, &recipient);
     if token1_id == token2_id {
@@ -569,7 +556,7 @@ pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
         panic!("Token not found in owner's list");
     }
     let index = found_idx;
-    from_tokens.remove(index);
+    from_tokens.remove(index as u32);
     env.storage()
         .persistent()
         .set(&DynamicNFTKey::OwnerTokens(from.clone()), &from_tokens);
@@ -594,8 +581,6 @@ pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
 
 /// Get NFT details
 pub fn get_nft(env: &Env, token_id: u64) -> DynamicNFT {
-    // Version guard before reading persistent layout (issue #120).
-    StorageVersion::require_compatible_version(env);
     env.storage()
         .persistent()
         .get(&DynamicNFTKey::Token(token_id))

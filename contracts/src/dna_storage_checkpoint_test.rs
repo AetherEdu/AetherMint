@@ -2,9 +2,9 @@
 mod tests {
     use crate::dna_services::verify_integrity;
     use crate::dna_storage::{
-        create_checkpoint, delete_checkpoint, list_checkpoints, restore_checkpoint,
-        DNACredential, DNASequence, DNAStorageKey, DNAStorageProtocol,
-        DnaMetadata, ErrorCorrectionLevel, MAX_CHECKPOINTS,
+        create_checkpoint, delete_checkpoint, list_checkpoints, restore_checkpoint, DNACredential,
+        DNASequence, DNAStorageKey, DNAStorageProtocol, DnaMetadata, ErrorCorrectionLevel,
+        MAX_CHECKPOINTS,
     };
     use crate::lib::DataKey;
     use soroban_sdk::{testutils::Address as _, Address, Env, String, Vec};

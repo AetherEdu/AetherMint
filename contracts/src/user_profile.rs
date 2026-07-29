@@ -1,6 +1,6 @@
 use crate::utils::pause::PauseUtils;
 use crate::utils::storage::{PackedTimestamps, PackedUserFlags};
-use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Vec};
+use soroban_sdk::{contract, contracttype, symbol_short, Address, Env, String, Vec};
 
 /// Optimized user profile with packed storage
 #[contracttype]

@@ -10,7 +10,6 @@ use soroban_sdk::{
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
 use crate::utils::pause::PauseUtils;
-use crate::utils::storage::{MigrationRecord, StorageVersion};
 use crate::utils::validation::{
     validate_non_zero_address, validate_positive_u64, validate_string_length,
     MAX_DESCRIPTION_LENGTH, MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
@@ -123,33 +122,35 @@ pub mod user_profile;
 pub mod proctoring;
 pub mod tokenomics;
 #[cfg(test)]
-mod tokenomics_invariants_test;
-pub mod dynamic_fees;
-pub mod marketplace;
-pub mod profile_nft;
-
+mod analyticsStorage_test;
 #[cfg(test)]
-mod marketplace_test;
+mod consciousness_test;
 #[cfg(test)]
-mod proctoring_test;
-
+mod courseMetadata_test;
 #[cfg(test)]
-mod profile_nft_test;
-
-pub mod utils;
-
-// pub mod dna_storage;
-// pub mod dna_services;
-// #[cfg(test)]
-// mod dna_storage_test;
-// #[cfg(test)]
-// mod dna_storage_checkpoint_test;
+mod event_logger_test;
+#[cfg(test)]
+mod progress_test;
+#[cfg(test)]
+mod syncCoordination_test;
+#[cfg(test)]
+mod time_lock_credential_test;
+#[cfg(test)]
+mod user_profile_test;
+#[cfg(test)]
+mod vrf_system_test;
 
 #[cfg(test)]
 mod pause_test;
 
+pub mod utils;
+
+pub mod dna_services;
+pub mod dna_storage;
 #[cfg(test)]
-mod fuzzing_test;
+mod dna_storage_checkpoint_test;
+#[cfg(test)]
+mod dna_storage_test;
 
 use crate::profile_nft::ProfileNFT;
 #[contracttype]
@@ -290,12 +291,6 @@ impl AetherMintContract {
         env.storage()
             .instance()
             .set(&DataKey::AchievementCount, &0u64);
-
-        // Stamp the storage schema version (issue #120). Initializing here
-        // means every later call into durable storage goes through
-        // StorageVersion::require_compatible_version and is rejected if the
-        // on-disk version isn't supported by this binary.
-        StorageVersion::initialize(&env);
     }
 
     /// Issue a new credential with optimized storage
@@ -441,14 +436,6 @@ impl AetherMintContract {
             .instance()
             .set(&DataKey::CourseCount, &course_id);
 
-        // Emit standardized course lifecycle event (published on-chain + queryable record).
-        crate::course_events::publish_course_event(
-            &env,
-            crate::course_events::CourseLifecycleEvent::Created,
-            course_id,
-            instructor,
-        );
-
         course_id
     }
 
@@ -521,31 +508,6 @@ impl AetherMintContract {
             course_id,
             ipfs_hash,
             validity_duration,
-        )
-    }
-
-    /// Issue a proctored credential and link it to a completed proctoring session.
-    pub fn issue_proctored_cred_with_exp(
-        env: Env,
-        issuer: Address,
-        recipient: Address,
-        title: String,
-        description: String,
-        course_id: String,
-        ipfs_hash: String,
-        validity_duration: u64,
-        session_id: u64,
-    ) -> u64 {
-        credential_registry::issue_proctored_cred_with_exp(
-            &env,
-            issuer,
-            recipient,
-            title,
-            description,
-            course_id,
-            ipfs_hash,
-            validity_duration,
-            session_id,
         )
     }
 
@@ -936,28 +898,7 @@ impl AetherMintContract {
         MAX_BATCH_SIZE
     }
 
-    // ===== Storage Versioning (issue #120) =====
-
-    /// Return the current storage schema version. Equivalent to calling
-    /// [`StorageVersion::get_storage_version`].
-    pub fn storage_version(env: Env) -> u32 {
-        StorageVersion::get_storage_version(&env)
-    }
-
-    /// Admin-triggered migration to a newer storage layout. Performs the
-    /// version-to-version data transformation registered for the requested
-    /// `(current, new_version)` pair and appends a [`MigrationRecord`] to the
-    /// audit log. The caller must authorize as the contract admin.
-    pub fn migrate_storage(env: Env, admin: Address, new_version: u32) {
-        StorageVersion::migrate(&env, admin, new_version);
-    }
-
-    /// Read the migration audit log. Empty before any migrations have run.
-    pub fn migration_history(env: Env) -> Vec<MigrationRecord> {
-        StorageVersion::migration_history(&env)
-    }
-
-    // ===== Governance Functions =====
+    // ===== Pause / Unpause (Circuit Breaker) =====
 
     /// Pause the contract (Admin only)
     pub fn pause(env: Env, admin: Address) {
@@ -982,150 +923,5 @@ impl AetherMintContract {
     /// Check if the contract is paused
     pub fn is_paused(env: Env) -> bool {
         PauseUtils::is_paused(&env)
-    }
-
-    // ===== Tokenomics Functions (issue #252) =====
-
-    /// Mint reward tokens to a recipient. Increases both the recipient's
-    /// balance and the global total supply by `amount`.
-    pub fn token_mint_reward(env: Env, recipient: Address, amount: u64) {
-        PauseUtils::require_not_paused(&env);
-        tokenomics::TokenomicsContract::mint_reward(env, recipient, amount);
-    }
-
-    /// Stake reward tokens for a fixed lock duration and receive APY
-    /// proportional to the duration tier.
-    pub fn token_stake_tokens(
-        env: Env,
-        staker: Address,
-        amount: u64,
-        lock_duration: u64,
-    ) {
-        PauseUtils::require_not_paused(&env);
-        tokenomics::TokenomicsContract::stake_tokens(env, staker, amount, lock_duration);
-    }
-
-    /// Claim the principal plus accrued reward for a stake whose lock has expired.
-    pub fn token_unstake_and_claim(env: Env, staker: Address) {
-        PauseUtils::require_not_paused(&env);
-        tokenomics::TokenomicsContract::unstake_and_claim(env, staker);
-    }
-
-    /// Cast a quadratic vote on an existing governance proposal.
-    pub fn token_vote_on_proposal(
-        env: Env,
-        voter: Address,
-        proposal_id: u64,
-        votes_power: u64,
-        approve: bool,
-    ) {
-        PauseUtils::require_not_paused(&env);
-        tokenomics::TokenomicsContract::vote_on_proposal(
-            env,
-            voter,
-            proposal_id,
-            votes_power,
-            approve,
-        );
-    }
-
-    /// Create a new governance proposal that lives for `duration_seconds`.
-    /// Returns the new proposal id (monotonically increasing).
-    pub fn token_create_proposal(
-        env: Env,
-        creator: Address,
-        title: String,
-        description: String,
-        duration_seconds: u64,
-    ) -> u64 {
-        PauseUtils::require_not_paused(&env);
-        tokenomics::TokenomicsContract::create_proposal(
-            env,
-            creator,
-            title,
-            description,
-            duration_seconds,
-        )
-    }
-
-    /// Read the reward/governance/utility token balance of a user.
-    pub fn token_get_balance(env: Env, user: Address, token_type: u32) -> u64 {
-        tokenomics::TokenomicsContract::get_token_balance(env, user, token_type)
-    }
-
-    /// Read the current total supply of a given token type.
-    pub fn token_total_supply(env: Env, token_type: u32) -> u64 {
-        tokenomics::TokenomicsContract::total_supply(env, token_type)
-    }
-
-    /// Compute the voting power of an address based on balances and stake.
-    pub fn token_calculate_voting_power(env: Env, voter: Address) -> i128 {
-        tokenomics::TokenomicsContract::calculate_voting_power(env, voter)
-    }
-
-    /// Read the on-chain stake entry for an address. Returns `None` when the
-    /// address has no active stake.
-    pub fn token_get_stake(env: Env, staker: Address) -> Option<tokenomics::Stake> {
-        env.storage()
-            .persistent()
-            .get(&tokenomics::TokenomicsKey::StakePool(staker))
-    }
-
-    /// Sum of all currently staked tokens (the global pool size).
-    pub fn token_stake_pool_total(env: Env) -> u64 {
-        env.storage()
-            .instance()
-            .get(&tokenomics::TokenomicsKey::StakePoolTotal)
-            .unwrap_or(0)
-    }
-
-    /// Count of governance proposals created so far.
-    pub fn token_proposal_count(env: Env) -> u64 {
-        env.storage()
-            .instance()
-            .get(&tokenomics::TokenomicsKey::ProposalCount)
-            .unwrap_or(0)
-    }
-
-    /// Fetch a stored governance proposal. Returns `None` for unknown ids.
-    pub fn token_get_proposal(env: Env, proposal_id: u64) -> Option<tokenomics::Proposal> {
-        env.storage()
-            .instance()
-            .get(&tokenomics::TokenomicsKey::Proposal(proposal_id))
-    }
-
-    /// Create a marketplace listing for an item (credential, course, or NFT).
-    pub fn list_item(env: Env, seller: Address, item_id: u64, price: u64, item_type: u32) -> u64 {
-        marketplace::list_item(&env, &seller, item_id, item_type, price)
-    }
-
-    /// Buy an item — transfers ownership with escrow holding funds.
-    pub fn buy_item(env: Env, buyer: Address, listing_id: u64) {
-        marketplace::buy_item(&env, &buyer, listing_id)
-    }
-
-    /// Cancel an active listing by the seller.
-    pub fn cancel_listing(env: Env, seller: Address, listing_id: u64) {
-        marketplace::cancel_listing(&env, &seller, listing_id)
-    }
-
-    /// Release escrow funds to the seller after successful transfer.
-    pub fn release_escrow(env: Env, listing_id: u64) {
-        marketplace::release_escrow(&env, listing_id)
-    }
-
-    /// Refund escrow to buyer on dispute or cancellation.
-    pub fn refund_escrow(env: Env, listing_id: u64) {
-        marketplace::refund_escrow(&env, listing_id)
-    }
-
-    /// Get listing details.
-    pub fn get_listing(env: Env, listing_id: u64) -> marketplace::ItemListing {
-        marketplace::get_listing(&env, listing_id)
-    }
-
-    /// Get escrow details.
-    pub fn get_escrow(env: Env, escrow_id: u64) -> marketplace::Escrow {
-        marketplace::get_escrow(&env, escrow_id)
     }
 }
