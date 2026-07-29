@@ -410,6 +410,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 
@@ -578,7 +579,6 @@ const ConfirmationStep: React.FC<any> = ({ course, wallet, personalInfo, transac
           Please review your information above and click "Complete Enrollment" to finalize your registration.
         </p>
       </div>
-      </ErrorBoundary>
     </div>
   );
 };

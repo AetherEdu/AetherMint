@@ -121,7 +121,9 @@ pub mod user_profile;
 // pub mod courseMetadata;
 // pub mod syncCoordination;
 pub mod proctoring;
-// pub mod tokenomics;
+pub mod tokenomics;
+#[cfg(test)]
+mod tokenomics_invariants_test;
 pub mod dynamic_fees;
 pub mod marketplace;
 pub mod profile_nft;
@@ -982,7 +984,115 @@ impl AetherMintContract {
         PauseUtils::is_paused(&env)
     }
 
-    // ===== Marketplace Functions =====
+    // ===== Tokenomics Functions (issue #252) =====
+
+    /// Mint reward tokens to a recipient. Increases both the recipient's
+    /// balance and the global total supply by `amount`.
+    pub fn token_mint_reward(env: Env, recipient: Address, amount: u64) {
+        PauseUtils::require_not_paused(&env);
+        tokenomics::TokenomicsContract::mint_reward(env, recipient, amount);
+    }
+
+    /// Stake reward tokens for a fixed lock duration and receive APY
+    /// proportional to the duration tier.
+    pub fn token_stake_tokens(
+        env: Env,
+        staker: Address,
+        amount: u64,
+        lock_duration: u64,
+    ) {
+        PauseUtils::require_not_paused(&env);
+        tokenomics::TokenomicsContract::stake_tokens(env, staker, amount, lock_duration);
+    }
+
+    /// Claim the principal plus accrued reward for a stake whose lock has expired.
+    pub fn token_unstake_and_claim(env: Env, staker: Address) {
+        PauseUtils::require_not_paused(&env);
+        tokenomics::TokenomicsContract::unstake_and_claim(env, staker);
+    }
+
+    /// Cast a quadratic vote on an existing governance proposal.
+    pub fn token_vote_on_proposal(
+        env: Env,
+        voter: Address,
+        proposal_id: u64,
+        votes_power: u64,
+        approve: bool,
+    ) {
+        PauseUtils::require_not_paused(&env);
+        tokenomics::TokenomicsContract::vote_on_proposal(
+            env,
+            voter,
+            proposal_id,
+            votes_power,
+            approve,
+        );
+    }
+
+    /// Create a new governance proposal that lives for `duration_seconds`.
+    /// Returns the new proposal id (monotonically increasing).
+    pub fn token_create_proposal(
+        env: Env,
+        creator: Address,
+        title: String,
+        description: String,
+        duration_seconds: u64,
+    ) -> u64 {
+        PauseUtils::require_not_paused(&env);
+        tokenomics::TokenomicsContract::create_proposal(
+            env,
+            creator,
+            title,
+            description,
+            duration_seconds,
+        )
+    }
+
+    /// Read the reward/governance/utility token balance of a user.
+    pub fn token_get_balance(env: Env, user: Address, token_type: u32) -> u64 {
+        tokenomics::TokenomicsContract::get_token_balance(env, user, token_type)
+    }
+
+    /// Read the current total supply of a given token type.
+    pub fn token_total_supply(env: Env, token_type: u32) -> u64 {
+        tokenomics::TokenomicsContract::total_supply(env, token_type)
+    }
+
+    /// Compute the voting power of an address based on balances and stake.
+    pub fn token_calculate_voting_power(env: Env, voter: Address) -> i128 {
+        tokenomics::TokenomicsContract::calculate_voting_power(env, voter)
+    }
+
+    /// Read the on-chain stake entry for an address. Returns `None` when the
+    /// address has no active stake.
+    pub fn token_get_stake(env: Env, staker: Address) -> Option<tokenomics::Stake> {
+        env.storage()
+            .persistent()
+            .get(&tokenomics::TokenomicsKey::StakePool(staker))
+    }
+
+    /// Sum of all currently staked tokens (the global pool size).
+    pub fn token_stake_pool_total(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&tokenomics::TokenomicsKey::StakePoolTotal)
+            .unwrap_or(0)
+    }
+
+    /// Count of governance proposals created so far.
+    pub fn token_proposal_count(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&tokenomics::TokenomicsKey::ProposalCount)
+            .unwrap_or(0)
+    }
+
+    /// Fetch a stored governance proposal. Returns `None` for unknown ids.
+    pub fn token_get_proposal(env: Env, proposal_id: u64) -> Option<tokenomics::Proposal> {
+        env.storage()
+            .instance()
+            .get(&tokenomics::TokenomicsKey::Proposal(proposal_id))
+    }
 
     /// Create a marketplace listing for an item (credential, course, or NFT).
     pub fn list_item(env: Env, seller: Address, item_id: u64, price: u64, item_type: u32) -> u64 {

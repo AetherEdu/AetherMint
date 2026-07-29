@@ -1,4 +1,3 @@
-const { create } = require('ipfs-http-client');
 const { getClientConfig, ipfsConfig } = require('../config/ipfs');
 const {
   validateFile,
@@ -14,7 +13,6 @@ class IpfsService {
   constructor() {
     this.client = null;
     this.cache = new Map(); // Simple in-memory cache
-    this.init();
   }
 
   /**
@@ -23,15 +21,26 @@ class IpfsService {
   async init() {
     try {
       const config = getClientConfig();
+      const { create } = await import('ipfs-http-client');
       this.client = create(config);
       
       // Test connection
       await this.client.version();
       console.log('✅ IPFS client initialized successfully');
+      return this.client;
     } catch (error) {
       console.error('❌ Failed to initialize IPFS client:', error.message);
-      throw createIpfsError('Failed to initialize IPFS client', 'init', { error: error.message });
+      this.client = null;
+      return null;
     }
+  }
+
+  async ensureClient() {
+    if (this.client) {
+      return this.client;
+    }
+
+    return this.init();
   }
 
   /**
@@ -43,6 +52,8 @@ class IpfsService {
    */
   async uploadFile(file, user = null, options = {}) {
     try {
+      await this.ensureClient();
+
       // Validate file
       const validation = validateFile(file);
       if (!validation.isValid) {
@@ -109,6 +120,8 @@ class IpfsService {
    * @returns {Promise<Array>} - Array of upload results
    */
   async uploadMultipleFiles(files, user = null, options = {}) {
+    await this.ensureClient();
+
     const results = [];
     const totalFiles = files.length;
 
@@ -160,6 +173,8 @@ class IpfsService {
    */
   async getContent(cid, options = {}) {
     try {
+      await this.ensureClient();
+
       // Parse CID
       const parsedCid = parseCid(cid);
       if (!parsedCid.isValid) {
@@ -236,6 +251,8 @@ class IpfsService {
    */
   async pinContent(cid) {
     try {
+      await this.ensureClient();
+
       const parsedCid = parseCid(cid);
       if (!parsedCid.isValid) {
         throw createIpfsError('Invalid CID format', 'pinContent', { cid });
@@ -265,6 +282,8 @@ class IpfsService {
    */
   async unpinContent(cid) {
     try {
+      await this.ensureClient();
+
       const parsedCid = parseCid(cid);
       if (!parsedCid.isValid) {
         throw createIpfsError('Invalid CID format', 'unpinContent', { cid });
@@ -301,6 +320,8 @@ class IpfsService {
    */
   async getNodeInfo() {
     try {
+      await this.ensureClient();
+
       const [version, id, repo] = await Promise.all([
         this.client.version(),
         this.client.id(),

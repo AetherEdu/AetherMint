@@ -67,40 +67,38 @@ export const WalletConnector: React.FC = () => {
             )}
             {isConnecting ? 'Connecting...' : 'Connect Wallet'}
           </button>
-        )}
-
-        {isConnected && (
-          <div className="relative group">
-            <button className="p-2 border rounded-full hover:bg-gray-50 transition-colors">
-              <Globe size={18} className="text-gray-600" />
-            </button>
-            <div className="absolute top-full right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl hidden group-hover:block z-50 overflow-hidden">
-              <div className="p-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 border-b">
-                Select Network
-              </div>
-              <button
-                onClick={() => switchNetwork(WalletNetwork.PUBLIC)}
-                className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors ${
-                  network === WalletNetwork.PUBLIC ? 'text-blue-600 font-bold bg-blue-50/50' : 'text-gray-700'
-                }`}
-              >
-                Mainnet 
-                {network === WalletNetwork.PUBLIC && <Shield size={14} />}
-              </button>
-              <button
-                onClick={() => switchNetwork(WalletNetwork.TESTNET)}
-                className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors ${
-                  network === WalletNetwork.TESTNET ? 'text-blue-600 font-bold bg-blue-50/50' : 'text-gray-700'
-                }`}
-              >
-                Testnet
-                {network === WalletNetwork.TESTNET && <Shield size={14} />}
-              </button>
+        )}      {isConnected && (
+        <div className="relative group">
+          <button className="p-2 border rounded-full hover:bg-gray-50 transition-colors">
+            <Globe size={18} className="text-gray-600" />
+          </button>
+          <div className="absolute top-full right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl hidden group-hover:block z-50 overflow-hidden">
+            <div className="p-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 border-b">
+              Select Network
             </div>
+            <button
+              onClick={() => switchNetwork(WalletNetwork.PUBLIC)}
+              className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors ${
+                network === WalletNetwork.PUBLIC ? 'text-blue-600 font-bold bg-blue-50/50' : 'text-gray-700'
+              }`}
+            >
+              Mainnet 
+              {network === WalletNetwork.PUBLIC && <Shield size={14} />}
+            </button>
+            <button
+              onClick={() => switchNetwork(WalletNetwork.TESTNET)}
+              className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors ${
+                network === WalletNetwork.TESTNET ? 'text-blue-600 font-bold bg-blue-50/50' : 'text-gray-700'
+              }`}
+            >
+              Testnet
+              {network === WalletNetwork.TESTNET && <Shield size={14} />}
+            </button>
           </div>
-        )}
+        </div>
+      )}
       </div>
-      </ErrorBoundary>
     </div>
+    </ErrorBoundary>
   );
 };
