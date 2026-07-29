@@ -104,14 +104,14 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction) =
     if (uploadRequest.params) {
       uploadRequest.params = sanitizeRecursive(uploadRequest.params);
     }
-    if (uploadRequest.file) {
-      sanitizeFileMetadata(uploadRequest.file);
+    if ((req as any).file) {
+      sanitizeFileMetadata((req as any).file);
     }
-    if (uploadRequest.files) {
-      if (Array.isArray(uploadRequest.files)) {
-        uploadRequest.files.forEach(sanitizeFileMetadata);
+    if ((req as any).files) {
+      if (Array.isArray((req as any).files)) {
+        (req as any).files.forEach(sanitizeFileMetadata);
       } else {
-        Object.values(uploadRequest.files).forEach((fileArray: any) => {
+        Object.values((req as any).files).forEach((fileArray: any) => {
           fileArray.forEach(sanitizeFileMetadata);
         });
       }

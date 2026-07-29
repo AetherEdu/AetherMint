@@ -88,7 +88,7 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { query: searchQuery, filters = {}, sessionId } = req.body;
-      const userId = req.user?.id; // Assuming auth middleware sets req.user
+      const userId = req.user?.id;
 
       logger.info(`Search request - Query: ${searchQuery}, User: ${userId}`);
 
