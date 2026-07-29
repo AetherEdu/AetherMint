@@ -64,5 +64,8 @@ const achievementSchema = new mongoose.Schema({
 // Index for efficient queries
 achievementSchema.index({ userId: 1, isEarned: 1 });
 achievementSchema.index({ userId: 1, category: 1 });
+achievementSchema.index({ userId: 1, badgeId: 1 }, { unique: true });
+achievementSchema.index({ userId: 1, earnedDate: -1 });
+achievementSchema.index({ rarity: 1, points: -1 });
 
 module.exports = mongoose.model('Achievement', achievementSchema);

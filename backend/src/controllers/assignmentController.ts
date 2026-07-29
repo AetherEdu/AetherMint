@@ -215,9 +215,9 @@ export class AssignmentController {
 
       const submissionData = req.body;
 
-      if (req.files && Array.isArray(req.files)) {
+      if ((req as any).files && Array.isArray((req as any).files)) {
         const uploadedFiles = await this.fileUploadService.uploadFiles(
-          req.files,
+          (req as any).files,
           `assignments/${assignmentId}/submissions/${user.id}`
         );
         submissionData.files = uploadedFiles;
@@ -324,9 +324,9 @@ export class AssignmentController {
         throw new ForbiddenError('Cannot update submission');
       }
 
-      if (req.files && Array.isArray(req.files)) {
+      if ((req as any).files && Array.isArray((req as any).files)) {
         const uploadedFiles = await this.fileUploadService.uploadFiles(
-          req.files,
+          (req as any).files,
           `assignments/${submission.assignmentId}/submissions/${user.id}`
         );
         updateData.files = [...(submission.files || []), ...uploadedFiles];

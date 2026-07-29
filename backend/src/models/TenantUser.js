@@ -199,6 +199,15 @@ tenantUserSchema.index({ tenantId: 1, 'stellar.publicKey': 1 }, { unique: true }
 tenantUserSchema.index({ tenantId: 1, status: 1 });
 tenantUserSchema.index({ tenantId: 1, roles: 1 });
 
+// Single-column index for wallet address lookups across tenants
+tenantUserSchema.index({ 'stellar.publicKey': 1 });
+
+// Composite: wallet address + verification status
+tenantUserSchema.index({ 'stellar.publicKey': 1, 'stellar.isVerified': 1 });
+
+// Composite: tenant + role + status for admin queries
+tenantUserSchema.index({ tenantId: 1, roles: 1, status: 1 });
+
 // Virtual for full name
 tenantUserSchema.virtual('profile.fullName').get(function() {
   return `${this.profile.firstName} ${this.profile.lastName}`;

@@ -31,6 +31,7 @@
     "test:smoke": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
+    "apollo-server-express": "^3.13.0",
     "@stellar/stellar-sdk": "^14.5.0",
     "@socket.io/redis-adapter": "~8.3.0",
     "aws-sdk": "^2.1668.0",
@@ -38,7 +39,9 @@
     "bcryptjs": "^2.4.3",
     "big-integer": "^1.6.52",
     "brain.js": "^2.0.0-beta.24",
+    "dataloader": "^2.2.2",
     "compromise": "^14.10.0",
+    "compression": "^1.7.4",
     "cors": "^2.8.5",
     "d3": "^7.8.5",
     "dotenv": "^16.3.1",
@@ -49,6 +52,9 @@
     "ffmpeg-static": "^5.1.0",
     "firebase-admin": "^13.7.0",
     "graphlib": "^2.1.8",
+    "graphql": "^16.9.0",
+    "graphql-depth-limit": "^1.1.0",
+    "graphql-query-complexity": "^1.0.0",
     "helmet": "^7.0.0",
     "ioredis": "^5.11.1",
     "ipfs-http-client": "^60.0.1",
@@ -83,11 +89,12 @@
   },
   "devDependencies": {
     "@babel/cli": "^7.22.15",
-    "@babel/core": "^7.29.0",
+    "@babel/core": "^7.29.7",
     "@babel/preset-env": "^7.29.2",
     "@babel/preset-typescript": "^7.22.15",
     "@elastic/elasticsearch": "^9.4.2",
     "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.13",
     "@types/d3": "^7.4.0",
     "@types/express": "^4.17.17",
@@ -95,6 +102,7 @@
     "@types/fluent-ffmpeg": "^2.1.21",
     "@types/geoip-lite": "^1.4.2",
     "@types/graphlib": "^2.1.12",
+    "@types/graphql-depth-limit": "^1.1.6",
     "@types/ioredis": "^4.28.10",
     "@types/jest": "^29.5.4",
     "@types/jsonwebtoken": "^9.0.10",
@@ -133,5 +141,8 @@
     "postgresql"
   ],
   "author": "jobbykings",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
