@@ -9,6 +9,7 @@ import logger from './utils/logger';
 import requestId from './middleware/requestId';
 import requestLogger from './middleware/requestLogger';
 import { metricsMiddleware, websocketConnectionsActive } from './middleware/metrics';
+import responseCompression from './middleware/compression';
 import { errorHandler } from './middleware/errorHandler';
 import { NotFoundError } from './utils/errors';
 import { connectRedis } from './utils/redis';
@@ -144,6 +145,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestId);
 app.use(requestLogger);
 app.use(metricsMiddleware);
+// Issue #269: gzip responses larger than 1 KB when the client advertises
+// the encoding. Pre-compressed content types (image/*, video/*, etc.) and
+// any Cache-Control: no-transform responses are forwarded untouched.
+app.use(responseCompression);
 
 // Reject new traffic with 503 once a graceful shutdown has begun, while still
 // serving the health probe and root so orchestrators can read the drain state.

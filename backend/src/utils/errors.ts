@@ -19,7 +19,13 @@ export class AppError extends Error {
   public readonly statusCode: number;
   public readonly errorCode: string;
   public readonly isOperational: boolean;
-  public readonly details?: unknown;
+  // Note: `details` is intentionally NOT marked readonly so that
+  // upstream middleware (e.g. security.ts#checkBlacklist) can attach
+  // per-request diagnostic context without subclassing AppError for
+  // every transient reason code.  Callers MUST treat it as
+  // append-only metadata that is later rendered into the RFC 7807
+  // `error.details` mirror in errorHandler.ts.
+  public details?: unknown;
 
   constructor(
     message: string,
