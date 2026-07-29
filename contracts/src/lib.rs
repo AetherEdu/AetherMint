@@ -1,5 +1,12 @@
-#![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Vec};
+#![cfg_attr(not(test), no_std)]
+#![allow(deprecated)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::manual_checked_ops)]
+#![allow(clippy::needless_range_loop)]
+extern crate alloc;
+use soroban_sdk::{
+    contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Vec,
+};
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
 use crate::utils::pause::PauseUtils;
@@ -31,9 +38,7 @@ pub fn u64_to_string(env: &Env, num: u64, prefix: &str) -> String {
         let mut i = start;
         let mut j = pos - 1;
         while i < j {
-            let tmp = buf[i];
-            buf[i] = buf[j];
-            buf[j] = tmp;
+            buf.swap(i, j);
             i += 1;
             j -= 1;
         }
@@ -84,6 +89,14 @@ pub mod credential_events;
 #[cfg(test)]
 mod credential_events_test;
 
+pub mod course_events;
+#[cfg(test)]
+mod course_events_test;
+
+pub mod tokenomics_events;
+#[cfg(test)]
+mod tokenomics_events_test;
+
 pub mod credential_registry;
 #[cfg(test)]
 mod credential_registry_test;
@@ -106,10 +119,8 @@ pub mod user_profile;
 // pub mod consciousness;
 // pub mod courseMetadata;
 // pub mod syncCoordination;
-// pub mod proctoring;
-// pub mod tokenomics;
-// pub mod marketplace;
-
+pub mod proctoring;
+pub mod tokenomics;
 #[cfg(test)]
 mod analyticsStorage_test;
 #[cfg(test)]
@@ -141,7 +152,7 @@ mod dna_storage_checkpoint_test;
 #[cfg(test)]
 mod dna_storage_test;
 
-/// Optimized user profile with packed storage
+use crate::profile_nft::ProfileNFT;
 #[contracttype]
 #[derive(Clone)]
 pub struct UserProfile {
@@ -340,7 +351,15 @@ impl AetherMintContract {
             .set(&DataKey::CredentialCount, &credential_id);
 
         // Update user credential count
-        Self::increment_user_credential_count(&env, recipient);
+        Self::increment_user_credential_count(&env, recipient.clone());
+
+        // Emit standardized credential lifecycle event (published on-chain + queryable record).
+        crate::credential_events::publish_credential_event(
+            &env,
+            crate::credential_events::CredentialLifecycleEvent::Issued,
+            credential_id,
+            issuer,
+        );
 
         credential_id
     }
@@ -421,7 +440,7 @@ impl AetherMintContract {
     }
 
     /// Get user profile with optimized storage
-    pub fn get_profile(env: Env, user: Address) -> Profile {
+    pub fn get_profile(_env: Env, user: Address) -> Profile {
         // Simplified - returns default profile (user_profile module disabled to avoid conflicts)
         Profile {
             owner: user,
@@ -557,6 +576,97 @@ impl AetherMintContract {
         credential_registry::batch_update_expiration_status(&env, credential_ids)
     }
 
+    /// Whether a credential was issued through the proctored flow.
+    pub fn is_proctored_credential(env: Env, credential_id: u64) -> bool {
+        credential_registry::is_proctored_credential(&env, credential_id)
+    }
+
+    // ===== Proctoring =====
+
+    /// Start a proctoring session.
+    pub fn start_proctoring_session(
+        env: Env,
+        exam_id: String,
+        student: Address,
+        proctor: Address,
+    ) -> u64 {
+        proctoring::start_proctoring_session(&env, exam_id, student, proctor)
+    }
+
+    /// Submit the proctoring result for a session.
+    pub fn submit_proctoring_result(
+        env: Env,
+        session_id: u64,
+        result_data: String,
+        proctor_signature: BytesN<64>,
+    ) {
+        proctoring::submit_proctoring_result(&env, session_id, result_data, proctor_signature)
+    }
+
+    /// Challenge a completed proctoring result.
+    pub fn challenge_proctoring_result(
+        env: Env,
+        session_id: u64,
+        challenger: Address,
+        evidence: String,
+    ) {
+        proctoring::challenge_proctoring_result(&env, session_id, challenger, evidence)
+    }
+
+    /// Resolve a proctoring challenge.
+    pub fn resolve_challenge(
+        env: Env,
+        session_id: u64,
+        resolution: proctoring::ChallengeResolution,
+        admin: Address,
+    ) {
+        proctoring::resolve_challenge(&env, session_id, resolution, admin)
+    }
+
+    /// Link a credential issuance to a proctoring session.
+    pub fn register_proctored_credential(env: Env, session_id: u64, credential_id: u64) {
+        proctoring::register_proctored_credential(&env, session_id, credential_id)
+    }
+
+    /// Check whether a session is eligible for a proctored credential.
+    pub fn proctored_credential_is_eligible(env: Env, session_id: u64) -> bool {
+        proctoring::proctored_credential_is_eligible(&env, session_id)
+    }
+
+    /// Get a stored proctoring session.
+    pub fn get_proctoring_session(env: Env, session_id: u64) -> proctoring::ProctoringSession {
+        proctoring::get_proctoring_session(&env, session_id)
+    }
+
+    /// Get a stored proctoring result.
+    pub fn get_proctoring_result(
+        env: Env,
+        session_id: u64,
+    ) -> Option<proctoring::ProctoringResult> {
+        proctoring::get_proctoring_result(&env, session_id)
+    }
+
+    /// Get a stored challenge for a session.
+    pub fn get_proctoring_challenge(
+        env: Env,
+        session_id: u64,
+    ) -> Option<proctoring::ProctoringChallenge> {
+        proctoring::get_proctoring_challenge(&env, session_id)
+    }
+
+    /// Get a stored challenge resolution for a session.
+    pub fn get_proctoring_resolution(
+        env: Env,
+        session_id: u64,
+    ) -> Option<proctoring::ProctoringResolutionRecord> {
+        proctoring::get_proctoring_resolution(&env, session_id)
+    }
+
+    /// Get the number of proctoring sessions created so far.
+    pub fn get_proctoring_session_count(env: Env) -> u64 {
+        proctoring::get_proctoring_session_count(&env)
+    }
+
     // ===== Dynamic NFT Functions =====
 
     /// Mint a new dynamic NFT credential
@@ -602,6 +712,80 @@ impl AetherMintContract {
     /// Get NFT metadata URI
     pub fn token_uri(env: Env, token_id: u64) -> String {
         dynamic_nft::token_uri(&env, token_id)
+    }
+
+    // ===== Profile NFT Functions =====
+
+    /// Mint a profile NFT for the caller. One per address.
+    pub fn mint_profile_nft(
+        env: Env,
+        owner: Address,
+        name: String,
+        bio: String,
+        avatar_url: String,
+        skills: Vec<String>,
+        website: Option<String>,
+    ) -> u64 {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::mint_profile_nft(&env, owner, name, bio, avatar_url, skills, website)
+    }
+
+    /// Update an existing profile NFT's metadata.
+    pub fn update_profile_nft(
+        env: Env,
+        owner: Address,
+        name: String,
+        bio: String,
+        avatar_url: String,
+        skills: Vec<String>,
+        website: Option<String>,
+    ) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::update_profile_nft(&env, owner, name, bio, avatar_url, skills, website)
+    }
+
+    /// Get a profile NFT by token ID.
+    pub fn get_profile_nft(env: Env, token_id: u64) -> ProfileNFT {
+        profile_nft::get_profile_nft(&env, token_id)
+    }
+
+    /// Get a profile NFT by owner address.
+    pub fn get_profile_nft_by_owner(env: Env, owner: Address) -> Option<ProfileNFT> {
+        profile_nft::get_profile_nft_by_owner(&env, owner)
+    }
+
+    /// Check if an address has a profile NFT.
+    pub fn has_profile_nft(env: Env, owner: Address) -> bool {
+        profile_nft::has_profile_nft(&env, owner)
+    }
+
+    /// Burn the caller's profile NFT.
+    pub fn burn_profile_nft(env: Env, owner: Address) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::burn_profile_nft(&env, owner)
+    }
+
+    /// Admin-only: verify a profile NFT.
+    pub fn verify_profile_nft(env: Env, admin: Address, token_id: u64) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::verify_profile_nft(&env, admin, token_id)
+    }
+
+    /// Admin-only: unverify a profile NFT.
+    pub fn unverify_profile_nft(env: Env, admin: Address, token_id: u64) -> bool {
+        PauseUtils::require_not_paused(&env);
+        profile_nft::unverify_profile_nft(&env, admin, token_id)
+    }
+
+    /// Get total profile NFT supply.
+    pub fn get_profile_nft_supply(env: Env) -> u64 {
+        profile_nft::get_total_supply(&env)
+    }
+
+    /// Get the token ID for an owner, if one exists. Falls back to a default (0)
+    /// for backwards-compatibility so the return type remains u64.
+    pub fn get_profile_nft_token_id(env: Env, owner: Address) -> u64 {
+        profile_nft::get_token_id_for_owner(&env, owner).unwrap_or(0)
     }
 
     /// Check if NFT exists

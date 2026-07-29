@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Clipboard, Link as LinkIcon } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface WhiteboardShareDialogProps {
   open: boolean;
@@ -31,6 +32,11 @@ export function WhiteboardShareDialog({
 }: WhiteboardShareDialogProps) {
   const { t } = useTranslation(['common', 'whiteboard']);
   const [copied, setCopied] = useState(false);
+
+  const focusTrapRef = useFocusTrap(open, {
+    onEscape: onClose,
+    initialFocusSelector: '[data-dialog-close]',
+  });
 
   useEffect(() => {
     if (!open) setCopied(false);
@@ -56,6 +62,7 @@ export function WhiteboardShareDialog({
       aria-modal="true"
       aria-label={t('whiteboard.shareDialogTitle', 'Share board')}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      ref={focusTrapRef}
     >
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
         <div className="flex items-center gap-2">
@@ -114,6 +121,7 @@ export function WhiteboardShareDialog({
           <button
             type="button"
             onClick={onClose}
+            data-dialog-close
             className="px-3 py-2 rounded-md text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             {t('actions.close', 'Close')}

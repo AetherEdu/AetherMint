@@ -21,7 +21,7 @@ export default function AdminLayout({
       <body className={inter.className}>
         <AuthProvider>
           <div className="min-h-screen bg-gray-50">
-            <div className="flex">
+            <div className="flex flex-col md:flex-row">
               <AdminSidebar />
               <div className="flex-1">
                 <AdminHeader />

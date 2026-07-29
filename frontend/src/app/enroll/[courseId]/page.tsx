@@ -15,6 +15,7 @@ import {
   Share2,
   Calendar
 } from 'lucide-react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const EnrollmentPage: React.FC = () => {
   const params = useParams();
@@ -285,7 +286,8 @@ const EnrollmentPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ErrorBoundary variant="default" errorTitle="Course Viewer Error" errorMessage="Failed to render the course viewer. Please try again.">
+      <div className="min-h-screen bg-gray-50">
       {/* Course Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
@@ -363,6 +365,7 @@ const EnrollmentPage: React.FC = () => {
         />
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 

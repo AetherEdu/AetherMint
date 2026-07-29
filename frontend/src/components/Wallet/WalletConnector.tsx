@@ -2,6 +2,7 @@ import React from 'react';
 import { useStellarWallet } from '../../context/WalletContext';
 import { WalletNetwork } from '@creit.tech/stellar-wallets-kit';
 import { Wallet, LogOut, Globe, Shield, RefreshCw } from 'lucide-react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export const WalletConnector: React.FC = () => {
   const { 
@@ -21,7 +22,8 @@ export const WalletConnector: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <ErrorBoundary variant="wallet" errorTitle="Wallet Error" errorMessage="There was a problem with your wallet connection. Please ensure your wallet is unlocked and try again.">
+      <div className="flex flex-col gap-2">
       {error && (
         <div className="bg-red-50 text-red-600 text-xs px-3 py-2 rounded-md border border-red-200 animate-pulse">
           {error}
@@ -65,39 +67,38 @@ export const WalletConnector: React.FC = () => {
             )}
             {isConnecting ? 'Connecting...' : 'Connect Wallet'}
           </button>
-        )}
-
-        {isConnected && (
-          <div className="relative group">
-            <button className="p-2 border rounded-full hover:bg-gray-50 transition-colors">
-              <Globe size={18} className="text-gray-600" />
-            </button>
-            <div className="absolute top-full right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl hidden group-hover:block z-50 overflow-hidden">
-              <div className="p-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 border-b">
-                Select Network
-              </div>
-              <button
-                onClick={() => switchNetwork(WalletNetwork.PUBLIC)}
-                className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors ${
-                  network === WalletNetwork.PUBLIC ? 'text-blue-600 font-bold bg-blue-50/50' : 'text-gray-700'
-                }`}
-              >
-                Mainnet 
-                {network === WalletNetwork.PUBLIC && <Shield size={14} />}
-              </button>
-              <button
-                onClick={() => switchNetwork(WalletNetwork.TESTNET)}
-                className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors ${
-                  network === WalletNetwork.TESTNET ? 'text-blue-600 font-bold bg-blue-50/50' : 'text-gray-700'
-                }`}
-              >
-                Testnet
-                {network === WalletNetwork.TESTNET && <Shield size={14} />}
-              </button>
+        )}      {isConnected && (
+        <div className="relative group">
+          <button className="p-2 border rounded-full hover:bg-gray-50 transition-colors">
+            <Globe size={18} className="text-gray-600" />
+          </button>
+          <div className="absolute top-full right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl hidden group-hover:block z-50 overflow-hidden">
+            <div className="p-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 border-b">
+              Select Network
             </div>
+            <button
+              onClick={() => switchNetwork(WalletNetwork.PUBLIC)}
+              className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors ${
+                network === WalletNetwork.PUBLIC ? 'text-blue-600 font-bold bg-blue-50/50' : 'text-gray-700'
+              }`}
+            >
+              Mainnet 
+              {network === WalletNetwork.PUBLIC && <Shield size={14} />}
+            </button>
+            <button
+              onClick={() => switchNetwork(WalletNetwork.TESTNET)}
+              className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors ${
+                network === WalletNetwork.TESTNET ? 'text-blue-600 font-bold bg-blue-50/50' : 'text-gray-700'
+              }`}
+            >
+              Testnet
+              {network === WalletNetwork.TESTNET && <Shield size={14} />}
+            </button>
           </div>
-        )}
+        </div>
+      )}
       </div>
     </div>
+    </ErrorBoundary>
   );
 };

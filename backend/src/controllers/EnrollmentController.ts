@@ -103,7 +103,7 @@ export class EnrollmentController {
         data: enrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -193,7 +193,7 @@ export class EnrollmentController {
         });
       }
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -225,7 +225,7 @@ export class EnrollmentController {
         data: updatedEnrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -275,7 +275,7 @@ export class EnrollmentController {
         data: cancelledEnrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -305,7 +305,7 @@ export class EnrollmentController {
         data: enrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -334,7 +334,7 @@ export class EnrollmentController {
         data: progress
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -364,7 +364,7 @@ export class EnrollmentController {
         data: updatedEnrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -401,7 +401,7 @@ export class EnrollmentController {
         }
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -420,7 +420,7 @@ export class EnrollmentController {
         data: certificate
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -439,7 +439,7 @@ export class EnrollmentController {
         data: waitlist
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -468,7 +468,7 @@ export class EnrollmentController {
         }
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -488,7 +488,7 @@ export class EnrollmentController {
         message: 'Removed from waitlist'
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -507,7 +507,7 @@ export class EnrollmentController {
         data: analytics
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -526,7 +526,7 @@ export class EnrollmentController {
         data: analytics
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -543,7 +543,7 @@ export class EnrollmentController {
         data: analytics
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -562,7 +562,7 @@ export class EnrollmentController {
         data: result
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -581,7 +581,7 @@ export class EnrollmentController {
         data: capacity
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -601,7 +601,7 @@ export class EnrollmentController {
         data: validation
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -627,7 +627,7 @@ export class EnrollmentController {
         data: history
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -657,7 +657,7 @@ export class EnrollmentController {
         data: renewedEnrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -677,7 +677,7 @@ export class EnrollmentController {
       
       res.send(exportData);
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }

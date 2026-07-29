@@ -1,4 +1,6 @@
 import { Server, Socket } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { Redis } from 'ioredis';
 import { createServer } from 'http';
 import { INotification } from '../models/Notification';
 import logger from '../utils/logger';
@@ -46,15 +48,29 @@ class WebsocketService {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
   private readonly MAX_BUFFER_SIZE = 1000; // Max events to buffer per client
+  // Closes Issue #266: dedicated pub/sub clients for the Redis adapter.
+  // Kept on the instance so they share the lifecycle with the service and
+  // can be closed on graceful shutdown.
+  private pubClient: Redis | null = null;
+  private subClient: Redis | null = null;
 
   constructor(server?: any) {
+    // Allow callers (notably the test suite) to inject a pre-built Server
+    // instance. Otherwise build a Socket.IO server that supports both
+    // websocket and long-polling so front-end clients can gracefully fall
+    // back when sticky-session routing isn't available.
     if (server) {
       this.io = new Server(server, {
         cors: {
           origin: process.env.FRONTEND_URL || '*',
           methods: ['GET', 'POST'],
           credentials: true
-        }
+        },
+        transports: ['websocket', 'polling'],
+        // Allow up to ~50k sockets per node before upstream load balancing
+        // becomes the bottleneck. The actual ceiling is OS file-descriptor
+        // based.
+        maxHttpBufferSize: 1e6,
       });
     } else {
       // For testing purposes
@@ -64,12 +80,60 @@ class WebsocketService {
           origin: process.env.FRONTEND_URL || '*',
           methods: ['GET', 'POST'],
           credentials: true
-        }
+        },
+        transports: ['websocket', 'polling'],
       });
     }
 
+    // Configure horizontal scaling (Issue #266). Fails open if Redis is
+    // unreachable: single-node deployments keep working without an adapter,
+    // and a misconfigured cluster just falls back to in-process emit. The
+    // container orchestrator decides whether scaling is actually required.
+    this.setupHorizontalScaling();
+
     this.setupConnectionHandlers();
     this.startHeartbeat();
+  }
+
+  /**
+   * Attach the @socket.io/redis-adapter so emits broadcast across every
+   * node in the cluster. Two dedicated Redis connections are used because
+   * ioredis enters "subscriber mode" once it issues SUBSCRIBE, which would
+   * starve the publisher. The clients are reused for the lifetime of the
+   * service; process shutdown closes them via the existing shutdown
+   * coordinator.
+   */
+  private setupHorizontalScaling(): void {
+    const host = process.env.REDIS_HOST || 'localhost';
+    const port = Number.parseInt(process.env.REDIS_PORT || '6379', 10);
+    const password = process.env.REDIS_PASSWORD || undefined;
+
+    // Disable explicit opt-out. The default is to opt in so the deployment
+    // topology stays uniform across environments.
+    if (process.env.WS_REDIS_ADAPTER_ENABLED === 'false') {
+      logger.info('WebSocket Redis adapter disabled by config (WS_REDIS_ADAPTER_ENABLED=false)');
+      return;
+    }
+
+    try {
+      this.pubClient = new Redis({ host, port, password, lazyConnect: false });
+      this.subClient = this.pubClient.duplicate();
+
+      this.pubClient.on('error', (err) => {
+        logger.warn('WebSocket Redis pub client error', { error: err.message });
+      });
+      this.subClient.on('error', (err) => {
+        logger.warn('WebSocket Redis sub client error', { error: err.message });
+      });
+
+      this.io.adapter(createAdapter(this.pubClient, this.subClient));
+      logger.info('WebSocket horizontal scaling enabled (Redis adapter attached)', {
+        host,
+        port,
+      });
+    } catch (err) {
+      logger.error('Failed to attach WebSocket Redis adapter', err as Error);
+    }
   }
 
   private setupConnectionHandlers(): void {
@@ -155,7 +219,7 @@ class WebsocketService {
       socket.on('disconnect', (reason) => {
         const state = this.connectionStates.get(socket.id);
         if (state) {
-          state.isReconnecting = reason !== 'io client disconnect';
+          state.isReconnecting = String(reason) !== 'io client disconnect';
           logger.info('User disconnected', { socketId: socket.id, reason, isReconnecting: state.isReconnecting });
         }
         
@@ -313,6 +377,26 @@ class WebsocketService {
 
   public getIO(): Server {
     return this.io;
+  }
+
+  /**
+   * Gracefully tears down the WebSocket layer during shutdown. Every connected
+   * client is told the server is going away and then force-disconnected, which
+   * releases the underlying sockets so the shared HTTP server can finish
+   * draining. The Socket.IO engine itself is closed when the HTTP server closes.
+   */
+  public close(): void {
+    this.io.emit('server:shutdown', { message: 'Server is shutting down' });
+    this.io.disconnectSockets(true);
+    // Issue #266: release the Redis adapter connections so the graceful
+    // shutdown coordinator can complete cleanly.
+    void Promise.all([
+      this.pubClient?.quit().catch(() => undefined),
+      this.subClient?.quit().catch(() => undefined),
+    ]).finally(() => {
+      this.pubClient = null;
+      this.subClient = null;
+    });
   }
 
   private getRoomName(classroomId: string): string {

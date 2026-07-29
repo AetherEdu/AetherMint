@@ -1,19 +1,31 @@
 /**
- * Centralized Error Classes — Issue #127
+ * Centralized Error Classes — Issue #127, expanded for Issue #254 (RFC 7807).
  *
  * All application errors extend AppError, which carries:
  *  - statusCode  : HTTP status to be sent to the client
- *  - errorCode   : machine-readable string used in API responses
+ *  - errorCode   : machine-readable string used in API responses and
+ *                  RFC 7807 envelope `code` extension
  *  - isOperational: true for expected/anticipated errors (4xx, known 5xx)
  *                   false for programmer/unexpected errors
  *  - details     : optional field-level validation data (ValidationError only)
+ *
+ * Each subclass maps 1:1 to a row in {@link ErrorCatalog}
+ * (`backend/src/utils/problemDetails.ts`).  Keep the two files in lock
+ * step — a code that has no catalog entry gets rendered with generic
+ * UNKNOWN_ERROR metadata.
  */
 
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly errorCode: string;
   public readonly isOperational: boolean;
-  public readonly details?: unknown;
+  // Note: `details` is intentionally NOT marked readonly so that
+  // upstream middleware (e.g. security.ts#checkBlacklist) can attach
+  // per-request diagnostic context without subclassing AppError for
+  // every transient reason code.  Callers MUST treat it as
+  // append-only metadata that is later rendered into the RFC 7807
+  // `error.details` mirror in errorHandler.ts.
+  public details?: unknown;
 
   constructor(
     message: string,
@@ -88,6 +100,55 @@ export class ForbiddenError extends AppError {
 export class ConflictError extends AppError {
   constructor(message = 'Conflict detected') {
     super(message, 409, 'CONFLICT');
+  }
+}
+
+// ─── 413 ──────────────────────────────────────────────────────────────────────
+
+/**
+ * PayloadTooLargeError — emitted by multer/JSON body-limit middleware
+ * when a request body exceeds the configured cap.
+ */
+export class PayloadTooLargeError extends AppError {
+  constructor(message = 'Request payload exceeds the maximum allowed size') {
+    super(message, 413, 'PAYLOAD_TOO_LARGE');
+  }
+}
+
+// ─── 415 ──────────────────────────────────────────────────────────────────────
+
+/**
+ * UnsupportedMediaTypeError — typically thrown by routers that only
+ * accept `application/json` and receive a different `Content-Type`.
+ */
+export class UnsupportedMediaTypeError extends AppError {
+  constructor(message = 'Request media type is not supported') {
+    super(message, 415, 'UNSUPPORTED_MEDIA_TYPE');
+  }
+}
+
+// ─── 429 ──────────────────────────────────────────────────────────────────────
+
+/**
+ * RateLimitError — companion to `tieredRateLimiter` /
+ * `transactionLimiter` middleware that lets route handlers report
+ * a concrete quota breach.
+ */
+export class RateLimitError extends AppError {
+  constructor(message = 'Rate limit exceeded') {
+    super(message, 429, 'RATE_LIMITED');
+  }
+}
+
+// ─── 503 ──────────────────────────────────────────────────────────────────────
+
+/**
+ * ServiceUnavailableError — thrown when a downstream dependency
+ * (database, IPFS, Stellar RPC, …) is unreachable or in maintenance.
+ */
+export class ServiceUnavailableError extends AppError {
+  constructor(message = 'Service temporarily unavailable') {
+    super(message, 503, 'SERVICE_UNAVAILABLE');
   }
 }
 

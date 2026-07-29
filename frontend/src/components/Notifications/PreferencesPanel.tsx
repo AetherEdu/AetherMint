@@ -79,6 +79,7 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
                 <div className="flex flex-wrap gap-3">
                   {/* Enable/Disable */}
                   <button
+                    type="button"
                     onClick={() => handleCategoryToggle(category, 'enabled')}
                     aria-pressed={preferences.categories[category].enabled}
                     className={`
@@ -99,6 +100,7 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
 
                   {/* Sound */}
                   <button
+                    type="button"
                     onClick={() => handleCategoryToggle(category, 'sound')}
                     disabled={!preferences.categories[category].enabled}
                     aria-pressed={preferences.categories[category].sound && preferences.categories[category].enabled}
@@ -116,6 +118,7 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
 
                   {/* Desktop */}
                   <button
+                    type="button"
                     onClick={() => handleCategoryToggle(category, 'desktop')}
                     disabled={!preferences.categories[category].enabled}
                     aria-pressed={preferences.categories[category].desktop && preferences.categories[category].enabled}
@@ -146,6 +149,7 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
               </p>
             </div>
             <button
+              type="button"
               onClick={handleQuietHoursToggle}
               role="switch"
               aria-checked={preferences.quietHours.enabled}

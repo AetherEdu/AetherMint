@@ -18,6 +18,8 @@ import {
   PaymentValidation
 } from '../models/Payment';
 import { StellarPaymentService } from './StellarPaymentService';
+import { auditService } from './auditService';
+import { AuditAction } from '../models/AuditLog';
 import { v4 as uuidv4 } from 'uuid';
 
 export class PaymentService {
@@ -71,13 +73,14 @@ export class PaymentService {
     };
   }
 
-  /**
-   * Create payment intent
-   */
+/**
+    * Create payment intent
+    */
   async createPaymentIntent(
     enrollmentId: string,
     method: PaymentMethod,
-    details: any
+    details: any,
+    auditContext?: { actor: string; ipAddress?: string }
   ): Promise<PaymentIntent> {
     const paymentIntent: PaymentIntent = {
       id: uuidv4(),
@@ -110,6 +113,25 @@ export class PaymentService {
 
     this.payments.set(payment.id, payment);
 
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor,
+        AuditAction.PAYMENT_CREATE,
+        'payment',
+        {
+          resourceId: payment.id,
+          details: { 
+            enrollmentId, 
+            courseId: details.courseId, 
+            amount: details.amount, 
+            currency: details.currency, 
+            method 
+          },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
     return paymentIntent;
   }
 
@@ -141,12 +163,13 @@ export class PaymentService {
     return paymentIntent;
   }
 
-  /**
-   * Process Stellar payment
-   */
+/**
+    * Process Stellar payment
+    */
   async processStellarPayment(
     paymentIntentId: string,
-    signedTransactionXDR: string
+    signedTransactionXDR: string,
+    auditContext?: { actor: string; ipAddress?: string }
   ): Promise<PaymentTransaction> {
     const paymentIntent = this.paymentIntents.get(paymentIntentId);
     if (!paymentIntent) {
@@ -193,23 +216,56 @@ export class PaymentService {
       paymentIntent.confirmedAt = new Date();
       this.paymentIntents.set(paymentIntentId, paymentIntent);
 
+      if (auditContext) {
+        await auditService.create(
+          auditContext.actor,
+          AuditAction.PAYMENT_PROCESS,
+          'payment',
+          {
+            resourceId: transaction.id,
+            details: { 
+              enrollmentId: transaction.enrollmentId,
+              courseId: transaction.courseId,
+              amount: transaction.amount,
+              currency: transaction.currency,
+              transactionHash: stellarPayment.transactionHash
+            },
+            ipAddress: auditContext.ipAddress,
+          }
+        );
+      }
+
       return transaction;
     } catch (error) {
       // Update payment intent status to failed
       paymentIntent.status = 'failed';
       this.paymentIntents.set(paymentIntentId, paymentIntent);
 
+      if (auditContext) {
+        await auditService.createFailure(
+          auditContext.actor,
+          AuditAction.PAYMENT_PROCESS,
+          'payment',
+          {
+            resourceId: paymentIntent.courseId,
+            ipAddress: auditContext.ipAddress,
+            errorMessage: error instanceof Error ? error.message : 'Payment processing failed',
+          }
+        );
+      }
+
       throw error;
     }
   }
 
-  /**
-   * Process refund
-   */
+/**
+    * Process refund
+    */
   async processRefund(
     paymentId: string,
     amount: number,
-    reason: string
+    reason: string,
+    auditContext?: { actor: string; ipAddress?: string }
   ): Promise<PaymentTransaction> {
     const payment = this.payments.get(paymentId);
     if (!payment) {
@@ -289,8 +345,38 @@ export class PaymentService {
       payment.refundReason = reason;
       payment.refundedAt = new Date();
 
+      if (auditContext) {
+        await auditService.create(
+          auditContext.actor,
+          AuditAction.PAYMENT_REFUND,
+          'payment',
+          {
+            resourceId: refundTransaction.id,
+            details: { 
+              paymentId, 
+              enrollmentId: payment.enrollmentId, 
+              amount, 
+              reason 
+            },
+            ipAddress: auditContext.ipAddress,
+          }
+        );
+      }
+
       return refundTransaction;
     } catch (error) {
+      if (auditContext) {
+        await auditService.createFailure(
+          auditContext.actor,
+          AuditAction.PAYMENT_REFUND,
+          'payment',
+          {
+            resourceId: paymentId,
+            ipAddress: auditContext.ipAddress,
+            errorMessage: error instanceof Error ? error.message : 'Refund processing failed',
+          }
+        );
+      }
       throw new Error(`Failed to process refund: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

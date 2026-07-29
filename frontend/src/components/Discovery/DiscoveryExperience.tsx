@@ -392,7 +392,7 @@ export const DiscoveryExperience: React.FC = () => {
           </div>
         ) : null}
 
-        <section className="mt-8 grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)_340px]">
+        <section className="mt-6 sm:mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[320px_minmax(0,1fr)_340px]">
           <FilterPanel
             filters={filters}
             facets={searchData?.facets}
@@ -406,8 +406,8 @@ export const DiscoveryExperience: React.FC = () => {
             }
           />
 
-          <div className="space-y-6">
-            <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="rounded-[20px] sm:rounded-[28px] border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <div className="text-sm uppercase tracking-[0.18em] text-slate-500">
@@ -439,6 +439,7 @@ export const DiscoveryExperience: React.FC = () => {
 
                 <div className="flex flex-wrap gap-3">
                   <button
+                    type="button"
                     className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                     disabled={isSavingSearch}
                     onClick={handleSaveSearch}
@@ -447,6 +448,7 @@ export const DiscoveryExperience: React.FC = () => {
                     {isSavingSearch ? 'Saving…' : 'Save search'}
                   </button>
                   <button
+                    type="button"
                     className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                     disabled={isCreatingAlert}
                     onClick={handleCreateAlert}
@@ -457,7 +459,7 @@ export const DiscoveryExperience: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3" role="list" aria-busy={isLoadingSearch} aria-label="Course search results">
+              <div className="mt-4 sm:mt-6 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3" role="list" aria-busy={isLoadingSearch} aria-label="Course search results">
                 {isLoadingSearch
                   ? Array.from({ length: 6 }).map((_, index) => (
                       <div
@@ -494,7 +496,7 @@ export const DiscoveryExperience: React.FC = () => {
               onSelect={handleSelectCourse}
             />
 
-            <section className="grid gap-6 xl:grid-cols-2">
+            <section className="grid gap-4 sm:gap-6 grid-cols-1 xl:grid-cols-2">
               <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
@@ -517,6 +519,7 @@ export const DiscoveryExperience: React.FC = () => {
                   {trending.map((course, index) => (
                     <button
                       key={course.id}
+                      type="button"
                       className="flex w-full items-center gap-4 rounded-2xl border border-slate-200 p-3 text-left transition hover:border-slate-400"
                       onClick={() => handleSelectCourse(course)}
                       aria-label={`Preview trending course ${course.title}`}
@@ -620,6 +623,7 @@ export const DiscoveryExperience: React.FC = () => {
                       {curator.picks.map((course) => (
                         <button
                           key={course.id}
+                          type="button"
                           className="flex w-full items-center justify-between rounded-2xl bg-white px-3 py-2 text-left text-sm transition hover:bg-amber-50"
                           onClick={() => handleSelectCourse(course)}
                           aria-label={`Preview curator pick ${course.title}`}
@@ -639,7 +643,7 @@ export const DiscoveryExperience: React.FC = () => {
             </section>
           </div>
 
-          <aside className="space-y-6">
+          <aside className="space-y-4 sm:space-y-6">
             <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-slate-500">
                 <SearchIcon size={16} />
@@ -730,6 +734,7 @@ export const DiscoveryExperience: React.FC = () => {
                 {similarCourses.map((course) => (
                   <button
                     key={course.id}
+                    type="button"
                     className="w-full rounded-2xl border border-slate-200 p-3 text-left transition hover:border-slate-400"
                     onClick={() => handleSelectCourse(course)}
                     aria-label={`Preview similar course ${course.title}`}

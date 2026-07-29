@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Mobile Navigation Component
  * Touch-friendly navigation optimized for mobile devices

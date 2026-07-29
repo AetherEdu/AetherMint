@@ -1,5 +1,6 @@
 #![cfg(test)]
 
+use soroban_sdk::testutils::Events as _;
 use crate::credential_events::{
     get_actor_events, get_credential_event, get_credential_event_count, get_credential_events,
     publish_credential_event, record_event, CredentialLifecycleEvent,

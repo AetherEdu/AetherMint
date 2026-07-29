@@ -50,6 +50,7 @@ pub struct CredentialRegistry {
     pub issued_at: u64,
     pub expires_at: u64,
     pub status: CredentialStatus,
+    pub proctored: bool,
     pub ipfs_hash: String,
     pub renewal_count: u32,
     pub last_renewed_at: Option<u64>,
@@ -98,6 +99,9 @@ pub fn issue_credential_with_expiration(
     ipfs_hash: String,
     validity_duration: u64, // Duration in seconds from issuance
 ) -> u64 {
+    // Reject writes against an unrecognized storage layout (issue #120).
+    StorageVersion::require_compatible_version(env);
+
     issuer.require_auth();
 
     // Validate inputs before any state access (issue #117).
@@ -131,6 +135,7 @@ pub fn issue_credential_with_expiration(
         issued_at: current_time,
         expires_at: current_time + validity_duration,
         status: CredentialStatus::Active,
+        proctored: false,
         ipfs_hash,
         renewal_count: 0,
         last_renewed_at: None,
@@ -173,6 +178,7 @@ pub fn renew_credential(
     renewer: Address,
     extension_duration: u64,
 ) -> bool {
+    StorageVersion::require_compatible_version(env);
     renewer.require_auth();
 
     // Validate the extension window before any state access (issue #117).
@@ -254,6 +260,7 @@ pub fn renew_credential(
 
 /// Check and update credential expiration status
 pub fn check_credential_expiration(env: &Env, credential_id: u64) -> CredentialStatus {
+    StorageVersion::require_compatible_version(env);
     let mut credential: CredentialRegistry = env
         .storage()
         .persistent()
@@ -320,6 +327,8 @@ pub fn batch_update_expiration_status(env: &Env, credential_ids: Vec<u64>) -> Ve
 
 /// Get credential with current status
 pub fn get_credential(env: &Env, credential_id: u64) -> CredentialRegistry {
+    // Version guard first: refuse reads on unknown layouts (issue #120).
+    StorageVersion::require_compatible_version(env);
     // Check expiration status before returning
     check_credential_expiration(env, credential_id);
 
@@ -355,6 +364,7 @@ pub fn get_renewal_history(env: &Env, credential_id: u64) -> Vec<RenewalRecord> 
 
 /// Revoke a credential
 pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) -> bool {
+    StorageVersion::require_compatible_version(env);
     revoker.require_auth();
 
     let admin: Address = env
@@ -504,6 +514,8 @@ pub fn issue_credentials_batch(
     issuer: Address,
     params: Vec<BatchCredentialParams>,
 ) -> Vec<u64> {
+    // Reject writes against an unrecognized storage layout (issue #120).
+    StorageVersion::require_compatible_version(env);
     // Single auth check covers the entire batch.
     issuer.require_auth();
 
@@ -558,6 +570,7 @@ pub fn issue_credentials_batch(
             issued_at: current_time,
             expires_at: current_time + p.validity_duration,
             status: CredentialStatus::Active,
+            proctored: false,
             ipfs_hash: p.ipfs_hash.clone(),
             renewal_count: 0,
             last_renewed_at: None,
@@ -600,4 +613,104 @@ pub fn issue_credentials_batch(
     }
 
     credential_ids
+}
+
+/// Mark an issued credential as proctored.
+///
+/// This is used after a proctoring session has been successfully linked to the
+/// credential issuance flow.
+pub fn mark_credential_as_proctored(env: &Env, credential_id: u64) -> bool {
+    StorageVersion::require_compatible_version(env);
+    let mut credential: CredentialRegistry = env
+        .storage()
+        .persistent()
+        .get(&CredentialRegistryKey::Credential(credential_id))
+        .unwrap_or_else(|| panic!("Credential not found"));
+
+    credential.proctored = true;
+    env.storage().persistent().set(
+        &CredentialRegistryKey::Credential(credential_id),
+        &credential,
+    );
+
+    let now = env.ledger().timestamp();
+    env.events().publish(
+        (Symbol::new(env, "cred_op"), Symbol::new(env, "proctored")),
+        (credential_id, now),
+    );
+
+    true
+}
+
+/// Whether a credential was issued through the proctored flow.
+pub fn is_proctored_credential(env: &Env, credential_id: u64) -> bool {
+    env.storage()
+        .persistent()
+        .get::<_, CredentialRegistry>(&CredentialRegistryKey::Credential(credential_id))
+        .map(|credential| credential.proctored)
+        .unwrap_or(false)
+}
+
+/// Issue a credential and mark it as proctored once the session is linked.
+pub fn issue_proctored_cred_with_exp(
+    env: &Env,
+    issuer: Address,
+    recipient: Address,
+    title: String,
+    description: String,
+    course_id: String,
+    ipfs_hash: String,
+    validity_duration: u64,
+    session_id: u64,
+) -> u64 {
+    let credential_id = issue_credential_with_expiration(
+        env,
+        issuer,
+        recipient,
+        title,
+        description,
+        course_id,
+        ipfs_hash,
+        validity_duration,
+    );
+
+    crate::proctoring::register_proctored_credential(env, session_id, credential_id);
+    mark_credential_as_proctored(env, credential_id);
+
+    credential_id
+}
+
+// ===== Storage migration transformation (issue #120) =====
+
+/// v1 → v2 storage migration transformation for the credential registry.
+///
+/// What changed in v2: the v2 schema seeds a `AttestationCount(id) = 0` marker
+/// on every credential that was issued under v1 so v2-aware readers can tell
+/// pre-existing credentials apart from freshly issued ones without having to
+/// re-derive that fact from event history.
+///
+/// Important: callers MUST NOT call `StorageVersion::require_compatible_version`
+/// before this — the contract is mid-migration and the on-disk version is
+/// about to be flipped.
+pub fn migrate_v1_to_v2(env: &Env) -> u32 {
+    let count: u64 = env
+        .storage()
+        .instance()
+        .get(&CredentialRegistryKey::CredentialCount)
+        .unwrap_or(0u64);
+
+    let touched: u32 = if count > u32::MAX as u64 {
+        u32::MAX
+    } else {
+        count as u32
+    };
+
+    for id in 1..=touched {
+        let key = CredentialRegistryKey::AttestationCount(id as u64);
+        if !env.storage().persistent().has(&key) {
+            env.storage().persistent().set(&key, &0u32);
+        }
+    }
+
+    touched
 }

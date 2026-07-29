@@ -26,6 +26,22 @@ const QuizPlayer: React.FC<QuizPlayerProps> = ({
     setSelectedAnswers(newAnswers);
   };
 
+  const getCorrectAnswerValue = (question: Question) => {
+    if (question.type === 'multiple-choice' || question.type === 'true-false') {
+      const options = (question.options || []) as (string | { id?: string; isCorrect?: boolean })[];
+      const correctIndex = options.findIndex((option: any) =>
+        typeof option === 'object' ? option.isCorrect : false,
+      );
+      if (correctIndex === -1) {
+        return 0;
+      }
+      const correctOption = options[correctIndex];
+      return typeof correctOption === 'string' ? correctIndex : correctOption.id ?? correctIndex;
+    }
+
+    return null;
+  };
+
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
@@ -41,8 +57,8 @@ const QuizPlayer: React.FC<QuizPlayerProps> = ({
     questions.forEach((q, index) => {
       // Basic check for MCQ
       if (q.type === 'multiple-choice' || q.type === 'true-false') {
-        const correctOpt = q.options?.findIndex((o: any) => typeof o === 'object' ? o.isCorrect : false);
-        if (selectedAnswers[index] === (correctOpt !== -1 ? correctOpt : 0)) {
+        const correctAnswerValue = getCorrectAnswerValue(q);
+        if (String(selectedAnswers[index]) === String(correctAnswerValue)) {
           calculatedScore++;
         }
       } else if (selectedAnswers[index]) {
@@ -136,6 +152,7 @@ const QuizPlayer: React.FC<QuizPlayerProps> = ({
       {/* Navigation Controls */}
       <div className="flex items-center justify-between">
         <button
+          type="button"
           onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
           disabled={currentQuestionIndex === 0}
           className="px-6 py-3 rounded-xl font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-0 transition-all"
@@ -145,6 +162,7 @@ const QuizPlayer: React.FC<QuizPlayerProps> = ({
         </button>
         
         <button
+          type="button"
           onClick={handleNext}
           disabled={selectedAnswers[currentQuestionIndex] === null || selectedAnswers[currentQuestionIndex] === ''}
           aria-label={currentQuestionIndex === questions.length - 1 ? 'Complete assessment' : 'Go to next question'}
@@ -163,6 +181,7 @@ const QuizPlayer: React.FC<QuizPlayerProps> = ({
       <div className="mt-8 flex justify-center gap-2">
         {questions.map((_, idx) => (
           <button
+            type="button"
             key={idx}
             onClick={() => setCurrentQuestionIndex(idx)}
             aria-current={idx === currentQuestionIndex ? 'step' : undefined}

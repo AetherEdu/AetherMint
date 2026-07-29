@@ -9,6 +9,16 @@ The following versions of this project are currently being supported with securi
 | 1.0.x   | :white_check_mark: |
 | < 1.0   | :x:                |
 
+## Vulnerability Scanning
+
+AetherMint supports running dependency scans locally:
+
+- **npm audit** — scans all JavaScript/TypeScript workspaces for known vulnerabilities
+- **cargo audit** — scans Rust contract dependencies against the RustSec advisory database
+- **Trivy** — filesystem scanner for comprehensive vulnerability detection
+
+For details on how to run scans and respond to findings, see [docs/VULNERABILITY-SCANNING.md](docs/VULNERABILITY-SCANNING.md).
+
 ## Reporting a Vulnerability
 
 We take the security of this project seriously. If you discover any security vulnerabilities, please do not report them via public issues. Instead, please report them directly to the maintainers.

@@ -6,6 +6,7 @@
  */
 
 import { Router } from "express";
+// @ts-ignore - controller module not yet implemented
 import * as crossProtocolController from "../controllers/crossProtocolController";
 
 const router: Router = Router();

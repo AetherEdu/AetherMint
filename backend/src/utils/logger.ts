@@ -3,15 +3,11 @@
  * Centralized structured logging service using Winston.
  */
 
-import { AsyncLocalStorage } from 'async_hooks';
+import { getRequestContext, runWithRequestContext, type RequestContext } from './requestContext';
 import fs from 'fs';
 import path from 'path';
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
-
-type RequestContext = Record<string, unknown> & {
-  requestId?: string;
-};
 
 type LogLevel = 'error' | 'warn' | 'info' | 'http' | 'debug';
 
@@ -23,7 +19,6 @@ const levels: Record<LogLevel, number> = {
   debug: 4,
 };
 
-const requestContextStorage = new AsyncLocalStorage<RequestContext>();
 const logDirectory = path.join(process.cwd(), 'logs');
 const logLevel = process.env.LOG_LEVEL || 'info';
 const isDevelopment = process.env.NODE_ENV !== 'production';
@@ -127,7 +122,7 @@ const mergeMeta = (meta: unknown[]): Record<string, unknown> => {
 };
 
 const buildLoggerEntry = (level: LogLevel, message: unknown, meta: unknown[]) => {
-  const context = requestContextStorage.getStore();
+  const context = getRequestContext();
   const entry: Record<string, unknown> = {
     level,
     message: redactValue(message),
@@ -186,9 +181,6 @@ const logger = {
   },
 };
 
-export const runWithRequestContext = <T>(context: RequestContext, callback: () => T): T =>
-  requestContextStorage.run(context, callback);
-
-export const getRequestContext = (): RequestContext | undefined => requestContextStorage.getStore();
+export { getRequestContext, runWithRequestContext, type RequestContext };
 
 export default logger;

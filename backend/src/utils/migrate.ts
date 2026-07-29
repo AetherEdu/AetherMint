@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
+import { spawn } from 'child_process';
 import logger from './logger';
 
 interface MigrationFile {
@@ -472,6 +473,59 @@ export function createPool(): Pool {
 }
 
 /**
+ * Restore a pg_dump backup into the database referenced by DATABASE_URL.
+ *
+ * Expects a custom-format dump (`pg_dump -Fc`, as produced by
+ * scripts/backup-db.sh) and shells out to `pg_restore` so the restore is
+ * streamed rather than buffered in memory. Intended for disaster recovery and
+ * for the backup-verification flow.
+ *
+ * @param backupPath Path to a custom-format dump file.
+ * @param options.clean When true, drop existing objects before recreating them.
+ */
+export async function restoreBackup(
+  backupPath: string,
+  options: { clean?: boolean } = {}
+): Promise<void> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL environment variable is not set');
+  }
+  if (!fs.existsSync(backupPath)) {
+    throw new Error(`Backup file not found: ${backupPath}`);
+  }
+
+  const args = [
+    '--dbname', databaseUrl,
+    '--no-owner',
+    '--no-privileges',
+    '--jobs', '4',
+  ];
+  if (options.clean) {
+    args.push('--clean', '--if-exists');
+  }
+  args.push(backupPath);
+
+  logger.info(`Restoring backup from ${backupPath}`);
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('pg_restore', args, { stdio: ['ignore', 'inherit', 'inherit'] });
+    child.on('error', err => {
+      reject(new Error(`Failed to spawn pg_restore: ${err.message}. Is the PostgreSQL client installed?`));
+    });
+    child.on('close', code => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`pg_restore exited with code ${code}`));
+      }
+    });
+  });
+
+  logger.info('Backup restore completed successfully');
+}
+
+/**
  * Main entry point for CLI commands
  */
 export async function runMigrationCommand(command: string, autoRun: boolean = true): Promise<void> {
@@ -493,7 +547,7 @@ export async function runMigrationCommand(command: string, autoRun: boolean = tr
         break;
       default:
         console.error(`Unknown command: ${command}`);
-        console.error('Available commands: up, down, status');
+        console.error('Available commands: up, down, status, restore');
         process.exit(1);
     }
   } finally {
@@ -505,12 +559,46 @@ export async function runMigrationCommand(command: string, autoRun: boolean = tr
 if (require.main === module) {
   const command = process.argv[2];
   if (!command) {
-    console.error('Usage: ts-node src/utils/migrate.ts <command>');
-    console.error('Available commands: up, down, status');
+    console.error('Usage: ts-node src/utils/migrate.ts <command> [args]');
+    console.error('Available commands: up, down, status, restore <backup-file> [--clean]');
     process.exit(1);
   }
-  runMigrationCommand(command, false).catch(error => {
-    console.error('Migration command failed:', error);
-    process.exit(1);
-  });
+
+  if (command === 'restore') {
+    const backupPath = process.argv[3];
+    if (!backupPath) {
+      console.error('Usage: ts-node src/utils/migrate.ts restore <backup-file> [--clean]');
+      process.exit(1);
+    }
+    const clean = process.argv.includes('--clean');
+    restoreBackup(backupPath, { clean }).catch(error => {
+      console.error('Restore command failed:', error);
+      process.exit(1);
+    });
+  } else {
+    runMigrationCommand(command, false).catch(error => {
+      console.error('Migration command failed:', error);
+      process.exit(1);
+    });
+  }
+}
+
+// Migrater class for programmatic use
+
+export class Migrator {
+  async up(): Promise<void> {
+    await runMigrationCommand('up', false);
+  }
+
+  async down(): Promise<void> {
+    await runMigrationCommand('down', false);
+  }
+
+  async close(): Promise<void> {
+    // no-op — pool is managed internally
+  }
+
+  async run(): Promise<void> {
+    await this.up();
+  }
 }

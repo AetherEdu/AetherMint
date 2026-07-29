@@ -1,12 +1,13 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import holographicStorage from '../services/holographicStorage';
+import { NotFoundError } from '../utils/errors';
 
-export const encodeContent = async (req: Request, res: Response) => {
+export const encodeContent = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { contentId, data } = req.body;
     const buffer = Buffer.from(data, 'base64');
     const result = holographicStorage.encode(buffer, contentId);
-    
+
     res.json({
       success: true,
       hash: result.hash,
@@ -14,48 +15,48 @@ export const encodeContent = async (req: Request, res: Response) => {
       message: 'Content encoded in holographic format'
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    return next(error);
   }
 };
 
-export const decodeContent = async (req: Request, res: Response) => {
+export const decodeContent = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { hash } = req.params;
     const data = holographicStorage.decode(hash);
-    
+
     if (!data) {
-      return res.status(404).json({ success: false, error: 'Content not found' });
+      return next(new NotFoundError('Content not found'));
     }
-    
+
     res.json({
       success: true,
       data: data.toString('base64'),
       size: data.length
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    return next(error);
   }
 };
 
-export const parallelAccess = async (req: Request, res: Response) => {
+export const parallelAccess = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { hashes } = req.body;
     const results = await holographicStorage.parallelAccess(hashes);
-    
+
     res.json({
       success: true,
       data: results.map(r => r?.toString('base64')),
       count: results.length
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    return next(error);
   }
 };
 
-export const getMetrics = async (req: Request, res: Response) => {
+export const getMetrics = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const metrics = holographicStorage.getMetrics();
-    
+
     res.json({
       success: true,
       metrics: {
@@ -65,15 +66,15 @@ export const getMetrics = async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    return next(error);
   }
 };
 
-export const optimizeStorage = async (req: Request, res: Response) => {
+export const optimizeStorage = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const beforeMetrics = holographicStorage.getMetrics();
     const afterMetrics = holographicStorage.optimizeDensity();
-    
+
     res.json({
       success: true,
       optimization: {
@@ -83,6 +84,6 @@ export const optimizeStorage = async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    return next(error);
   }
 };

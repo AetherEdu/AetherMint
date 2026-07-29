@@ -213,5 +213,5 @@ function escapeAttr(value: string): string {
 }
 
 function escapeText(value: string): string {
-  return value.replace(/[&<>]/g, (c) => `&#${c.charCodeAt(0};`);
+  return value.replace(/[&<>]/g, (c) => `&#${c.charCodeAt(0)};`);
 }

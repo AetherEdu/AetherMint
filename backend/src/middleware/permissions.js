@@ -1,4 +1,5 @@
 const { canPerformAction, hasPermission, UserRole } = require('../utils/roles');
+const { AuthError, ForbiddenError, NotFoundError, InternalError } = require('../utils/errors');
 
 /**
  * Check if user can perform specific action on resource
@@ -9,19 +10,13 @@ const { canPerformAction, hasPermission, UserRole } = require('../utils/roles');
 const checkActionPermission = (action, resource) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        message: 'Please authenticate to access this resource'
-      });
+      return next(new AuthError('Authentication required'));
     }
 
     const userRole = req.user.role;
-    
+
     if (!canPerformAction(userRole, action, resource)) {
-      return res.status(403).json({
-        error: 'Insufficient permissions',
-        message: `You don't have permission to ${action} ${resource}`
-      });
+      return next(new ForbiddenError(`You don't have permission to ${action} ${resource}`));
     }
 
     next();
@@ -38,10 +33,7 @@ const checkResourceOwnership = (resourceType, resourceIdParam = 'id') => {
   return async (req, res, next) => {
     try {
       if (!req.user) {
-        return res.status(401).json({
-          error: 'Authentication required',
-          message: 'Please authenticate to access this resource'
-        });
+        return next(new AuthError('Authentication required'));
       }
 
       const userRole = req.user.role;
@@ -54,31 +46,20 @@ const checkResourceOwnership = (resourceType, resourceIdParam = 'id') => {
       }
 
       // For non-admin users, check ownership
-      // This would typically involve a database query to verify ownership
-      // For now, we'll implement a basic check that can be extended
       const resource = await getResourceById(resourceType, resourceId);
-      
+
       if (!resource) {
-        return res.status(404).json({
-          error: 'Resource not found',
-          message: `${resourceType} with ID ${resourceId} not found`
-        });
+        return next(new NotFoundError(`${resourceType} with ID ${resourceId} not found`));
       }
 
       if (resource.owner !== userId && resource.userId !== userId) {
-        return res.status(403).json({
-          error: 'Access denied',
-          message: `You can only modify your own ${resourceType}`
-        });
+        return next(new ForbiddenError(`You can only modify your own ${resourceType}`));
       }
 
       next();
     } catch (error) {
       console.error('Permission check error:', error);
-      res.status(500).json({
-        error: 'Internal server error',
-        message: 'Error checking permissions'
-      });
+      return next(new InternalError('Error checking permissions'));
     }
   };
 };
@@ -88,22 +69,16 @@ const checkResourceOwnership = (resourceType, resourceIdParam = 'id') => {
  */
 const canManageCourse = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({
-      error: 'Authentication required',
-      message: 'Please authenticate to access this resource'
-    });
+    return next(new AuthError('Authentication required'));
   }
 
   const userRole = req.user.role;
-  const action = req.method.toLowerCase() === 'get' ? 'read' : 
+  const action = req.method.toLowerCase() === 'get' ? 'read' :
                  req.method.toLowerCase() === 'post' ? 'create' :
                  req.method.toLowerCase() === 'put' ? 'update' : 'delete';
 
   if (!canPerformAction(userRole, action, 'course')) {
-    return res.status(403).json({
-      error: 'Insufficient permissions',
-      message: `You don't have permission to ${action} courses`
-    });
+    return next(new ForbiddenError(`You don't have permission to ${action} courses`));
   }
 
   next();
@@ -114,22 +89,16 @@ const canManageCourse = (req, res, next) => {
  */
 const canManageQuiz = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({
-      error: 'Authentication required',
-      message: 'Please authenticate to access this resource'
-    });
+    return next(new AuthError('Authentication required'));
   }
 
   const userRole = req.user.role;
-  const action = req.method.toLowerCase() === 'get' ? 'read' : 
+  const action = req.method.toLowerCase() === 'get' ? 'read' :
                  req.method.toLowerCase() === 'post' ? 'create' :
                  req.method.toLowerCase() === 'put' ? 'update' : 'delete';
 
   if (!canPerformAction(userRole, action, 'quiz')) {
-    return res.status(403).json({
-      error: 'Insufficient permissions',
-      message: `You don't have permission to ${action} quizzes`
-    });
+    return next(new ForbiddenError(`You don't have permission to ${action} quizzes`));
   }
 
   next();
@@ -140,10 +109,7 @@ const canManageQuiz = (req, res, next) => {
  */
 const canManageUser = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({
-      error: 'Authentication required',
-      message: 'Please authenticate to access this resource'
-    });
+    return next(new AuthError('Authentication required'));
   }
 
   const userRole = req.user.role;
@@ -165,10 +131,7 @@ const canManageUser = (req, res, next) => {
     return next();
   }
 
-  return res.status(403).json({
-    error: 'Access denied',
-    message: 'You can only access and modify your own user profile'
-  });
+  return next(new ForbiddenError('You can only access and modify your own user profile'));
 };
 
 /**
@@ -176,22 +139,16 @@ const canManageUser = (req, res, next) => {
  */
 const canManageContent = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({
-      error: 'Authentication required',
-      message: 'Please authenticate to access this resource'
-    });
+    return next(new AuthError('Authentication required'));
   }
 
   const userRole = req.user.role;
-  const action = req.method.toLowerCase() === 'get' ? 'read' : 
+  const action = req.method.toLowerCase() === 'get' ? 'read' :
                  req.method.toLowerCase() === 'post' ? 'create' :
                  req.method.toLowerCase() === 'put' ? 'update' : 'delete';
 
   if (!canPerformAction(userRole, action, 'content')) {
-    return res.status(403).json({
-      error: 'Insufficient permissions',
-      message: `You don't have permission to ${action} content`
-    });
+    return next(new ForbiddenError(`You don't have permission to ${action} content`));
   }
 
   next();

@@ -6,18 +6,30 @@ import helmet from 'helmet';
 import { Redis } from 'ioredis';
 import swaggerUi from 'swagger-ui-express';
 import logger from './utils/logger';
+import requestId from './middleware/requestId';
 import requestLogger from './middleware/requestLogger';
+import { metricsMiddleware, websocketConnectionsActive } from './middleware/metrics';
+import responseCompression from './middleware/compression';
 import { errorHandler } from './middleware/errorHandler';
 import { NotFoundError } from './utils/errors';
 import { connectRedis } from './utils/redis';
 import { initWebsocketService } from './services/websocketService';
 import { setSyncWebsocketEmitter } from './services/syncService';
 import { initCollaborationService } from './services/initCollaboration';
+import redisConfig from './config/redis';
+import {
+  registerShutdownHandlers,
+  shutdownGuard,
+  isShuttingDown,
+  closeHttpServer,
+} from './utils/shutdown';
+import mongoose from 'mongoose';
 import { MigrationRunner, createPool } from './utils/migrate';
 import * as path from 'path';
 // @ts-ignore
 import SecureRealtimeCommunication from './services/secureRealtimeCommunication';
 import { swaggerSpec } from './config/swagger';
+import { openApiSpec } from './docs/openapi';
 import { Migrator } from './utils/migrate';
 
 // @ts-ignore
@@ -34,59 +46,76 @@ import {
   ddosProtection,
   botDetection,
   advancedRestrictions,
-  requestSanitizer
+  requestSanitizer,
+  cspMiddleware,
+  securityHeadersMiddleware
 } from './middleware/security';
 import { detectSuspiciousPatterns } from './middleware/sanitizer';
 // @ts-ignore
 import { tieredRateLimiter, transactionLimiter } from './middleware/rateLimiter';
+import { rateLimits } from './middleware/rateLimit';
+import { idempotency } from './middleware/idempotency';
+import { createGraphQLPlaceholder } from './graphql';
 
 // Connect to Redis
 connectRedis();
 
 // Helper for default-exported route modules
 const resolveRoute = (routeModule: any) => routeModule.default || routeModule;
+const loadRoute = (routePath: string) => {
+  try {
+    return resolveRoute(require(routePath));
+  } catch (error) {
+    logger.warn(`Skipping route ${routePath} during startup`, error as Error);
+    return express.Router();
+  }
+};
 
 // Import routes
 // @ts-ignore
-const quizRoutes = resolveRoute(require('./routes/quizRoutes'));
+const quizRoutes = loadRoute('./routes/quizRoutes');
 // @ts-ignore
-const eventLoggerRoutes = resolveRoute(require('./routes/eventLoggerRoutes'));
+const eventLoggerRoutes = loadRoute('./routes/eventLoggerRoutes');
 // @ts-ignore
-const syncRoutes = resolveRoute(require('./routes/syncRoutes'));
+const syncRoutes = loadRoute('./routes/syncRoutes');
 // @ts-ignore
-const rbacRoutes = resolveRoute(require('./routes/rbacRoutes'));
+const rbacRoutes = loadRoute('./routes/rbacRoutes');
 // @ts-ignore
-const contentRoutes = require('./routes/content');
+const contentRoutes = loadRoute('./routes/content');
 // @ts-ignore
-const transactionRoutes = require('./routes/transactions');
+const transactionRoutes = loadRoute('./routes/transactions');
 // @ts-ignore
-const notificationRoutes = resolveRoute(require('./routes/notificationRoutes'));
+const notificationRoutes = loadRoute('./routes/notificationRoutes');
 
 // Your branch routes
 // @ts-ignore
-const collaborationRoutes = resolveRoute(require('./routes/collaborationRoutes'));
+const collaborationRoutes = loadRoute('./routes/collaborationRoutes');
 // @ts-ignore
-const holographicRoutes = resolveRoute(require('./routes/holographicRoutes'));
+const holographicRoutes = loadRoute('./routes/holographicRoutes');
 // @ts-ignore
-const secureCommRoutes = resolveRoute(require('./routes/secureCommRoutes'));
+const secureCommRoutes = loadRoute('./routes/secureCommRoutes');
 
 // Upstream routes
 // @ts-ignore
-const acoRoutes = require('./routes/aco');
+const acoRoutes = loadRoute('./routes/aco');
 // @ts-ignore
-const federatedLearningRoutes = require('./routes/federatedLearning');
+const federatedLearningRoutes = loadRoute('./routes/federatedLearning');
 // @ts-ignore
-const swarmLearningRoutes = require('./routes/swarmLearning');
+const swarmLearningRoutes = loadRoute('./routes/swarmLearning');
 // @ts-ignore
-const smartWalletRoutes = resolveRoute(require('./routes/smartWallet'));
+const smartWalletRoutes = loadRoute('./routes/smartWallet');
 
 // AGI Tutor routes
 // @ts-ignore
-const agiTutorRoutes = require('./routes/agiTutorRoutes');
+const agiTutorRoutes = loadRoute('./routes/agiTutorRoutes');
 
 // Analytics routes
 // @ts-ignore
-const analyticsRoutes = require('./routes/analytics');
+const analyticsRoutes = loadRoute('./routes/analytics');
+
+// CSP Violation Reporting route
+// @ts-ignore
+const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 
 // Initialize Express app
 const app: Application = express();
@@ -108,10 +137,22 @@ setSyncWebsocketEmitter((userId: string, event: string, data: any) => {
 
 // Middleware
 app.use(helmet());
+app.use(cspMiddleware);
+app.use(securityHeadersMiddleware);
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(requestId);
 app.use(requestLogger);
+app.use(metricsMiddleware);
+// Issue #269: gzip responses larger than 1 KB when the client advertises
+// the encoding. Pre-compressed content types (image/*, video/*, etc.) and
+// any Cache-Control: no-transform responses are forwarded untouched.
+app.use(responseCompression);
+
+// Reject new traffic with 503 once a graceful shutdown has begun, while still
+// serving the health probe and root so orchestrators can read the drain state.
+app.use(shutdownGuard(['/api/health', '/']));
 
 // Integration of sanitization middleware
 // Performance tracker first
@@ -129,10 +170,34 @@ app.use(detectSuspiciousPatterns);
 // NEW/Updated: Sanitize all inputs
 app.use(requestSanitizer);
 
-// Serve Swagger UI at /api-docs
+// ── OpenAPI documentation endpoints ────────────────────────────────────────
+
+// Primary interactive Swagger UI  →  GET /api/docs
+app.use(
+  '/api/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(openApiSpec, {
+    explorer: true,
+    customSiteTitle: 'AetherMint API Docs',
+    customCss: '.swagger-ui .topbar { background-color: #1a1a2e; }',
+    swaggerOptions: {
+      docExpansion: 'list',
+      filter: true,
+      showRequestDuration: true,
+    },
+  }),
+);
+
+// Raw OpenAPI JSON spec  →  GET /api/docs/json
+app.get('/api/docs/json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(openApiSpec);
+});
+
+// Legacy alias kept for backward-compat  →  GET /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
-  customSiteTitle: 'AetherMint API Docs',
+  customSiteTitle: 'AetherMint API Docs (legacy)',
 }));
 
 // Every API request receives a global per-IP limit plus the applicable
@@ -145,7 +210,7 @@ app.use('/api/events', eventLoggerRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/rbac', rbacRoutes);
-app.use('/api/transactions', transactionLimiter, transactionRoutes);
+app.use('/api/transactions', idempotency(), transactionLimiter, transactionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/collaboration', collaborationRoutes);
 app.use('/api/holographic', holographicRoutes);
@@ -159,51 +224,98 @@ app.use('/api/analytics', analyticsRoutes);
 
 // Autonomous Agents routes
 // @ts-ignore
-const autonomousAgentsRoutes = require('./routes/autonomousAgents');
+const autonomousAgentsRoutes = loadRoute('./routes/autonomousAgents');
 app.use('/api/autonomous-agents', autonomousAgentsRoutes);
 
 // Gamification routes
 // @ts-ignore
-const gamificationRoutes = require('./routes/gamification');
+const gamificationRoutes = loadRoute('./routes/gamification');
 app.use('/api/gamification', gamificationRoutes);
 
 // Bridge routes
 // @ts-ignore
-const bridgeRoutes = require('./routes/bridge');
+const bridgeRoutes = loadRoute('./routes/bridge');
 app.use('/api/bridge', bridgeRoutes);
 
-// Time-Locked Credential routes
+// Time-Locked Credential routes with idempotency (Issue #264)
 // @ts-ignore
-const timeLockCredentialsRoutes = require('./routes/timeLockCredentials');
-app.use('/api/time-lock', timeLockCredentialsRoutes);
+const timeLockCredentialsRoutes = loadRoute('./routes/timeLockCredentials');
+app.use('/api/time-lock', idempotency(), timeLockCredentialsRoutes);
 
 // VRF (Verifiable Random Function) routes
 // @ts-ignore
-const vrfRoutes = require('./routes/vrf');
+const vrfRoutes = loadRoute('./routes/vrf');
 app.use('/api/vrf', vrfRoutes);
 
 // Real-time Translation routes
 // @ts-ignore
-const translationRoutes = require('./routes/translation');
+const translationRoutes = loadRoute('./routes/translation');
 app.use('/api/translate', translationRoutes);
+
+// Bulk operations routes (Admin) – Issue #262
+// @ts-ignore
+const bulkOperationsRoutes = loadRoute('./routes/bulkOperations');
+app.use('/api/admin/bulk', bulkOperationsRoutes);
+
+// Feature flag admin routes – Issue #267
+// @ts-ignore
+const featureFlagRoutes = resolveRoute(require('./routes/admin/featureFlags'));
+app.use('/api/admin/feature-flags', featureFlagRoutes);
+
+// Public evaluation endpoint for SPA / mobile clients – Issue #267
+// First pulls `publicRouter` off the same module so the admin auth
+// middleware on the default export is not applied to public callers.
+// @ts-ignore
+const featureFlagModule = require('./routes/admin/featureFlags');
+const publicFeatureFlagRouter = (featureFlagModule as any).publicRouter ?? featureFlagModule;
+app.use('/api/feature-flags', publicFeatureFlagRouter);
 
 // Cross-Protocol Bridge routes
 // @ts-ignore
-const crossProtocolBridgeRoutes = require('./routes/crossProtocolBridge');
+const crossProtocolBridgeRoutes = loadRoute('./routes/crossProtocolBridge');
 app.use('/api/cross-protocol-bridge', crossProtocolBridgeRoutes);
+
+// Audit routes
+// @ts-ignore
+const auditRoutes = loadRoute('./routes/auditRoutes');
+app.use('/api/audit', auditRoutes);
+
+// CSP Violation Reporting endpoint
+app.use('/api/csp-violation', cspViolationRoutes);
+
+// Prometheus metrics endpoint
+// @ts-ignore
+const metricsRoutes = resolveRoute(require('./routes/metrics'));
+app.use('/api/metrics', metricsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
   res.json({
     message: 'AetherMint Education Backend API',
     version: '1.0.0',
     status: 'running',
     timestamp: new Date().toISOString(),
+    documentation: {
+      ui: `${baseUrl}/api/docs`,
+      json: `${baseUrl}/api/docs/json`,
+    },
   });
 });
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  // During a graceful shutdown report "shutting down" with a 503 so liveness
+  // probes and load balancers stop routing traffic while the server drains.
+  if (isShuttingDown()) {
+    res.status(503).json({
+      status: 'shutting down',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    });
+    return;
+  }
+
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -212,7 +324,6 @@ app.get('/api/health', (req, res) => {
 });
 
 // 404 catch-all — must come after all route definitions
-import { NotFoundError } from './utils/errors';
 app.use('*', (req: any, _res: any, next: any) => {
   next(new NotFoundError(`Endpoint not found: ${req.originalUrl}`));
 });
@@ -222,8 +333,62 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 
+/**
+ * Ensure all registered Mongoose model indexes are created on existing
+ * collections. If a MONGODB_URI env var is set and Mongoose is not yet
+ * connected, a connection is established first.
+ *
+ * Called at startup so deployments against an existing database pick up any
+ * new index definitions added to the schemas without requiring a manual
+ * migration step.  (Issue #168)
+ */
+async function ensureMongooseIndexes(): Promise<void> {
+  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+
+  // Attempt to connect if a MongoDB URI is configured and not yet connected
+  if (mongoUri && mongoose.connection.readyState !== 1) {
+    try {
+      await mongoose.connect(mongoUri);
+      logger.info('MongoDB connected for index synchronization');
+    } catch (err) {
+      logger.warn('MongoDB connection failed, skipping index sync', err as Error);
+      return;
+    }
+  }
+
+  if (mongoose.connection.readyState !== 1) {
+    return;
+  }
+
+  const modelNames = mongoose.modelNames();
+  if (modelNames.length === 0) return;
+
+  logger.info(`Ensuring Mongoose indexes for ${modelNames.length} model(s)...`);
+
+  for (const name of modelNames) {
+    try {
+      const model = mongoose.model(name);
+      await model.createIndexes();
+      logger.debug(`✓ Indexes ensured for model: ${name}`);
+    } catch (err) {
+      // Duplicate-key errors or missing-field warnings are non-fatal at
+      // startup – the index definition may reference a field that does not
+      // yet exist in every document.
+      logger.warn(`Index creation for ${name} had warnings`, err as Error);
+    }
+  }
+
+  logger.info('Mongoose index synchronization complete');
+}
+
+// Track the WebSocket metrics interval for cleanup on shutdown
+let wsMetricsInterval: ReturnType<typeof setInterval> | undefined;
+
 async function startServer() {
   try {
+    // Ensure Mongoose indexes are created on existing collections (Issue #168)
+    await ensureMongooseIndexes();
+
     // Run migrations automatically if DATABASE_URL is configured
     const autoRunMigrations = process.env.AUTO_RUN_MIGRATIONS !== 'false';
     if (process.env.DATABASE_URL && autoRunMigrations) {
@@ -238,9 +403,16 @@ async function startServer() {
       }
     }
 
-    await (transactionQueue as any).startProcessing();
-    await (transactionProcessor as any).start();
-    await (transactionEvents as any).startListening();
+    if (typeof (transactionQueue as any).startProcessing === 'function') {
+      await (transactionQueue as any).startProcessing();
+    }
+    if (typeof (transactionProcessor as any).start === 'function') {
+      await (transactionProcessor as any).start();
+    }
+    if (typeof (transactionEvents as any).startListening === 'function') {
+      await (transactionEvents as any).startListening();
+    }
+    await graphqlBootstrap.start();
 
     if (process.env.AUTO_MIGRATE === 'true') {
       logger.info('Auto-running pending migrations...');
@@ -254,40 +426,68 @@ async function startServer() {
       }
     }
 
-    server.listen(PORT, () => {
-      logger.info('AetherMint Education Backend started', {
-        port: PORT,
-        routes: [
-          '/api/quizzes',
-          '/api/events',
-          '/api/sync',
-          '/api/content',
-          '/api/transactions',
-          '/api/collaboration',
-          '/api/holographic',
-          '/api/aco',
-          '/api/federated-learning',
-          '/api/agi-tutor',
-          '/api/secure-comm',
-          '/api/health',
-        ],
-      });
-    });
+// Periodically update WebSocket active connection count for Prometheus metrics
+wsMetricsInterval = setInterval(() => {
+  try {
+    const io = websocketService.getIO();
+    const count = io?.engine?.clientsCount ?? 0;
+    websocketConnectionsActive.set(count);
+  } catch {
+    // Silently ignore if WebSocket not available
+  }
+}, 15_000);
+
+server.listen(PORT, () => {
+       logger.info('AetherMint Education Backend started', {
+         port: PORT,
+         routes: [
+           '/api/quizzes',
+           '/api/events',
+           '/api/sync',
+           '/api/content',
+           '/api/transactions',
+           '/api/collaboration',
+           '/api/holographic',
+           '/api/aco',
+           '/api/federated-learning',
+           '/api/agi-tutor',
+           '/api/secure-comm',
+           '/api/audit',
+           '/api/metrics',
+           '/api/health',
+         ],
+       });
+     });
   } catch (error) {
     logger.error('Failed to start server', error as Error);
     process.exit(1);
   }
 }
 
-process.on('SIGINT', async () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  await (transactionQueue as any).stopProcessing();
-  await (transactionProcessor as any).stop();
-  await (transactionEvents as any).stopListening();
-  process.exit(0);
-});
-
+// Graceful shutdown: stop new traffic, drain in-flight HTTP, close WebSocket,
+// Redis, and background workers, then exit. Handlers are registered only when
+// running as the entrypoint so importing this module (for example in tests)
+// does not attach process-wide signal listeners.
 if (require.main === module) {
+  registerShutdownHandlers({
+    logger,
+    steps: [
+      { name: 'websocket', run: () => websocketService.close() },
+      { name: 'ws-metrics-interval', run: () => { if (wsMetricsInterval) clearInterval(wsMetricsInterval); } },
+      { name: 'http-server', run: () => closeHttpServer(server) },
+      { name: 'transaction-queue', run: () => typeof (transactionQueue as any).stopProcessing === 'function' && (transactionQueue as any).stopProcessing() },
+      { name: 'transaction-processor', run: () => typeof (transactionProcessor as any).stop === 'function' && (transactionProcessor as any).stop() },
+      { name: 'transaction-events', run: () => typeof (transactionEvents as any).stopListening === 'function' && (transactionEvents as any).stopListening() },
+      {
+        name: 'redis',
+        run: async () => {
+          await redisConfig.disconnect();
+          await redis.quit();
+        },
+      },
+    ],
+  });
+
   startServer();
 }
 

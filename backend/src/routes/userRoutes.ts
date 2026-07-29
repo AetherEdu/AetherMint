@@ -147,4 +147,24 @@ router.put(
 router.get("/profile/:address/achievements", userController.getAchievements);
 router.get("/profile/:address/stats", userController.getStats);
 
+router.put(
+  "/:userId/role",
+  [
+    param("userId").isString().notEmpty(),
+    body("role").isString().notEmpty().withMessage("Role is required"),
+  ],
+  validateRequest,
+  userController.updateRole,
+);
+
+router.put(
+  "/:userId/permissions",
+  [
+    param("userId").isString().notEmpty(),
+    body("permissions").isArray().withMessage("Permissions must be an array"),
+  ],
+  validateRequest,
+  userController.updatePermissions,
+);
+
 export default router;

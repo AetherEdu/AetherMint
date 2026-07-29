@@ -10,7 +10,8 @@ const router = express.Router();
 const { authenticate, authorize } = require("../middleware/auth");
 const rbacController = require("../controllers/rbacController");
 
-router.use(authenticate, authorize("admin"));
+router.use(authenticate);
+router.use(authorize("admin"));
 
 /**
  * @openapi
