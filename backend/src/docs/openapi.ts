@@ -125,7 +125,25 @@ const components = {
       },
     },
 
-    // ── Pagination ──────────────────────────────────────────────────────────
+    // ── Cursor Pagination (Issue #257) ──────────────────────────────────────
+    CursorPagination: {
+      type: 'object',
+      description:
+        'Cursor-based pagination metadata returned by list endpoints. ' +
+        'Pass `cursor` as a query parameter to fetch the next page.',
+      properties: {
+        next_cursor: {
+          type: 'string',
+          nullable: true,
+          description: 'Opaque cursor for the next page; null when on the last page.',
+          example: 'MjAyNC0wMi0wMVQxMjowMDowMC4wMDBa',
+        },
+        total_count: { type: 'integer', example: 250, description: 'Total matching records (may be approximate).' },
+        has_more: { type: 'boolean', example: true, description: 'Whether additional pages exist.' },
+      },
+    },
+
+    // ── Legacy Pagination (deprecated — use CursorPagination) ────────────────
     Pagination: {
       type: 'object',
       properties: {
@@ -133,6 +151,61 @@ const components = {
         limit: { type: 'integer', example: 10 },
         total: { type: 'integer', example: 100 },
         pages: { type: 'integer', example: 10 },
+      },
+    },
+
+    // ── Background Job (Issue #258) ─────────────────────────────────────────
+    Job: {
+      type: 'object',
+      description: 'A background job processed asynchronously by the job queue.',
+      properties: {
+        id: { type: 'string', example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' },
+        type: {
+          type: 'string',
+          enum: ['email', 'credential_minting', 'analytics_aggregation', 'notification', 'report_generation', 'data_export', 'content_processing', 'general'],
+          example: 'email',
+        },
+        status: {
+          type: 'string',
+          enum: ['pending', 'processing', 'completed', 'failed', 'dead_lettered'],
+          example: 'processing',
+        },
+        progress: { type: 'integer', minimum: 0, maximum: 100, example: 45 },
+        attempts: { type: 'integer', example: 2 },
+        maxAttempts: { type: 'integer', example: 5 },
+        lastError: { type: 'string', nullable: true, example: null },
+        createdAt: { type: 'string', format: 'date-time', example: '2024-02-01T12:00:00.000Z' },
+        updatedAt: { type: 'string', format: 'date-time', example: '2024-02-01T12:05:00.000Z' },
+        startedAt: { type: 'string', format: 'date-time', nullable: true, example: '2024-02-01T12:00:01.000Z' },
+        completedAt: { type: 'string', format: 'date-time', nullable: true, example: null },
+      },
+    },
+
+    JobStats: {
+      type: 'object',
+      description: 'Aggregate statistics for the background job queue.',
+      properties: {
+        pending: { type: 'integer', example: 5 },
+        processing: { type: 'integer', example: 2 },
+        completed: { type: 'integer', example: 150 },
+        failed: { type: 'integer', example: 3 },
+        dead_lettered: { type: 'integer', example: 1 },
+        total: { type: 'integer', example: 161 },
+      },
+    },
+
+    EnqueueJobRequest: {
+      type: 'object',
+      required: ['type', 'payload'],
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['email', 'credential_minting', 'analytics_aggregation', 'notification', 'report_generation', 'data_export', 'content_processing', 'general'],
+          example: 'email',
+        },
+        payload: { type: 'object', example: { to: 'user@example.com', subject: 'Welcome!' } },
+        metadata: { type: 'object', nullable: true, example: { source: 'registration' } },
+        maxAttempts: { type: 'integer', minimum: 1, maximum: 10, example: 5 },
       },
     },
 
@@ -574,6 +647,8 @@ const options: swaggerJsdoc.Options = {
       { name: 'Tenants', description: 'Multi-tenant management' },
       { name: 'TenantAnalytics', description: 'Cross-tenant analytics' },
       { name: 'AutonomousAgents', description: 'Autonomous AI agent management' },
+      { name: 'Jobs', description: 'Background job processing with retry and dead-letter queues' },
+      { name: 'Pagination', description: 'Cursor-based pagination, filtering, and sorting standards' },
       { name: 'Errors', description: 'RFC 7807 Problem Details catalog (see docs/ERROR_CATALOG.md)' },
     ],
   },

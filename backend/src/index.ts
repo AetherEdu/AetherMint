@@ -39,6 +39,9 @@ import * as transactionProcessor from './workers/transactionProcessor';
 // @ts-ignore
 import * as transactionEvents from './events/transactionEvents';
 
+// Background job queue — Issue #258
+import { getJobQueue } from './services/jobQueue';
+
 // Import security middleware
 import {
   securityPerformanceTracker,
@@ -126,6 +129,10 @@ const analyticsRoutes = loadRoute('./routes/analytics');
 // CSP Violation Reporting route
 // @ts-ignore
 const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
+
+// Job management routes — Issue #258
+// @ts-ignore
+const jobRoutes = loadRoute('./routes/jobRoutes');
 
 // Initialize Express app
 const app: Application = express();
@@ -300,6 +307,9 @@ app.use('/api/csp-violation', cspViolationRoutes);
 // @ts-ignore
 const metricsRoutes = resolveRoute(require('./routes/metrics'));
 app.use('/api/metrics', metricsRoutes);
+
+// Background job management routes — Issue #258
+app.use('/api/jobs', jobRoutes);
 
 // Root endpoint
 // ── Versioned API routes (/api/v1/*) ────────────────────────────────────────
@@ -496,6 +506,45 @@ async function startServer() {
     if (typeof (transactionEvents as any).startListening === 'function') {
       await (transactionEvents as any).startListening();
     }
+
+    // Initialise background job queue — Issue #258
+    const jobQueue = getJobQueue(redis, { pollIntervalMs: 2000, concurrency: 5 });
+    // Register built-in handlers for common job types
+    jobQueue.registerHandler('email', async (job) => {
+      logger.info(`Processing email job ${job.id}`, job.payload);
+      // Email sending would be delegated to Nodemailer
+      job.progress = 100;
+    });
+    jobQueue.registerHandler('notification', async (job) => {
+      logger.info(`Processing notification job ${job.id}`, job.payload);
+      job.progress = 100;
+    });
+    jobQueue.registerHandler('report_generation', async (job) => {
+      logger.info(`Processing report generation job ${job.id}`, job.payload);
+      job.progress = 100;
+    });
+    jobQueue.registerHandler('data_export', async (job) => {
+      logger.info(`Processing data export job ${job.id}`, job.payload);
+      job.progress = 100;
+    });
+    jobQueue.registerHandler('credential_minting', async (job) => {
+      logger.info(`Processing credential minting job ${job.id}`, job.payload);
+      job.progress = 100;
+    });
+    jobQueue.registerHandler('analytics_aggregation', async (job) => {
+      logger.info(`Processing analytics aggregation job ${job.id}`, job.payload);
+      job.progress = 100;
+    });
+    jobQueue.registerHandler('content_processing', async (job) => {
+      logger.info(`Processing content processing job ${job.id}`, job.payload);
+      job.progress = 100;
+    });
+    jobQueue.registerHandler('general', async (job) => {
+      logger.info(`Processing general job ${job.id}`, job.payload);
+      job.progress = 100;
+    });
+    jobQueue.startProcessing();
+
     await graphqlBootstrap.start();
 
     if (process.env.AUTO_MIGRATE === 'true') {
@@ -539,6 +588,7 @@ server.listen(PORT, () => {
            '/api/audit',
            '/api/metrics',
            '/api/health',
+           '/api/jobs',
          ],
        });
      });
@@ -562,6 +612,7 @@ if (require.main === module) {
       { name: 'transaction-queue', run: () => typeof (transactionQueue as any).stopProcessing === 'function' && (transactionQueue as any).stopProcessing() },
       { name: 'transaction-processor', run: () => typeof (transactionProcessor as any).stop === 'function' && (transactionProcessor as any).stop() },
       { name: 'transaction-events', run: () => typeof (transactionEvents as any).stopListening === 'function' && (transactionEvents as any).stopListening() },
+      { name: 'job-queue', run: async () => { try { const jq = getJobQueue(); await jq.destroy(); } catch { /* queue may not be initialised */ } } },
       {
         name: 'redis',
         run: async () => {
