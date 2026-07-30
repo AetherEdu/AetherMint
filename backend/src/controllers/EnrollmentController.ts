@@ -1,6 +1,9 @@
 /**
  * Enrollment Controller
  * Handles enrollment-related operations and business logic
+ *
+ * Updated for Issue #257: uses cursor-based pagination with standard
+ * query parameters (limit, cursor, sort, order, filter).
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -21,6 +24,18 @@ import {
 import { UserRole } from '../models/User';
 import logger from '../utils/logger';
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '../utils/errors';
+import {
+  parsePaginationParams,
+  parseFilters,
+  buildPaginationMeta,
+  buildPaginatedResponse,
+  decodeCursor,
+  registerSortFields,
+  resolveSortField,
+} from '../utils/pagination';
+
+// Register allowed sort fields for enrollments
+registerSortFields('enrollments', ['enrolledAt', 'status', 'courseId', 'progress', 'createdAt', 'updatedAt']);
 
 export class EnrollmentController {
   private enrollmentService: EnrollmentService;
@@ -35,43 +50,64 @@ export class EnrollmentController {
 
   /**
    * Get user's enrollments with filtering and pagination
+   *
+   * Query params: limit, cursor, sort, order, status, paymentStatus, paymentMethod
    */
   async getUserEnrollments(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const {
-        status,
-        paymentStatus,
-        paymentMethod,
-        page = '1',
-        limit = '10',
-        sortBy = 'enrolledAt',
-        sortOrder = 'desc'
-      } = req.query;
+      const pagination = parsePaginationParams(req.query as Record<string, unknown>);
+      const filters = parseFilters(req.query as Record<string, unknown>);
 
+      // Resolve the sort field against the allowlist
+      const sortField = resolveSortField('enrollments', pagination.sort);
+
+      // Build the enrollment filter with standardised pagination
       const filter: EnrollmentFilter = {
         userId,
-        status: status ? (Array.isArray(status) ? status as EnrollmentStatus[] : [status as EnrollmentStatus]) : undefined,
-        paymentStatus: paymentStatus ? (Array.isArray(paymentStatus) ? paymentStatus as PaymentStatus[] : [paymentStatus as PaymentStatus]) : undefined,
-        paymentMethod: paymentMethod ? (Array.isArray(paymentMethod) ? paymentMethod as PaymentMethod[] : [paymentMethod as PaymentMethod]) : undefined,
-        sortBy: sortBy as any,
-        sortOrder: sortOrder as 'asc' | 'desc',
-        page: parseInt(page as string),
-        limit: parseInt(limit as string)
+        status: filters.status
+          ? (Array.isArray(filters.status) ? filters.status as EnrollmentStatus[] : [filters.status as EnrollmentStatus])
+          : undefined,
+        paymentStatus: req.query.paymentStatus
+          ? (Array.isArray(req.query.paymentStatus)
+            ? (req.query.paymentStatus as string[]) as PaymentStatus[]
+            : [req.query.paymentStatus as string as PaymentStatus])
+          : undefined,
+        paymentMethod: req.query.paymentMethod
+          ? (Array.isArray(req.query.paymentMethod)
+            ? (req.query.paymentMethod as string[]) as PaymentMethod[]
+            : [req.query.paymentMethod as string as PaymentMethod])
+          : undefined,
+        sortBy: sortField as any,
+        sortOrder: pagination.order,
+        // Map cursor to offset for the service layer
+        page: 1,
+        limit: pagination.limit + 1, // fetch one extra to determine has_more
       };
 
-      const result = await this.enrollmentService.getEnrollments(filter);
-
-      res.json({
-        success: true,
-        data: result.enrollments,
-        pagination: {
-          page: result.page,
-          limit: result.limit,
-          total: result.total,
-          pages: Math.ceil(result.total / result.limit)
+      // Decode cursor to apply offset if present
+      if (pagination.cursor) {
+        const decoded = decodeCursor(pagination.cursor);
+        if (decoded) {
+          (filter as any).cursorValue = decoded;
+          (filter as any).cursorField = sortField;
         }
-      });
+      }
+
+      const result = await this.enrollmentService.getEnrollments(filter);
+      const items = result.enrollments.slice(0, pagination.limit);
+      const hasMore = result.enrollments.length > pagination.limit;
+
+      const meta = buildPaginationMeta(
+        items as unknown as Record<string, unknown>[],
+        result.total,
+        pagination.limit,
+        sortField,
+      );
+      // Override has_more based on actual count
+      meta.has_more = hasMore;
+
+      res.json(buildPaginatedResponse(items as unknown as Record<string, unknown>[], meta));
     } catch (error) {
       logger.error('Error getting user enrollments:', error);
       next(error);
@@ -103,7 +139,7 @@ export class EnrollmentController {
         data: enrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -193,7 +229,7 @@ export class EnrollmentController {
         });
       }
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -225,7 +261,7 @@ export class EnrollmentController {
         data: updatedEnrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -275,7 +311,7 @@ export class EnrollmentController {
         data: cancelledEnrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -305,7 +341,7 @@ export class EnrollmentController {
         data: enrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -334,7 +370,7 @@ export class EnrollmentController {
         data: progress
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -364,44 +400,57 @@ export class EnrollmentController {
         data: updatedEnrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
 
   /**
    * Get course enrollments (for educators/admins)
+   *
+   * Query params: limit, cursor, sort, order, status
    */
   async getCourseEnrollments(req: Request, res: Response, next: NextFunction) {
     try {
       const { courseId } = req.params;
-      const {
-        status,
-        page = '1',
-        limit = '50'
-      } = req.query;
+      const pagination = parsePaginationParams(req.query as Record<string, unknown>);
+      const filters = parseFilters(req.query as Record<string, unknown>);
+      const sortField = resolveSortField('enrollments', pagination.sort);
 
       const filter: EnrollmentFilter = {
         courseId,
-        status: status ? (Array.isArray(status) ? status as EnrollmentStatus[] : [status as EnrollmentStatus]) : undefined,
-        page: parseInt(page as string),
-        limit: parseInt(limit as string)
+        status: filters.status
+          ? (Array.isArray(filters.status) ? filters.status as EnrollmentStatus[] : [filters.status as EnrollmentStatus])
+          : undefined,
+        sortBy: sortField as any,
+        sortOrder: pagination.order,
+        page: 1,
+        limit: pagination.limit + 1,
       };
 
-      const result = await this.enrollmentService.getEnrollments(filter);
-
-      res.json({
-        success: true,
-        data: result.enrollments,
-        pagination: {
-          page: result.page,
-          limit: result.limit,
-          total: result.total,
-          pages: Math.ceil(result.total / result.limit)
+      if (pagination.cursor) {
+        const decoded = decodeCursor(pagination.cursor);
+        if (decoded) {
+          (filter as any).cursorValue = decoded;
+          (filter as any).cursorField = sortField;
         }
-      });
+      }
+
+      const result = await this.enrollmentService.getEnrollments(filter);
+      const items = result.enrollments.slice(0, pagination.limit);
+      const hasMore = result.enrollments.length > pagination.limit;
+
+      const meta = buildPaginationMeta(
+        items as unknown as Record<string, unknown>[],
+        result.total,
+        pagination.limit,
+        sortField,
+      );
+      meta.has_more = hasMore;
+
+      res.json(buildPaginatedResponse(items as unknown as Record<string, unknown>[], meta));
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -420,7 +469,7 @@ export class EnrollmentController {
         data: certificate
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -439,7 +488,7 @@ export class EnrollmentController {
         data: waitlist
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -468,7 +517,7 @@ export class EnrollmentController {
         }
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -488,7 +537,7 @@ export class EnrollmentController {
         message: 'Removed from waitlist'
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -507,7 +556,7 @@ export class EnrollmentController {
         data: analytics
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -526,7 +575,7 @@ export class EnrollmentController {
         data: analytics
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -543,7 +592,7 @@ export class EnrollmentController {
         data: analytics
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -562,7 +611,7 @@ export class EnrollmentController {
         data: result
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -581,7 +630,7 @@ export class EnrollmentController {
         data: capacity
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -601,7 +650,7 @@ export class EnrollmentController {
         data: validation
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -627,7 +676,7 @@ export class EnrollmentController {
         data: history
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -657,7 +706,7 @@ export class EnrollmentController {
         data: renewedEnrollment
       });
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }
@@ -677,7 +726,7 @@ export class EnrollmentController {
       
       res.send(exportData);
     } catch (error) {
-      logger.error();
+      logger.error('Enrollment error:', error);
       next(error);
     }
   }

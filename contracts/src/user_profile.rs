@@ -1,3 +1,4 @@
+use crate::utils::pause::PauseUtils;
 use crate::utils::storage::{PackedTimestamps, PackedUserFlags};
 use soroban_sdk::{contract, contracttype, symbol_short, Address, Env, String, Vec};
 
@@ -76,6 +77,7 @@ pub struct UserProfileContract;
 
 /// Add a credential to user's profile with optimized storage
 pub fn add_credential(env: &Env, user: Address, credential_id: u64) {
+    PauseUtils::require_not_paused(env);
     let mut profile = env
         .storage()
         .instance()
@@ -111,7 +113,7 @@ pub fn add_credential(env: &Env, user: Address, credential_id: u64) {
         .instance()
         .get(&ProfileKey::UserCredentials(user.clone()))
         .unwrap_or_else(|| Vec::new(env));
-    if !user_creds.contains(&credential_id) {
+    if !user_creds.contains(credential_id) {
         user_creds.push_back(credential_id);
         env.storage()
             .instance()
@@ -156,6 +158,7 @@ impl UserProfileContract {
         avatar_url: Option<String>,
         privacy_level: PrivacyLevel,
     ) -> UserProfile {
+        PauseUtils::require_not_paused(&env);
         owner.require_auth();
 
         // Check if username is already taken by another user
@@ -269,6 +272,7 @@ impl UserProfileContract {
         description: String,
         badge_url: Option<String>,
     ) -> u64 {
+        PauseUtils::require_not_paused(&env);
         user.require_auth();
 
         let achievement_id = Self::get_next_achievement_id(&env);
@@ -371,6 +375,7 @@ impl UserProfileContract {
 
     /// Verify an achievement using packed timestamp
     pub fn verify_achievement(env: Env, admin: Address, achievement_id: u64) -> bool {
+        PauseUtils::require_not_paused(&env);
         admin.require_auth();
 
         let mut achievement = env
@@ -403,7 +408,7 @@ impl UserProfileContract {
         {
             // Perform basic checks for authenticity
             // Here we just check that the profile exists and has a username
-            profile.username.len() > 0
+            !profile.username.is_empty()
         } else {
             false
         }
@@ -427,6 +432,7 @@ impl UserProfileContract {
 
     /// Update privacy level for a profile using packed flags
     pub fn update_privacy_level(env: Env, user: Address, privacy_level: PrivacyLevel) -> bool {
+        PauseUtils::require_not_paused(&env);
         user.require_auth();
 
         let mut profile = env

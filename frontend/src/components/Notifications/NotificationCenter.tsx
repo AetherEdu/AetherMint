@@ -25,6 +25,7 @@ const NotificationCenter: React.FC = () => {
   const focusTrapRef = useFocusTrap(isOpen, {
     onEscape: () => setIsOpen(false),
     initialFocusSelector: '[data-notification-close]',
+    lockScroll: false,
   });
 
   // Close dropdown when clicking outside
@@ -58,6 +59,7 @@ const NotificationCenter: React.FC = () => {
     <div className="relative" ref={dropdownRef}>
       {/* Notification Bell Button */}
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
         aria-controls="notification-center-panel"
@@ -87,7 +89,7 @@ const NotificationCenter: React.FC = () => {
           id="notification-center-panel"
           className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[600px] overflow-hidden"
           role="dialog"
-          aria-modal="false"
+          aria-modal="true"
           aria-labelledby="notification-center-title"
           ref={focusTrapRef}
         >
@@ -96,6 +98,7 @@ const NotificationCenter: React.FC = () => {
             <div className="flex items-center justify-between mb-3">
               <h3 id="notification-center-title" className="text-lg font-semibold text-gray-900">Notifications</h3>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1 rounded-md hover:bg-gray-100 transition-colors"
                 aria-label="Close notifications"
@@ -111,6 +114,7 @@ const NotificationCenter: React.FC = () => {
               <div className="flex gap-1 flex-wrap">
                 {categories.map((category) => (
                   <button
+                    type="button"
                     key={category.value}
                     onClick={() => setSelectedCategory(category.value as any)}
                     aria-pressed={selectedCategory === category.value}
@@ -133,6 +137,7 @@ const NotificationCenter: React.FC = () => {
               <div className="flex gap-2">
                 {unreadCount > 0 && (
                   <button
+                    type="button"
                     onClick={markAllAsRead}
                     className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                     aria-label="Mark all notifications as read"
@@ -143,6 +148,7 @@ const NotificationCenter: React.FC = () => {
                 )}
                 {notifications.length > 0 && (
                   <button
+                    type="button"
                     onClick={clearAllNotifications}
                     className="flex items-center gap-1 px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
                     aria-label="Clear all notifications"
@@ -153,6 +159,7 @@ const NotificationCenter: React.FC = () => {
                 )}
               </div>
               <button
+                type="button"
                 onClick={() => setShowPreferences(!showPreferences)}
                 aria-expanded={showPreferences}
                 aria-controls="notification-preferences-panel"

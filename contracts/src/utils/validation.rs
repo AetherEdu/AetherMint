@@ -59,14 +59,14 @@ pub enum ValidationError {
 
 /// Require a non-empty string.
 pub fn validate_string_non_empty(env: &Env, value: &String) {
-    if value.len() == 0 {
+    if value.is_empty() {
         panic_with_error!(env, ValidationError::EmptyString);
     }
 }
 
 /// Require a non-empty string no longer than `max_len` bytes.
 pub fn validate_string_length(env: &Env, value: &String, max_len: u32) {
-    if value.len() == 0 {
+    if value.is_empty() {
         panic_with_error!(env, ValidationError::EmptyString);
     }
     if value.len() > max_len {

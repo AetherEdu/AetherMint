@@ -18,6 +18,7 @@ use soroban_sdk::{
 };
 
 use crate::credential_registry;
+use crate::utils::pause::PauseUtils;
 use crate::utils::validation::{
     validate_non_zero_address, validate_optional_string_length, validate_string_length,
     MAX_METADATA_LENGTH, MAX_SHORT_TEXT_LENGTH,
@@ -103,6 +104,7 @@ pub fn register_attester(
     institution_name: String,
     verification_key: BytesN<32>,
 ) {
+    PauseUtils::require_not_paused(env);
     attester_address.require_auth();
     validate_non_zero_address(env, &attester_address);
     validate_string_length(env, &institution_name, MAX_SHORT_TEXT_LENGTH);
@@ -114,13 +116,19 @@ pub fn register_attester(
 
     let attester = Attester {
         address: attester_address.clone(),
-        institution_name,
+        institution_name: institution_name.clone(),
         verification_key,
         registered_at: env.ledger().timestamp(),
         is_active: true,
         attestation_count: 0,
     };
     env.storage().persistent().set(&key, &attester);
+
+    let now = env.ledger().timestamp();
+    env.events().publish(
+        (symbol_short!("attest"), symbol_short!("register")),
+        (attester_address, institution_name, now),
+    );
 }
 
 /// Record an attestation by `attester` for `credential_id`.
@@ -134,6 +142,7 @@ pub fn attest_credential(
     signature: BytesN<64>,
     metadata: String,
 ) {
+    PauseUtils::require_not_paused(env);
     attester.require_auth();
     validate_optional_string_length(env, &metadata, MAX_METADATA_LENGTH);
 
@@ -170,14 +179,21 @@ pub fn attest_credential(
     profile.attestation_count += 1;
     env.storage()
         .persistent()
-        .set(&AttestationKey::Attester(attester), &profile);
+        .set(&AttestationKey::Attester(attester.clone()), &profile);
 
     // Keep per-credential attestation tracking in sync (issue #122 integration).
     credential_registry::increment_attestation_count(env, credential_id);
+
+    let now = env.ledger().timestamp();
+    env.events().publish(
+        (symbol_short!("attest"), symbol_short!("attested")),
+        (attester, credential_id, now),
+    );
 }
 
 /// Withdraw `attester`'s attestation for `credential_id`.
 pub fn revoke_attestation(env: &Env, attester: Address, credential_id: u64) {
+    PauseUtils::require_not_paused(env);
     attester.require_auth();
 
     let list_key = AttestationKey::Attestations(credential_id);
@@ -211,10 +227,16 @@ pub fn revoke_attestation(env: &Env, attester: Address, credential_id: u64) {
         }
         env.storage()
             .persistent()
-            .set(&AttestationKey::Attester(attester), &profile);
+            .set(&AttestationKey::Attester(attester.clone()), &profile);
     }
 
     credential_registry::decrement_attestation_count(env, credential_id);
+
+    let now = env.ledger().timestamp();
+    env.events().publish(
+        (symbol_short!("attest"), symbol_short!("revoke")),
+        (attester, credential_id, now),
+    );
 }
 
 /// All attestations recorded for a credential.
@@ -253,14 +275,28 @@ pub fn is_registered_attester(env: &Env, attester_address: Address) -> bool {
 
 /// Admin-only: deactivate an attester so it can no longer create attestations.
 pub fn deactivate_attester(env: &Env, admin: Address, attester_address: Address) {
+    PauseUtils::require_not_paused(env);
     require_admin(env, &admin);
-    set_attester_active(env, attester_address, false);
+    set_attester_active(env, attester_address.clone(), false);
+
+    let now = env.ledger().timestamp();
+    env.events().publish(
+        (symbol_short!("attest"), symbol_short!("deact")),
+        (admin, attester_address, now),
+    );
 }
 
 /// Admin-only: re-activate a previously deactivated attester.
 pub fn reactivate_attester(env: &Env, admin: Address, attester_address: Address) {
+    PauseUtils::require_not_paused(env);
     require_admin(env, &admin);
-    set_attester_active(env, attester_address, true);
+    set_attester_active(env, attester_address.clone(), true);
+
+    let now = env.ledger().timestamp();
+    env.events().publish(
+        (symbol_short!("attest"), symbol_short!("react")),
+        (admin, attester_address, now),
+    );
 }
 
 fn set_attester_active(env: &Env, attester_address: Address, active: bool) {

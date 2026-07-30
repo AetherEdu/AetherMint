@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Clock, Calendar, Activity } from 'lucide-react';
+import { Skeleton, ErrorDisplay, EmptyState } from '../LoadingFallback';
 
 interface TimeData {
   totalTime: number;
@@ -44,11 +45,12 @@ export const TimeAnalysis: React.FC<TimeAnalysisProps> = ({ userId, onDataLoaded
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+      <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+        <Skeleton className="h-5 w-36" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
         </div>
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
@@ -56,17 +58,22 @@ export const TimeAnalysis: React.FC<TimeAnalysisProps> = ({ userId, onDataLoaded
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="text-red-500 text-center">
-          <p>Error loading time analysis: {error}</p>
-          <button onClick={fetchTimeData} className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-            Retry
-          </button>
-        </div>
+        <ErrorDisplay message={error} onRetry={fetchTimeData} />
       </div>
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <EmptyState
+          icon={<Clock className="h-8 w-8" />}
+          title="No time data yet"
+          description="Start studying to see your time analysis."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">

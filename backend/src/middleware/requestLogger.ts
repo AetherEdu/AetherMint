@@ -1,47 +1,37 @@
-import { NextFunction, Request, Response } from 'express';
-import { randomUUID } from 'crypto';
-import logger, { runWithRequestContext } from '../utils/logger';
+/**
+ * Request logging middleware.
+ *
+ * Emits a structured "HTTP request completed" log line for every request,
+ * including status code and duration. The correlation ID is assigned upstream by
+ * the requestId middleware (see {@link requestId}); this middleware only reads it,
+ * and runs inside the AsyncLocalStorage context that middleware established.
+ */
 
-type RequestWithLogging = Request & {
-  requestId?: string;
-};
+import { NextFunction, Request, Response } from 'express';
+import logger from '../utils/logger';
 
 const getRequestPath = (req: Request) => req.originalUrl || req.url || req.path;
 
-export const requestLogger = (req: RequestWithLogging, res: Response, next: NextFunction): void => {
-  const requestId = (req.header('x-request-id') || randomUUID()).toString();
+export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {
   const startedAt = Date.now();
   const requestPath = getRequestPath(req);
 
-  req.requestId = requestId;
-  res.setHeader('x-request-id', requestId);
+  res.on('finish', () => {
+    const durationMs = Date.now() - startedAt;
+    const statusCode = res.statusCode;
+    const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
 
-  runWithRequestContext(
-    {
-      requestId,
+    logger.log(level, 'HTTP request completed', {
+      requestId: req.requestId,
       method: req.method,
       path: requestPath,
+      statusCode,
+      durationMs,
       ip: req.ip,
-    },
-    () => {
-      res.on('finish', () => {
-        const durationMs = Date.now() - startedAt;
-        const statusCode = res.statusCode;
-        const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
+    });
+  });
 
-        logger.log(level, 'HTTP request completed', {
-          requestId,
-          method: req.method,
-          path: requestPath,
-          statusCode,
-          durationMs,
-          ip: req.ip,
-        });
-      });
-
-      next();
-    }
-  );
+  next();
 };
 
 export default requestLogger;

@@ -80,7 +80,7 @@ pub struct VisualTraits {
 
 /// Evolution stages
 #[contracttype]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum EvolutionStage {
     Novice = 0,
     Apprentice = 1,
@@ -92,7 +92,7 @@ pub enum EvolutionStage {
 
 /// Rarity tiers for visual representation
 #[contracttype]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RarityTier {
     Common = 0,
     Uncommon = 1,
@@ -253,6 +253,7 @@ pub fn verify_ipfs_metadata(env: &Env, metadata: &IPFSMetadata) -> bool {
 
 /// Store enhanced metadata with IPFS verification
 pub fn store_enhanced_metadata(env: &Env, token_id: u64, metadata: EnhancedMetadata) -> bool {
+    PauseUtils::require_not_paused(env);
     if !verify_ipfs_metadata(env, &metadata.ipfs_metadata) {
         panic!("Invalid IPFS metadata");
     }
@@ -293,6 +294,8 @@ pub fn mint_dynamic_nft(
     base_uri: String,
     initial_metadata: String,
 ) -> u64 {
+    // Reject writes against an unrecognized storage layout (issue #120).
+    StorageVersion::require_compatible_version(env);
     creator.require_auth();
 
     // Validate inputs before any state access (issue #117).
@@ -378,7 +381,7 @@ pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: S
         .unwrap_or_else(|| panic!("NFT not found"));
 
     // Check if achievement already unlocked
-    if nft.achievements.contains(&achievement_id) {
+    if nft.achievements.contains(achievement_id) {
         return false;
     }
 
@@ -389,7 +392,7 @@ pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: S
     let xp_reward = calculate_achievement_xp(env, achievement_id);
     nft.experience_points += xp_reward;
 
-    let old_stage = nft.evolution_stage.clone();
+    let old_stage = nft.evolution_stage;
     let timestamp = env.ledger().timestamp();
 
     // Check for evolution
@@ -407,7 +410,7 @@ pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: S
         let evolution_record = EvolutionRecord {
             timestamp,
             from_stage: old_stage,
-            to_stage: new_stage.clone(),
+            to_stage: new_stage,
             achievement_id,
             ipfs_hash: new_metadata.clone(),
         };
@@ -472,7 +475,7 @@ pub fn fuse_nfts(env: &Env, token1_id: u64, token2_id: u64, recipient: Address) 
     // Combine achievements
     let mut combined_achievements = nft1.achievements;
     for achievement in nft2.achievements {
-        if !combined_achievements.contains(&achievement) {
+        if !combined_achievements.contains(achievement) {
             combined_achievements.push_back(achievement);
         }
     }
@@ -520,6 +523,8 @@ pub fn fuse_nfts(env: &Env, token1_id: u64, token2_id: u64, recipient: Address) 
 
 /// Transfer NFT to new owner
 pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
+    // Reject writes against an unrecognized storage layout (issue #120).
+    StorageVersion::require_compatible_version(env);
     from.require_auth();
 
     // Validate inputs before any state access (issue #117).
@@ -622,7 +627,7 @@ fn check_evolution_requirements(
 
     for (threshold, stage) in xp_thresholds.iter().rev() {
         if xp >= *threshold {
-            return Some(stage.clone());
+            return Some(*stage);
         }
     }
 
@@ -685,9 +690,9 @@ fn fuse_visual_traits(traits1: &VisualTraits, traits2: &VisualTraits) -> VisualT
         glow_effect: (traits1.glow_effect + traits2.glow_effect) / 2,
         special_effects: fused_special_effects,
         rarity_tier: if traits1.rarity_tier as u8 >= traits2.rarity_tier as u8 {
-            traits1.rarity_tier.clone()
+            traits1.rarity_tier
         } else {
-            traits2.rarity_tier.clone()
+            traits2.rarity_tier
         },
     }
 }
@@ -737,4 +742,28 @@ pub fn owner_of(env: &Env, token_id: u64) -> Address {
 /// Get balance of owner
 pub fn balance_of(env: &Env, owner: Address) -> u64 {
     get_owner_tokens(env, owner).len() as u64
+}
+
+// ===== Storage migration transformation (issue #120) =====
+
+/// v1 → v2 storage migration transformation for the dynamic NFT system.
+///
+/// What changed in v2: the v2 schema reserves a per-token attestation slot
+/// (mirror of the credential-side schema). For every NFT minted under v1 we
+/// could touch persisted entries here, but the per-token schema is unchanged
+/// between v1 and v2, so this transformation is intentionally a no-op
+/// returning `0` — only the (now-rebased) `TokenCount` is sanity-checked.
+///
+/// IMPORTANT: callers MUST NOT call `StorageVersion::require_compatible_version`
+/// before this entry point — the contract is mid-migration.
+pub fn migrate_v1_to_v2(env: &Env) -> u32 {
+    // Sanity-check: make sure the token count key still exists where we
+    // expect. Reading it forces any migrator to touch it through this module
+    // rather than reaching into internal keys.
+    let _count: u64 = env
+        .storage()
+        .instance()
+        .get(&DynamicNFTKey::TokenCount)
+        .unwrap_or(0u64);
+    0
 }

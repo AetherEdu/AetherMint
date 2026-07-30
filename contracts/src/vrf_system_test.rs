@@ -387,3 +387,296 @@ fn test_unauthorized_entropy_submission() {
     assert!(result.is_err());
     assert!(result.err().unwrap().contains("Unauthorized"));
 }
+
+#[test]
+fn test_empty_purpose_and_context() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let requester = Address::generate(&env);
+    let seed = create_test_seed(&env);
+
+    env.mock_all_auths();
+    let request_id = client.request_randomness(
+        &requester,
+        &seed,
+        &"".into_val(&env),
+        &"".into_val(&env),
+    );
+
+    assert_eq!(request_id, 0u64);
+
+    let request = client.get_request(&request_id);
+    assert_eq!(request.purpose.len(), 0);
+    assert_eq!(request.context.len(), 0);
+}
+
+#[test]
+fn test_fulfill_nonexistent_request() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let random_value = U256::from_u32(12345);
+    let proof = BytesN::from_array(&env, &[99u8; 64]);
+
+    env.mock_all_auths();
+    let result = client.try_fulfill_randomness(&999, &random_value, &proof);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_submit_entropy_nonexistent_source() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let requester = Address::generate(&env);
+    let seed = create_test_seed(&env);
+
+    env.mock_all_auths();
+    let request_id = client.request_randomness(
+        &requester,
+        &seed,
+        &"Test".into_val(&env),
+        &"Context".into_val(&env),
+    );
+
+    let entropy = BytesN::from_array(&env, &[77u8; 32]);
+
+    env.mock_all_auths();
+    let result = client.try_submit_entropy(&999, &request_id, &entropy);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_get_nonexistent_request() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.get_request(&999);
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_get_nonexistent_entropy_source() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.get_entropy_source(&999);
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_get_requests_by_user_empty() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let user = Address::generate(&env);
+
+    let requests = client.get_requests_by_user(&user);
+    assert_eq!(requests.len(), 0);
+}
+
+#[test]
+fn test_double_fulfill_prevention() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let requester = Address::generate(&env);
+    let seed = create_test_seed(&env);
+
+    env.mock_all_auths();
+    let request_id = client.request_randomness(
+        &requester,
+        &seed,
+        &"Test".into_val(&env),
+        &"Context".into_val(&env),
+    );
+
+    let random_value = U256::from_u32(12345);
+    let proof = BytesN::from_array(&env, &[99u8; 64]);
+
+    env.mock_all_auths();
+    client.fulfill_randomness(&request_id, &random_value, &proof);
+
+    // Try to fulfill again
+    env.mock_all_auths();
+    let result = client.try_fulfill_randomness(&request_id, &random_value, &proof);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_reveal_without_commit() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let committer = Address::generate(&env);
+    let revealed_value = String::from_str(&env, "My Secret Value");
+
+    env.mock_all_auths();
+    let result = client.try_reveal(&committer, &revealed_value);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_commit_reveal_expired() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let committer = Address::generate(&env);
+    let commitment_hash = BytesN::from_array(&env, &[33u8; 32]);
+    let valid_until = env.ledger().timestamp() + 1000;
+
+    env.mock_all_auths();
+    client.commit(&committer, &commitment_hash, &valid_until);
+
+    // Advance time past validity
+    env.ledger().with_mut(|li| {
+        li.timestamp += 2000;
+    });
+
+    let revealed_value = String::from_str(&env, "My Secret Value");
+
+    env.mock_all_auths();
+    let result = client.try_reveal(&committer, &revealed_value);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_multiple_entropy_sources() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let provider1 = Address::generate(&env);
+    let provider2 = Address::generate(&env);
+    let provider3 = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    let source1 = client.register_entropy_source(&"Source1".into_val(&env), &provider1, &3000u32);
+    let source2 = client.register_entropy_source(&"Source2".into_val(&env), &provider2, &5000u32);
+    let source3 = client.register_entropy_source(&"Source3".into_val(&env), &provider3, &2000u32);
+
+    assert_eq!(source1, 1u64);
+    assert_eq!(source2, 2u64);
+    assert_eq!(source3, 3u64);
+
+    let s1 = client.get_entropy_source(&source1);
+    let s2 = client.get_entropy_source(&source2);
+    let s3 = client.get_entropy_source(&source3);
+
+    assert_eq!(s1.weight, 3000u32);
+    assert_eq!(s2.weight, 5000u32);
+    assert_eq!(s3.weight, 2000u32);
+}
+
+#[test]
+fn test_beacon_with_no_contributors() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let entropy_hash = BytesN::from_array(&env, &[55u8; 32]);
+    let contributors = Vec::new(&env);
+
+    env.mock_all_auths();
+    let beacon_id = client.create_beacon(&entropy_hash, &contributors);
+
+    assert_eq!(beacon_id, 0u64);
+
+    let beacon = client.get_latest_beacon();
+    assert_eq!(beacon.contributors.len(), 0);
+}
+
+#[test]
+fn test_generate_random_out_of_range() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    // Create a beacon first
+    let entropy_hash = BytesN::from_array(&env, &[55u8; 32]);
+    let contributors = Vec::from_array(&env, [Address::generate(&env)]);
+
+    env.mock_all_auths();
+    client.create_beacon(&entropy_hash, &contributors);
+
+    let requester = Address::generate(&env);
+    let seed = create_test_seed(&env);
+    let min = U256::from_u32(100);
+    let max = U256::from_u32(50); // min > max
+
+    env.mock_all_auths();
+    let result = client.try_generate_random_for_purpose(
+        &requester,
+        &"Lottery".into_val(&env),
+        &seed,
+        &min,
+        &max,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_stats_zero_initially() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let stats = client.get_stats();
+    assert_eq!(stats.get("total_requests".into_val(&env)).unwrap(), 0u64);
+    assert_eq!(stats.get("fulfilled_requests".into_val(&env)).unwrap(), 0u64);
+}
+
+#[test]
+fn test_get_latest_beacon_before_creation() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, VRFSystem);
+    let client = VRFSystemClient::new(&env, &contract_id);
+
+    client.initialize();
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.get_latest_beacon();
+    }));
+    assert!(result.is_err());
+}

@@ -163,6 +163,44 @@ services:
       retries: 5
       start_period: 10s
 
+  # --------------------------------------------------------------------------
+  # Backup - on-demand PostgreSQL backup runner
+  # --------------------------------------------------------------------------
+  # Bundles the PostgreSQL 16 client + AWS CLI and runs scripts/backup-db.sh.
+  # Not started by default (profile "backup"); run on demand with:
+  #   docker compose run --rm backup                 # full backup
+  #   docker compose run --rm backup --verify-only   # verify latest backup
+  # Provide BACKUP_S3_BUCKET and AWS credentials via the environment / .env.
+  backup:
+    image: postgres:16-alpine
+    container_name: aethermint-backup
+    profiles: ["backup"]
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "apk add --no-cache aws-cli bash curl >/dev/null &&
+       exec /scripts/backup-db.sh \"$@\"" --
+    environment:
+      - DATABASE_URL=postgresql://aethermint:${DB_PASSWORD:-aethermint_dev}@postgres:5432/aethermint
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_S3_PREFIX=${BACKUP_S3_PREFIX:-aethermint/db}
+      - BACKUP_S3_ENDPOINT=${BACKUP_S3_ENDPOINT:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - RETAIN_DAILY=${RETAIN_DAILY:-7}
+      - RETAIN_WEEKLY=${RETAIN_WEEKLY:-4}
+      - RETAIN_MONTHLY=${RETAIN_MONTHLY:-6}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - ALERT_EMAIL_WEBHOOK=${ALERT_EMAIL_WEBHOOK:-}
+    volumes:
+      - ./scripts:/scripts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aethermint-network
+    restart: "no"
+
 # =============================================================================
 # Networks
 # =============================================================================

@@ -6,6 +6,8 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
+  --focus-ring-color: #1d4ed8;
+  --focus-ring-shadow: rgba(29, 78, 216, 0.28);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,8 +31,12 @@ body {
   box-sizing: border-box;
 }
 
+:focus {
+  outline: none;
+}
+
 :focus-visible {
-  outline: 3px solid #2563eb;
+  outline: 3px solid var(--focus-ring-color);
   outline-offset: 3px;
 }
 
@@ -39,8 +45,13 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
-[tabindex]:focus-visible {
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.24);
+[tabindex]:focus-visible,
+summary:focus-visible {
+  box-shadow: 0 0 0 4px var(--focus-ring-shadow);
+}
+
+main[tabindex='-1']:focus {
+  outline: none;
 }
 
 img, video, canvas, svg {
@@ -55,16 +66,31 @@ img, video, canvas, svg {
   z-index: 9999;
   transform: translateY(-150%);
   border-radius: 0.5rem;
-  background: #1d4ed8;
+  background: #0f172a;
   color: #ffffff;
   padding: 0.75rem 1rem;
   font-weight: 700;
   transition: transform 150ms ease;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.28);
 }
 
 .skip-to-content:focus,
 .skip-to-content:focus-visible {
   transform: translateY(0);
+}
+
+.skip-to-content:hover {
+  color: #ffffff;
+}
+
+html:focus-within {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
 }
 
 /* Touch target minimum 44x44px */
@@ -103,5 +129,51 @@ img, video, canvas, svg {
   }
   50% {
     opacity: .5;
+  }
+}
+
+/* ========================================
+   Keyboard shortcut kbd styling
+   ======================================== */
+
+kbd {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+
+@media (prefers-color-scheme: dark) {
+  kbd {
+    background: #374151;
+    border-color: #4b5563;
+    color: #d1d5db;
+  }
+}
+
+/* ========================================
+   Focus-visible for all interactive elements
+   ======================================== */
+
+a:not([tabindex='-1']):focus-visible,
+button:not([tabindex='-1']):focus-visible,
+input:not([tabindex='-1']):focus-visible,
+select:not([tabindex='-1']):focus-visible,
+textarea:not([tabindex='-1']):focus-visible,
+[tabindex]:not([tabindex='-1']):focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-ring-shadow);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --focus-ring-color: #60a5fa;
+    --focus-ring-shadow: rgba(96, 165, 250, 0.35);
   }
 }

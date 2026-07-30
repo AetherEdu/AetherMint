@@ -1,5 +1,6 @@
 import redisConfig from '../config/redis';
 import logger from './logger';
+import { redisOperationsTotal } from '../middleware/metrics';
 
 export interface RateLimitCounter {
   totalHits: number;
@@ -83,12 +84,15 @@ export const cachePermissions = async (userId: string, permissions: string[]): P
     const client = redisConfig.getRawClient();
     if (!client) {
       logger.warn(`Skipping permission caching for user ${userId}: Redis not available`);
+      redisOperationsTotal.inc({ operation: 'cache_set', status: 'miss' });
       return;
     }
     
     await client.set(`user_perms:${userId}`, JSON.stringify(permissions), 'EX', 3600);
+    redisOperationsTotal.inc({ operation: 'cache_set', status: 'hit' });
   } catch (err) {
     logger.error(`Error caching permissions for user ${userId}: ${err}`);
+    redisOperationsTotal.inc({ operation: 'cache_set', status: 'error' });
   }
 };
 
@@ -98,12 +102,21 @@ export const cachePermissions = async (userId: string, permissions: string[]): P
 export const getCachedPermissions = async (userId: string): Promise<string[] | null> => {
   try {
     const client = redisConfig.getRawClient();
-    if (!client) return null;
+    if (!client) {
+      redisOperationsTotal.inc({ operation: 'cache_get', status: 'miss' });
+      return null;
+    }
 
     const data = await client.get(`user_perms:${userId}`);
-    return data ? JSON.parse(data) : null;
+    if (data) {
+      redisOperationsTotal.inc({ operation: 'cache_get', status: 'hit' });
+      return JSON.parse(data);
+    }
+    redisOperationsTotal.inc({ operation: 'cache_get', status: 'miss' });
+    return null;
   } catch (err) {
     logger.error(`Error retrieving cached permissions for user ${userId}: ${err}`);
+    redisOperationsTotal.inc({ operation: 'cache_get', status: 'error' });
     return null;
   }
 };
@@ -114,10 +127,15 @@ export const getCachedPermissions = async (userId: string): Promise<string[] | n
 export const clearCachedPermissions = async (userId: string): Promise<void> => {
   try {
     const client = redisConfig.getRawClient();
-    if (!client) return;
+    if (!client) {
+      redisOperationsTotal.inc({ operation: 'cache_delete', status: 'miss' });
+      return;
+    }
 
     await client.del(`user_perms:${userId}`);
+    redisOperationsTotal.inc({ operation: 'cache_delete', status: 'hit' });
   } catch (err) {
     logger.error(`Error clearing cached permissions for user ${userId}: ${err}`);
+    redisOperationsTotal.inc({ operation: 'cache_delete', status: 'error' });
   }
 };

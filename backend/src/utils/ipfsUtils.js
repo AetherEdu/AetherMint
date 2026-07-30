@@ -191,16 +191,27 @@ const parseCid = (cid) => {
 };
 
 /**
- * Create error object with IPFS-specific information
- * @param {string} message - The error message
+ * Create error object with IPFS-specific information.
+ *
+ * The optional `httpStatus` parameter is the canonical RFC 7807 status
+ * the caller wants surfaced on the wire. When omitted, the value is
+ * `null` and downstream consumers (e.g. `mapIpfsError`) fall back to a
+ * table-driven default derived from `operation`. Setting it explicitly
+ * removes any need for message-text heuristics on the consumer side.
+ *
+ * @param {string} message  - The error message
  * @param {string} operation - The operation that failed
- * @param {Object} details - Additional error details
- * @returns {Error} - The formatted error
+ * @param {Object} [details={}] - Additional error details
+ * @param {number|null} [httpStatus=null] - Optional explicit HTTP status
+ *   code (400/401/403/404/413/429/500/503). Pass `null` to defer to the
+ *   operation-based default.
+ * @returns {Error} - The formatted error (plain Error, not AppError)
  */
-const createIpfsError = (message, operation, details = {}) => {
+const createIpfsError = (message, operation, details = {}, httpStatus = null) => {
   const error = new Error(message);
   error.operation = operation;
   error.details = details;
+  error.httpStatus = httpStatus;
   error.isIpfsError = true;
   return error;
 };

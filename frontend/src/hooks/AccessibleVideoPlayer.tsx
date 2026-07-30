@@ -24,6 +24,7 @@ export const AccessibleVideoPlayer: React.FC<AccessibleVideoPlayerProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const hasCaptions = subtitles.length > 0;
   const statusText = `${title} is ${isPlaying ? 'playing' : 'paused'} and ${isMuted ? 'muted' : 'unmuted'}.`;
 
   const togglePlay = () => {
@@ -55,7 +56,7 @@ export const AccessibleVideoPlayer: React.FC<AccessibleVideoPlayerProps> = ({
   };
 
   return (
-    <div 
+    <figure
       className="relative w-full max-w-4xl mx-auto rounded-lg overflow-hidden bg-black focus-within:ring-2 focus-within:ring-blue-500"
       role="region"
       aria-label={`Video player for ${title}`}
@@ -66,6 +67,9 @@ export const AccessibleVideoPlayer: React.FC<AccessibleVideoPlayerProps> = ({
         ref={videoRef}
         className="w-full"
         poster={poster}
+        preload="metadata"
+        playsInline
+        crossOrigin="anonymous"
         aria-label={title}
         aria-describedby="video-player-help"
         onClick={togglePlay}
@@ -82,20 +86,23 @@ export const AccessibleVideoPlayer: React.FC<AccessibleVideoPlayerProps> = ({
             src={sub.src}
             srcLang={sub.srcLang}
             label={sub.label}
-            default={sub.default}
+            default={sub.default || (!subtitles.some((item) => item.default) && index === 0)}
           />
         ))}
         <p>Your browser does not support the video tag. Please download the video to view it.</p>
       </video>
       
-      {/* Accessible screen reader only instructions */}
+      <figcaption className="sr-only">
+        {hasCaptions ? `Caption tracks available for ${title}.` : `No caption tracks were provided for ${title}.`}
+      </figcaption>
+
       <div id="video-player-help" className="sr-only">
-        Press Space to play or pause. Press M to mute or unmute. Use Tab to navigate video controls.
+        Press Space or Enter to play or pause. Press M to mute or unmute. Use Tab to navigate video controls.
       </div>
       <div id="video-player-status" className="sr-only" aria-live="polite">
         {statusText}
       </div>
-    </div>
+    </figure>
   );
 };
 

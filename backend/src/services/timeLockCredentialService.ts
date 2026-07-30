@@ -1,4 +1,6 @@
 import { TimeLockedCredential, ITimeLockedCredential } from '../models/TimeLockedCredential';
+import { auditService } from './auditService';
+import { AuditAction } from '../models/AuditLog';
 import { v4 as uuidv4 } from 'uuid';
 import { Redis } from 'ioredis';
 import logger from '../utils/logger';
@@ -15,6 +17,11 @@ interface CreateScheduleParams {
   creator: string;
   credentialIds: string[];
   releaseTimes: Date[];
+}
+
+interface AuditContext {
+  actor?: string;
+  ipAddress?: string;
 }
 
 export class TimeLockCredentialService {
@@ -38,7 +45,7 @@ export class TimeLockCredentialService {
   /**
    * Issue a new time-locked credential
    */
-  async issueCredential(params: IssueCredentialParams): Promise<ITimeLockedCredential> {
+  async issueCredential(params: IssueCredentialParams, auditContext?: AuditContext): Promise<ITimeLockedCredential> {
     const { issuer, recipient, credentialHash, metadata, releaseTime } = params;
 
     // Validate release time is in the future
@@ -65,13 +72,26 @@ export class TimeLockCredentialService {
     // Schedule notification job
     await this.scheduleReleaseNotification(credential);
 
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor || issuer,
+        AuditAction.CREDENTIAL_ISSUE,
+        'credential',
+        {
+          resourceId: credentialId,
+          details: { operation: 'issue', issuer, recipient },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
     return credential;
   }
 
   /**
    * Release a single credential
    */
-  async releaseCredential(credentialId: string, caller: string): Promise<ITimeLockedCredential> {
+  async releaseCredential(credentialId: string, caller: string, auditContext?: AuditContext): Promise<ITimeLockedCredential> {
     const credential = await TimeLockedCredential.findOne({ credentialId });
 
     if (!credential) {
@@ -103,13 +123,26 @@ export class TimeLockCredentialService {
     // Emit event via Redis pub/sub
     await this.emitReleaseEvent(credential);
 
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor || caller,
+        AuditAction.CREDENTIAL_RELEASE,
+        'credential',
+        {
+          resourceId: credentialId,
+          details: { operation: 'release', caller },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
     return credential;
   }
 
   /**
    * Batch release multiple credentials (gas optimized)
    */
-  async batchReleaseCredentials(credentialIds: string[], caller: string): Promise<any[]> {
+  async batchReleaseCredentials(credentialIds: string[], caller: string, auditContext?: AuditContext): Promise<any[]> {
     const results = await (TimeLockedCredential as any).batchRelease(credentialIds, caller);
 
     // Cache updated credentials
@@ -122,6 +155,19 @@ export class TimeLockCredentialService {
       }
     }
 
+    if (auditContext) {
+      const successCount = results.filter((r: any) => r.success).length;
+      await auditService.create(
+        auditContext.actor || caller,
+        AuditAction.CREDENTIAL_RELEASE,
+        'credential',
+        {
+          details: { operation: 'batch_release', total: results.length, success: successCount },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
     return results;
   }
 
@@ -131,7 +177,8 @@ export class TimeLockCredentialService {
   async emergencyRevoke(
     credentialId: string,
     admin: string,
-    reason: string
+    reason: string,
+    auditContext?: AuditContext
   ): Promise<ITimeLockedCredential> {
     const credential = await TimeLockedCredential.findOne({ credentialId });
 
@@ -160,13 +207,24 @@ export class TimeLockCredentialService {
     // Emit emergency event
     await this.emitEmergencyRevokeEvent(credential, admin, reason);
 
+    await auditService.create(
+      auditContext?.actor || admin,
+      AuditAction.CREDENTIAL_REVOKE,
+      'credential',
+      {
+        resourceId: credentialId,
+        details: { operation: 'emergency_revoke', admin, reason },
+        ipAddress: auditContext?.ipAddress,
+      }
+    );
+
     return credential;
   }
 
   /**
    * Create a release schedule for multiple credentials
    */
-  async createReleaseSchedule(params: CreateScheduleParams): Promise<string> {
+  async createReleaseSchedule(params: CreateScheduleParams, auditContext?: AuditContext): Promise<string> {
     const { creator, credentialIds, releaseTimes } = params;
 
     if (credentialIds.length !== releaseTimes.length) {
@@ -207,13 +265,26 @@ export class TimeLockCredentialService {
       );
     }
 
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor || creator,
+        AuditAction.CREDENTIAL_ISSUE,
+        'credential_schedule',
+        {
+          resourceId: scheduleId,
+          details: { operation: 'create_schedule', count: credentialIds.length },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
     return scheduleId;
   }
 
   /**
    * Get upcoming releases for notification system
    */
-  async getUpcomingReleases(recipient: string, timeWindowMs: number = 86400000): Promise<ITimeLockedCredential[]> {
+  async getUpcomingReleases(recipient: string, timeWindowMs: number = 86400000, auditContext?: AuditContext): Promise<ITimeLockedCredential[]> {
     // Check cache first
     const cacheKey = `upcoming:${recipient}:${timeWindowMs}`;
     
@@ -231,30 +302,83 @@ export class TimeLockCredentialService {
       await this.redis.setex(cacheKey, 300, JSON.stringify(upcoming));
     }
 
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor || recipient,
+        AuditAction.CREDENTIAL_ACCESS,
+        'credential',
+        {
+          details: { operation: 'get_upcoming_releases', count: upcoming.length },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
     return upcoming;
   }
 
   /**
    * Get credentials by recipient
    */
-  async getCredentialsByRecipient(recipient: string): Promise<ITimeLockedCredential[]> {
-    return TimeLockedCredential.find({ recipient }).sort({ createdAt: -1 });
+  async getCredentialsByRecipient(recipient: string, auditContext?: AuditContext): Promise<ITimeLockedCredential[]> {
+    const credentials = await TimeLockedCredential.find({ recipient }).sort({ createdAt: -1 });
+    
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor || recipient,
+        AuditAction.CREDENTIAL_ACCESS,
+        'credential',
+        {
+          details: { operation: 'get_by_recipient', count: credentials.length },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
+    return credentials;
   }
 
   /**
    * Get credentials by issuer
    */
-  async getCredentialsByIssuer(issuer: string): Promise<ITimeLockedCredential[]> {
-    return TimeLockedCredential.find({ issuer }).sort({ createdAt: -1 });
+  async getCredentialsByIssuer(issuer: string, auditContext?: AuditContext): Promise<ITimeLockedCredential[]> {
+    const credentials = await TimeLockedCredential.find({ issuer }).sort({ createdAt: -1 });
+    
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor || issuer,
+        AuditAction.CREDENTIAL_ACCESS,
+        'credential',
+        {
+          details: { operation: 'get_by_issuer', count: credentials.length },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
+    return credentials;
   }
 
   /**
    * Get audit trail for a credential
    */
-  async getAuditTrail(credentialId: string): Promise<any> {
+  async getAuditTrail(credentialId: string, auditContext?: AuditContext): Promise<any> {
     const credential = await TimeLockedCredential.findOne({ credentialId });
     if (!credential) {
       throw new Error('Credential not found');
+    }
+
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor || 'anonymous',
+        AuditAction.CREDENTIAL_ACCESS,
+        'credential_audit',
+        {
+          resourceId: credentialId,
+          details: { operation: 'get_audit_trail' },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
     }
 
     return {

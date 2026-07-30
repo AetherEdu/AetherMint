@@ -8,7 +8,7 @@ use soroban_sdk::{Address, Env, String, Vec};
 
 #[test]
 fn test_mint_dynamic_nft() {
-    let env = Env::default();
+    let (env, cid) = setup();
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
 
@@ -47,7 +47,7 @@ fn test_mint_dynamic_nft() {
 
 #[test]
 fn test_evolve_nft() {
-    let env = Env::default();
+    let (env, cid) = setup();
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
 
@@ -75,7 +75,7 @@ fn test_evolve_nft() {
 
 #[test]
 fn test_multiple_evolutions() {
-    let env = Env::default();
+    let (env, cid) = setup();
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
 
@@ -101,7 +101,7 @@ fn test_multiple_evolutions() {
 
 #[test]
 fn test_fuse_nfts() {
-    let env = Env::default();
+    let (env, cid) = setup();
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
 
@@ -146,7 +146,7 @@ fn test_fuse_nfts() {
 
 #[test]
 fn test_transfer_nft() {
-    let env = Env::default();
+    let (env, cid) = setup();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
     let new_owner = Address::generate(&env);
@@ -173,7 +173,7 @@ fn test_transfer_nft() {
 
 #[test]
 fn test_token_uri() {
-    let env = Env::default();
+    let (env, cid) = setup();
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
 
@@ -198,7 +198,7 @@ fn test_token_uri() {
 
 #[test]
 fn test_get_owner_tokens() {
-    let env = Env::default();
+    let (env, cid) = setup();
     let admin = Address::generate(&env);
     let recipient = Address::generate(&env);
 
@@ -233,14 +233,17 @@ fn test_get_owner_tokens() {
 #[test]
 #[should_panic(expected = "NFT not found")]
 fn test_get_nonexistent_nft() {
-    let env = Env::default();
-    get_nft(&env, 999);
+    let (env, cid) = setup();
+
+    env.as_contract(&cid, || {
+        get_nft(&env, 999);
+    });
 }
 
 #[test]
 #[should_panic(expected = "Not the owner")]
 fn test_unauthorized_transfer() {
-    let env = Env::default();
+    let (env, cid) = setup();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
     let unauthorized = Address::generate(&env);

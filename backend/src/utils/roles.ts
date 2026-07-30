@@ -1,4 +1,5 @@
 import { UserRole } from '../models/User';
+export { UserRole };
 
 // Role hierarchy for permission checking
 export const ROLE_HIERARCHY: Record<string, number> = {

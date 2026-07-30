@@ -1,3 +1,5 @@
+import React from 'react';
+
 import {
   AlertRecord,
   DiscoveryFacets,
@@ -7,8 +9,6 @@ import {
   SortOption,
   ViewMode,
 } from './types';
-
-import React from 'react';
 
 const toggleValue = (list: string[], value: string) =>
   list.includes(value)
@@ -31,11 +31,16 @@ const facetSection = (
         return (
           <button
             key={item.value}
-            className={`rounded-full px-3 py-1.5 text-sm transition ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+            type="button"
+            className={`rounded-full px-3 py-1.5 text-sm transition ${
+              active
+                ? 'bg-slate-900 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
             onClick={() => onToggle(item.value)}
             aria-pressed={active}
           >
-            {item.value} · {item.count}
+            {item.value} • {item.count}
           </button>
         );
       })}
@@ -68,7 +73,10 @@ export const FilterPanel: React.FC<{
 
   return (
     <aside className="space-y-6" aria-label="Discovery filters and saved searches">
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="discovery-filters-title">
+      <section
+        className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm"
+        aria-labelledby="discovery-filters-title"
+      >
         <div className="text-sm uppercase tracking-[0.18em] text-slate-500">
           Filters
         </div>
@@ -209,7 +217,12 @@ export const FilterPanel: React.FC<{
               {(['grid', 'list'] as ViewMode[]).map((view) => (
                 <button
                   key={view}
-                  className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${filters.view === view ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                  type="button"
+                  className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                    filters.view === view
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
                   onClick={() => handleViewChange(view)}
                   aria-pressed={filters.view === view}
                 >
@@ -232,6 +245,7 @@ export const FilterPanel: React.FC<{
           {savedSearches.map((savedSearch) => (
             <button
               key={savedSearch.id}
+              type="button"
               className="block w-full rounded-2xl bg-slate-50 px-4 py-3 text-left transition hover:bg-amber-50"
               onClick={() => onApplySavedSearch(savedSearch)}
             >
@@ -259,6 +273,7 @@ export const FilterPanel: React.FC<{
           {history.slice(0, 5).map((item) => (
             <button
               key={item.id}
+              type="button"
               className="block w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition hover:border-slate-400"
               onClick={() => onApplyHistory(item)}
             >

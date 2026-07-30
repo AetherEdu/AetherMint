@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const dotenv = require('dotenv');
+const { NotFoundError } = require('../utils/errors');
 
 dotenv.config();
 
@@ -188,9 +189,8 @@ const getPlatformAnalytics = async (req, res) => {
           ]
         }
       }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    });  } catch (error) {
+    return next(error);
   }
 };
 

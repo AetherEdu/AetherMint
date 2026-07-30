@@ -3,10 +3,12 @@
  * Handles HTTP endpoints for course discovery, search, and recommendations
  */
 
-import { Request, Response, Router } from "express";
+import { Request, Response, NextFunction, Router } from "express";
 import { validationResult, query, body } from "express-validator";
 import searchService from "../services/searchService";
 import recommendationService from "../services/recommendationService";
+import { auditService } from "../services/auditService";
+import { AuditAction } from "../models/AuditLog";
 import {
   Course,
   SearchFilter,
@@ -83,10 +85,10 @@ router.post(
       ]),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { query: searchQuery, filters = {}, sessionId } = req.body;
-      const userId = req.user?.id; // Assuming auth middleware sets req.user
+      const userId = req.user?.id;
 
       logger.info(`Search request - Query: ${searchQuery}, User: ${userId}`);
 
@@ -127,7 +129,7 @@ router.get(
     query("limit").optional().isInt({ min: 1, max: 10 }),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { q: searchQuery, limit = 5 } = req.query;
 
@@ -164,7 +166,7 @@ router.get(
   "/trending",
   [query("limit").optional().isInt({ min: 1, max: 50 })],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const limit = parseInt((req.query.limit as string) || "10");
 
@@ -202,7 +204,7 @@ router.get(
     query("limit").optional().isInt({ min: 1, max: 20 }),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { courseId } = req.params;
       const limit = parseInt((req.query.limit as string) || "5");
@@ -266,7 +268,7 @@ router.post(
     query("limit").optional().isInt({ min: 1, max: 30 }),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const context = req.body as RecommendationContext;
       const limit = parseInt((req.query.limit as string) || "10");
@@ -327,7 +329,7 @@ router.post(
     body("data").optional().isObject(),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { userId, activityType, courseId, data } = req.body;
 
@@ -362,13 +364,11 @@ router.post(
  * @example
  * GET /api/courses/categories
  */
-router.get("/categories", async (req: Request, res: Response) => {
+router.get("/categories", async (req: Request, res: Response, next: NextFunction) => {
   try {
     logger.info("Categories request");
 
-    const categories = await searchService.getCategories();
-
-    return res.status(200).json({
+    const categories = await searchService.getCategories();      return res.status(200).json({
       success: true,
       message: "Categories retrieved successfully",
       data: categories,
@@ -388,13 +388,11 @@ router.get("/categories", async (req: Request, res: Response) => {
  * @example
  * GET /api/courses/categories/tree
  */
-router.get("/categories/tree", async (req: Request, res: Response) => {
+router.get("/categories/tree", async (req: Request, res: Response, next: NextFunction) => {
   try {
     logger.info("Category tree request");
 
-    const categories = await searchService.getCategoryTree();
-
-    return res.status(200).json({
+    const categories = await searchService.getCategoryTree();      return res.status(200).json({
       success: true,
       message: "Category tree retrieved successfully",
       data: categories,
@@ -438,13 +436,26 @@ router.post(
     body("parentCategory").optional().isString(),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const category: CourseCategory = req.body;
+      const actor = req.user?.address || 'anonymous';
+      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
 
       logger.info(`Category creation request - ID: ${category.id}`);
 
       const created = await searchService.upsertCategory(category);
+
+      await auditService.create(
+        actor,
+        AuditAction.COURSE_CREATE,
+        'course_category',
+        {
+          resourceId: category.id,
+          details: { operation: 'create_category', name: category.name },
+          ipAddress,
+        }
+      );
 
       return res.status(201).json({
         success: true,
@@ -452,6 +463,16 @@ router.post(
         data: created,
       });
     } catch (error) {
+      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+      await auditService.createFailure(
+        req.user?.address || 'anonymous',
+        AuditAction.COURSE_CREATE,
+        'course_category',
+        {
+          ipAddress,
+          errorMessage: error instanceof Error ? error.message : "Unknown error",
+        }
+      );
       logger.error("Category creation error", error);
       return next(error);
     }
@@ -484,13 +505,26 @@ router.put(
     body("parentCategory").optional().isString(),
   ],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const category: CourseCategory = req.body;
+      const actor = req.user?.address || 'anonymous';
+      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
 
       logger.info(`Category update request - ID: ${category.id}`);
 
       const updated = await searchService.upsertCategory(category);
+
+      await auditService.create(
+        actor,
+        AuditAction.COURSE_UPDATE,
+        'course_category',
+        {
+          resourceId: category.id,
+          details: { operation: 'update_category', name: category.name },
+          ipAddress,
+        }
+      );
 
       return res.status(200).json({
         success: true,
@@ -498,6 +532,16 @@ router.put(
         data: updated,
       });
     } catch (error) {
+      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+      await auditService.createFailure(
+        req.user?.address || 'anonymous',
+        AuditAction.COURSE_UPDATE,
+        'course_category',
+        {
+          ipAddress,
+          errorMessage: error instanceof Error ? error.message : "Unknown error",
+        }
+      );
       logger.error("Category update error", error);
       return next(error);
     }
@@ -516,19 +560,42 @@ router.put(
  */
 router.delete(
   "/categories/:categoryId",
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { categoryId } = req.params;
+      const actor = req.user?.address || 'anonymous';
+      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
 
       logger.info(`Category deletion request - ID: ${categoryId}`);
 
       await searchService.deleteCategory(categoryId);
+
+      await auditService.create(
+        actor,
+        AuditAction.COURSE_DELETE,
+        'course_category',
+        {
+          resourceId: categoryId,
+          details: { operation: 'delete_category' },
+          ipAddress,
+        }
+      );
 
       return res.status(200).json({
         success: true,
         message: "Category deleted successfully",
       });
     } catch (error) {
+      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+      await auditService.createFailure(
+        req.user?.address || 'anonymous',
+        AuditAction.COURSE_DELETE,
+        'course_category',
+        {
+          ipAddress,
+          errorMessage: error instanceof Error ? error.message : "Unknown error",
+        }
+      );
       logger.error("Category deletion error", error);
       return next(error);
     }
@@ -549,7 +616,7 @@ router.get(
   "/analytics/popular-searches",
   [query("limit").optional().isInt({ min: 1, max: 50 })],
   handleValidationErrors,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const limit = parseInt((req.query.limit as string) || "10");
 
@@ -579,15 +646,13 @@ router.get(
  * @example
  * GET /api/courses/analytics/search/javascript
  */
-router.get("/analytics/search/:query", async (req: Request, res: Response) => {
+router.get("/analytics/search/:query", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { query } = req.params;
 
     logger.info(`Search analytics request - Query: ${query}`);
 
-    const analytics = await searchService.getSearchAnalytics(query);
-
-    return res.status(200).json({
+    const analytics = await searchService.getSearchAnalytics(query);      return res.status(200).json({
       success: true,
       message: "Search analytics retrieved successfully",
       data: analytics,

@@ -1,22 +1,33 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { EnrollmentFormProps, EnrollmentStep, EnrollmentData, WalletInfo, TransactionReceipt } from '@/types/enrollment';
+import { EnrollmentFormProps, EnrollmentStep, EnrollmentData } from '@/types/enrollment';
 import { env } from '@/lib/env';
+import { personalInfoSchema, type PersonalInfo } from '@/lib/validation/schemas';
+import FormField from './FormField';
 import WalletConnector from './WalletConnector';
 import PaymentProcessor from './PaymentProcessor';
 import Skeleton from './Skeleton';
-import { 
-  User, 
-  CreditCard, 
-  CheckCircle, 
-  ArrowRight, 
+import {
+  CheckCircle,
+  ArrowRight,
   ArrowLeft,
   BookOpen,
   FileCheck,
   AlertCircle,
   Loader2
 } from 'lucide-react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
+// ---------------------------------------------------------------------------
+// Progress persistence key for sessionStorage (Issue #275)
+// ---------------------------------------------------------------------------
+
+const PROGRESS_KEY = 'enrollment-form';
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
   course,
@@ -25,7 +36,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
   onEnrollmentError
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [enrollmentData, setEnrollmentData] = useState<Partial<EnrollmentData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
@@ -33,12 +43,72 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
   const [isInitializing, setIsInitializing] = useState(true);
   const [isTransitioningStep, setIsTransitioningStep] = useState(false);
 
-  const [personalInfo, setPersonalInfo] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: ''
+  // --- Form validation for personal info step ---
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [personalInfo, setPersonalInfo] = useState<PersonalInfo>(() => {
+    // Restore persisted progress on mount (Issue #275)
+    try {
+      const stored = sessionStorage.getItem(`form-progress:${PROGRESS_KEY}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return { firstName: parsed.firstName || '', lastName: parsed.lastName || '', email: parsed.email || '', phone: parsed.phone || '' };
+      }
+    } catch { /* ignore */ }
+    return { firstName: '', lastName: '', email: '', phone: '' };
   });
+
+  // Persist progress on every change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(`form-progress:${PROGRESS_KEY}`, JSON.stringify(personalInfo));
+    } catch { /* ignore */ }
+  }, [personalInfo]);
+
+  const validateField = (field: keyof PersonalInfo, value: string) => {
+    const updated = { ...personalInfo, [field]: value };
+    const result = personalInfoSchema.safeParse(updated);
+    if (result.success) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+      return true;
+    }
+    const fieldIssue = result.error.issues.find(issue => issue.path[0] === field);
+    if (fieldIssue) {
+      setFieldErrors(prev => ({ ...prev, [field]: fieldIssue.message }));
+    } else {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+    return !fieldIssue;
+  };
+
+  const handlePersonalInfoChange = (field: keyof PersonalInfo, value: string) => {
+    const updated = { ...personalInfo, [field]: value };
+    setPersonalInfo(updated);
+    // Real-time inline validation (Issue #275)
+    validateField(field, value);
+  };
+
+  const isPersonalInfoValid = (): boolean => {
+    const result = personalInfoSchema.safeParse(personalInfo);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      for (const issue of result.error.issues) {
+        const field = String(issue.path[0]);
+        if (!errors[field]) errors[field] = issue.message;
+      }
+      setFieldErrors(errors);
+      return false;
+    }
+    setFieldErrors({});
+    return true;
+  };
 
   const steps: EnrollmentStep[] = [
     {
@@ -46,11 +116,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
       title: 'Personal Information',
       description: 'Provide your contact details',
       component: PersonalInfoStep,
-      validation: (data) => {
-        const info = data.personalInfo;
-        return info.firstName && info.lastName && info.email && 
-               info.email.includes('@') && info.email.includes('.');
-      },
+      validation: () => isPersonalInfoValid(),
       isCompleted: false
     },
     {
@@ -58,7 +124,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
       title: 'Connect Wallet',
       description: 'Connect your Stellar wallet for payment',
       component: WalletStep,
-      validation: (data) => data.wallet && data.wallet.connected,
+      validation: (data: any) => data.wallet && data.wallet.connected,
       isCompleted: false
     },
     {
@@ -66,7 +132,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
       title: 'Payment',
       description: 'Complete the course payment',
       component: PaymentStep,
-      validation: (data) => data.transactionHash && data.wallet,
+      validation: (data: any) => data.transactionHash && data.wallet,
       isCompleted: false
     },
     {
@@ -80,22 +146,24 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
   ];
 
   useEffect(() => {
-    // Brief delay to prevent flickering on initial mount
-    const timer = setTimeout(() => {
-      setIsInitializing(false);
-    }, 200);
+    const timer = setTimeout(() => setIsInitializing(false), 200);
     return () => clearTimeout(timer);
   }, []);
 
+  // --- Error announcement for screen readers (Issue #275) ---
+  const errorAnnouncement = Object.entries(fieldErrors)
+    .map(([field, msg]) => `${field}: ${msg}`)
+    .join('. ') || (error || '');
+
   const handleNext = () => {
     const currentStepData = steps[currentStep];
-    
+
     if (currentStepData.validation) {
       let isValid = false;
-      
+
       switch (currentStepData.id) {
         case 'personal-info':
-          isValid = currentStepData.validation({ personalInfo });
+          isValid = isPersonalInfoValid();
           break;
         case 'wallet-connection':
           isValid = currentStepData.validation({ wallet });
@@ -106,18 +174,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
         default:
           isValid = true;
       }
-      
+
       if (!isValid) {
         setError('Please complete the current step before proceeding');
         return;
       }
     }
-    
+
     setError(null);
-    
+
     if (currentStep < steps.length - 1) {
       setIsTransitioningStep(true);
-      // Brief delay to show transition loading state
       setTimeout(() => {
         setCurrentStep(currentStep + 1);
         setIsTransitioningStep(false);
@@ -140,18 +207,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 
   const handlePaymentSuccess = (txHash: string) => {
     setTransactionHash(txHash);
-    setEnrollmentData(prev => ({
-      ...prev,
-      paymentDetails: {
-        courseId: course.id,
-        amount: course.price,
-        currency: course.currency,
-        recipientAddress: env.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS,
-        transactionHash: txHash,
-        status: 'completed',
-        timestamp: new Date().toISOString()
-      }
-    }));
   };
 
   const handlePaymentError = (errorMessage: string) => {
@@ -186,30 +241,25 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
         personalInfo
       };
 
-      // Call API to save enrollment
       const response = await fetch('/api/enroll', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(enrollment),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to save enrollment');
-      }
+      if (!response.ok) throw new Error('Failed to save enrollment');
 
       const result = await response.json();
-      
+
       if (result.success) {
+        // Clear persisted progress on successful enrollment (Issue #275)
+        sessionStorage.removeItem(`form-progress:${PROGRESS_KEY}`);
         onEnrollmentComplete(enrollment);
       } else {
         throw new Error(result.error?.message || 'Enrollment failed');
       }
-
-    } catch (error: any) {
-      console.error('Enrollment submission error:', error);
-      const errorMessage = error.message || 'Failed to complete enrollment';
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to complete enrollment';
       setError(errorMessage);
       onEnrollmentError(errorMessage);
     } finally {
@@ -219,7 +269,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 
   const CurrentStepComponent = steps[currentStep].component;
 
-  // Show initialization skeleton to prevent flickering on mount
+  // --- Initialization skeleton ---
   if (isInitializing) {
     return (
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg" role="region" aria-label="Loading enrollment form" aria-busy="true">
@@ -251,7 +301,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
     );
   }
 
-  // Show transition skeleton when moving between steps
+  // --- Transition skeleton ---
   if (isTransitioningStep) {
     return (
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg" role="region" aria-label="Loading next step" aria-busy="true">
@@ -259,24 +309,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
           <div className="flex items-center justify-between">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center flex-1">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
-                    index < currentStep ? 'bg-green-600 text-white' : 
-                    index === currentStep ? 'bg-blue-600 text-white' : 
-                    'bg-gray-200 text-gray-600'
-                  }`}
-                  aria-label={`Step ${index + 1}: ${step.title}`}
-                >
-                  {index < currentStep ? (
-                    <CheckCircle className="w-5 h-5" aria-hidden="true" />
-                  ) : (
-                    <span aria-hidden="true">{index + 1}</span>
-                  )}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+                  index < currentStep ? 'bg-green-600 text-white' :
+                  index === currentStep ? 'bg-blue-600 text-white' :
+                  'bg-gray-200 text-gray-600'
+                }`} aria-label={`Step ${index + 1}: ${step.title}`}>
+                  {index < currentStep ? <CheckCircle className="w-5 h-5" aria-hidden="true" /> : <span aria-hidden="true">{index + 1}</span>}
                 </div>
                 <div className="ml-3 hidden sm:block">
-                  <p className={`text-sm font-medium ${index <= currentStep ? 'text-gray-900' : 'text-gray-500'}`}>
-                    {step.title}
-                  </p>
+                  <p className={`text-sm font-medium ${index <= currentStep ? 'text-gray-900' : 'text-gray-500'}`}>{step.title}</p>
                 </div>
                 {index < steps.length - 1 && (
                   <div className={`flex-1 h-px mx-4 ${index < currentStep ? 'bg-green-600' : 'bg-gray-200'}`} aria-hidden="true" />
@@ -289,9 +330,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" aria-hidden="true" />
-              <p className="text-gray-500 animate-pulse" role="status">
-                Loading {steps[currentStep]?.title || 'next step'}...
-              </p>
+              <p className="text-gray-500 animate-pulse" role="status">Loading {steps[currentStep]?.title || 'next step'}...</p>
             </div>
           </div>
         </div>
@@ -301,194 +340,161 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
   }
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg w-full" role="form" aria-label="Course enrollment form">
-      {/* Progress Steps - improved for mobile */}
-      <nav aria-label="Enrollment progress" className="px-4 sm:px-6 py-4 border-b border-gray-200 overflow-x-auto scrollbar-hide">
-        <div className="flex items-center justify-between min-w-0" role="list">
-          {steps.map((step, index) => (
-            <div key={step.id} className="flex items-center flex-shrink-0" role="listitem">
-              <div className="flex items-center">
-                <div
-                  className={`
-                    w-10 h-10 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-sm font-medium
-                    ${index < currentStep ? 'bg-green-600 text-white' : 
-                      index === currentStep ? 'bg-blue-600 text-white' : 
-                      'bg-gray-200 text-gray-600'}
-                  `}
-                  aria-current={index === currentStep ? 'step' : undefined}
-                  aria-label={`Step ${index + 1}: ${step.title}${index < currentStep ? ' (completed)' : index === currentStep ? ' (current)' : ''}`}
-                >
-                  {index < currentStep ? (
-                    <CheckCircle className="w-5 h-5" aria-hidden="true" />
-                  ) : (
-                    <span aria-hidden="true">{index + 1}</span>
-                  )}
+    <ErrorBoundary variant="payment" errorTitle="Payment Error" errorMessage="There was a problem processing your payment. Please verify your balance and try again.">
+      {/* Accessible error announcements for screen readers (Issue #275) */}
+      {errorAnnouncement && (
+        <div className="sr-only" aria-live="assertive" aria-atomic="true" role="alert">
+          {errorAnnouncement}
+        </div>
+      )}
+
+      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg w-full" role="form" aria-label="Course enrollment form">
+        {/* Progress Steps */}
+        <nav aria-label="Enrollment progress" className="px-4 sm:px-6 py-4 border-b border-gray-200 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center justify-between min-w-0" role="list">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex items-center flex-shrink-0" role="listitem">
+                <div className="flex items-center">
+                  <div
+                    className={`w-10 h-10 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-sm font-medium ${
+                      index < currentStep ? 'bg-green-600 text-white' : index === currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                    }`}
+                    aria-current={index === currentStep ? 'step' : undefined}
+                    aria-label={`Step ${index + 1}: ${step.title}${index < currentStep ? ' (completed)' : index === currentStep ? ' (current)' : ''}`}
+                  >
+                    {index < currentStep ? <CheckCircle className="w-5 h-5" aria-hidden="true" /> : <span aria-hidden="true">{index + 1}</span>}
+                  </div>
+                  <div className="ml-2 sm:ml-3 hidden sm:block">
+                    <p className={`text-xs sm:text-sm font-medium ${index <= currentStep ? 'text-gray-900' : 'text-gray-500'}`}>{step.title}</p>
+                    <p className="text-xs text-gray-500 hidden md:block">{step.description}</p>
+                  </div>
                 </div>
-                <div className="ml-2 sm:ml-3 hidden sm:block">
-                  <p className={`text-xs sm:text-sm font-medium ${
-                    index <= currentStep ? 'text-gray-900' : 'text-gray-500'
-                  }`}>
-                    {step.title}
-                  </p>
-                  <p className="text-xs text-gray-500 hidden md:block">{step.description}</p>
-                </div>
+                {index < steps.length - 1 && (
+                  <div className={`flex-shrink-0 w-8 sm:w-12 md:w-16 h-px mx-2 sm:mx-4 ${index < currentStep ? 'bg-green-600' : 'bg-gray-200'}`} aria-hidden="true" />
+                )}
               </div>
-              {index < steps.length - 1 && (
-                <div className={`flex-shrink-0 w-8 sm:w-12 md:w-16 h-px mx-2 sm:mx-4 ${
-                  index < currentStep ? 'bg-green-600' : 'bg-gray-200'
-                }`} aria-hidden="true" />
-              )}
-            </div>
-          ))}
-        </div>
-      </nav>
-
-      {/* Step Content */}
-      <div className="p-4 sm:p-6 md:p-8" role="region" aria-label={`Step ${currentStep + 1}: ${steps[currentStep].title}`}>
-        <div className="mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-            {steps[currentStep].title}
-          </h2>
-          <p className="text-sm sm:text-base text-gray-600">{steps[currentStep].description}</p>
-        </div>
-
-        <CurrentStepComponent
-          course={course}
-          wallet={wallet}
-          personalInfo={personalInfo}
-          onPersonalInfoChange={setPersonalInfo}
-          onPaymentSuccess={handlePaymentSuccess}
-          onPaymentError={handlePaymentError}
-          onPaymentPending={handlePaymentPending}
-          transactionHash={transactionHash}
-        />
-
-        {error && (
-          <div className="mt-4 flex items-start space-x-2 text-red-600 bg-red-50 p-3 sm:p-4 rounded-lg" role="alert" aria-live="assertive">
-            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
-            <span className="text-sm" id="enrollment-error">{error}</span>
+            ))}
           </div>
-        )}
+        </nav>
 
-        {/* Navigation Buttons - stacked on mobile */}
-        <div className="mt-6 flex flex-col xs:flex-row justify-between gap-3">
-          <button
-            onClick={handlePrevious}
-            disabled={currentStep === 0 || isSubmitting}
-            className="flex items-center space-x-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            aria-label="Go to previous step"
-          >
-            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-            <span>Previous</span>
-          </button>
+        {/* Step Content */}
+        <div className="p-4 sm:p-6 md:p-8" role="region" aria-label={`Step ${currentStep + 1}: ${steps[currentStep].title}`}>
+          <div className="mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{steps[currentStep].title}</h2>
+            <p className="text-sm sm:text-base text-gray-600">{steps[currentStep].description}</p>
+          </div>
 
-          <button
-            onClick={handleNext}
-            disabled={isSubmitting || isTransitioningStep}
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            aria-label={isSubmitting ? 'Processing enrollment' : currentStep === steps.length - 1 ? 'Complete enrollment' : 'Go to next step'}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                <span>Processing...</span>
-              </>
-            ) : currentStep === steps.length - 1 ? (
-              <>
-                <FileCheck className="w-4 h-4" aria-hidden="true" />
-                <span>Complete Enrollment</span>
-              </>
-            ) : (
-              <>
-                <span>Next</span>
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </>
-            )}
-          </button>
+          <CurrentStepComponent
+            course={course}
+            wallet={wallet}
+            personalInfo={personalInfo}
+            fieldErrors={fieldErrors}
+            onPersonalInfoChange={handlePersonalInfoChange}
+            onPaymentSuccess={handlePaymentSuccess}
+            onPaymentError={handlePaymentError}
+            onPaymentPending={handlePaymentPending}
+            transactionHash={transactionHash}
+          />
+
+          {error && (
+            <div className="mt-4 flex items-start space-x-2 text-red-600 bg-red-50 p-3 sm:p-4 rounded-lg" role="alert" aria-live="assertive">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm" id="enrollment-error">{error}</span>
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="mt-6 flex flex-col xs:flex-row justify-between gap-3">
+            <button
+              onClick={handlePrevious}
+              disabled={currentStep === 0 || isSubmitting}
+              className="flex items-center space-x-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Go to previous step"
+            >
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+              <span>Previous</span>
+            </button>
+            <button
+              onClick={handleNext}
+              disabled={isSubmitting || isTransitioningStep}
+              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label={isSubmitting ? 'Processing enrollment' : currentStep === steps.length - 1 ? 'Complete enrollment' : 'Go to next step'}
+            >
+              {isSubmitting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /><span>Processing...</span></>
+              ) : currentStep === steps.length - 1 ? (
+                <><FileCheck className="w-4 h-4" aria-hidden="true" /><span>Complete Enrollment</span></>
+              ) : (
+                <><span>Next</span><ArrowRight className="w-4 h-4" aria-hidden="true" /></>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 
-// Step Components
-const PersonalInfoStep: React.FC<any> = ({ personalInfo, onPersonalInfoChange }) => {
-  const handleChange = (field: string, value: string) => {
-    onPersonalInfoChange((prev: typeof personalInfo) => ({ ...prev, [field]: value }));
-  };
+// ---------------------------------------------------------------------------
+// Step: Personal Information — uses FormField with inline validation (Issue #275)
+// ---------------------------------------------------------------------------
 
+const PersonalInfoStep: React.FC<any> = ({ personalInfo, fieldErrors, onPersonalInfoChange }) => {
   return (
     <div className="space-y-4 sm:space-y-5" role="group" aria-label="Personal information">
-      {/* Single column on mobile (< 768px), two columns on md+ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-        <div>
-          <label htmlFor="firstName" className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
-            First Name <span aria-hidden="true">*</span>
-          </label>
-          <input
-            id="firstName"
-            type="text"
-            value={personalInfo.firstName}
-            onChange={(e) => handleChange('firstName', e.target.value)}
-            className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 rounded-xl sm:rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter your first name"
-            required
-            aria-required="true"
-          />
-        </div>
-        <div>
-          <label htmlFor="lastName" className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
-            Last Name <span aria-hidden="true">*</span>
-          </label>
-          <input
-            id="lastName"
-            type="text"
-            value={personalInfo.lastName}
-            onChange={(e) => handleChange('lastName', e.target.value)}
-            className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 rounded-xl sm:rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter your last name"
-            required
-            aria-required="true"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="email" className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
-          Email Address <span aria-hidden="true">*</span>
-        </label>
-        <input
-          id="email"
-          type="email"
-          value={personalInfo.email}
-          onChange={(e) => handleChange('email', e.target.value)}
-          className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 rounded-xl sm:rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="your.email@example.com"
+        <FormField
+          id="firstName"
+          label="First Name"
           required
-          aria-required="true"
-          autoComplete="email"
+          value={personalInfo.firstName}
+          onChange={(e) => onPersonalInfoChange('firstName', (e.target as HTMLInputElement).value)}
+          placeholder="Enter your first name"
+          error={fieldErrors?.firstName}
+          autoComplete="given-name"
+        />
+        <FormField
+          id="lastName"
+          label="Last Name"
+          required
+          value={personalInfo.lastName}
+          onChange={(e) => onPersonalInfoChange('lastName', (e.target as HTMLInputElement).value)}
+          placeholder="Enter your last name"
+          error={fieldErrors?.lastName}
+          autoComplete="family-name"
         />
       </div>
-
-      <div>
-        <label htmlFor="phone" className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
-          Phone Number <span className="text-gray-400">(Optional)</span>
-        </label>
-        <input
-          id="phone"
-          type="tel"
-          value={personalInfo.phone}
-          onChange={(e) => handleChange('phone', e.target.value)}
-          className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 rounded-xl sm:rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="+1 (555) 123-4567"
-          autoComplete="tel"
-        />
-      </div>
+      <FormField
+        id="email"
+        label="Email Address"
+        type="email"
+        required
+        value={personalInfo.email}
+        onChange={(e) => onPersonalInfoChange('email', (e.target as HTMLInputElement).value)}
+        placeholder="your.email@example.com"
+        error={fieldErrors?.email}
+        autoComplete="email"
+      />
+      <FormField
+        id="phone"
+        label="Phone Number"
+        type="tel"
+        value={personalInfo.phone}
+        onChange={(e) => onPersonalInfoChange('phone', (e.target as HTMLInputElement).value)}
+        placeholder="+1 (555) 123-4567"
+        hint="Optional"
+        error={fieldErrors?.phone}
+        autoComplete="tel"
+      />
     </div>
   );
 };
 
-const WalletStep: React.FC<any> = ({ course, wallet, onWalletConnect, onWalletDisconnect }) => {
+// ---------------------------------------------------------------------------
+// Step: Wallet Connection
+// ---------------------------------------------------------------------------
+
+const WalletStep: React.FC<any> = ({ wallet, onWalletConnect, onWalletDisconnect }) => {
   return (
     <div className="space-y-4 sm:space-y-5">
       <div className="bg-blue-50 border border-blue-200 rounded-xl sm:rounded-lg p-4 sm:p-5">
@@ -502,7 +508,6 @@ const WalletStep: React.FC<any> = ({ course, wallet, onWalletConnect, onWalletDi
           <li>• Decentralized and transparent payment records</li>
         </ul>
       </div>
-
       <WalletConnector
         onWalletConnect={onWalletConnect}
         onWalletDisconnect={onWalletDisconnect}
@@ -511,6 +516,10 @@ const WalletStep: React.FC<any> = ({ course, wallet, onWalletConnect, onWalletDi
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Step: Payment
+// ---------------------------------------------------------------------------
 
 const PaymentStep: React.FC<any> = ({ course, wallet, onPaymentSuccess, onPaymentError, onPaymentPending, transactionHash }) => {
   if (transactionHash) {
@@ -534,7 +543,11 @@ const PaymentStep: React.FC<any> = ({ course, wallet, onPaymentSuccess, onPaymen
   );
 };
 
-const ConfirmationStep: React.FC<any> = ({ course, wallet, personalInfo, transactionHash }) => {
+// ---------------------------------------------------------------------------
+// Step: Confirmation
+// ---------------------------------------------------------------------------
+
+const ConfirmationStep: React.FC<any> = ({ course, personalInfo, transactionHash }) => {
   return (
     <div className="space-y-6">
       <div className="bg-green-50 border border-green-200 rounded-xl sm:rounded-lg p-4 sm:p-6">
@@ -568,12 +581,11 @@ const ConfirmationStep: React.FC<any> = ({ course, wallet, personalInfo, transac
           </div>
         </div>
       </div>
-
       <div className="text-center px-4">
         <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-500 mx-auto mb-3" />
         <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Ready to Enroll!</h3>
         <p className="text-sm sm:text-base text-gray-600">
-          Please review your information above and click "Complete Enrollment" to finalize your registration.
+          Please review your information above and click &quot;Complete Enrollment&quot; to finalize your registration.
         </p>
       </div>
     </div>

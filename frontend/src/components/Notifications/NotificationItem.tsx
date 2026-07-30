@@ -1,6 +1,15 @@
 import React from 'react';
-import { Bell, BookOpen, MessageSquare, Settings, Trophy, X, Clock } from 'lucide-react';
-import { Notification, NotificationCategory } from '../../hooks/useNotifications';
+import {
+  Bell,
+  BookOpen,
+  Clock,
+  MessageSquare,
+  Settings,
+  Trophy,
+  X,
+} from 'lucide-react';
+
+import { Notification } from '../../hooks/useNotifications';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -51,108 +60,98 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const categoryColor = categoryColors[notification.category];
   const priorityColor = priorityColors[notification.priority];
 
-  const handleClick = () => {
+  const handleActivate = () => {
     if (!notification.isRead) {
       onMarkAsRead(notification.id);
     }
+
     if (notification.actionUrl) {
-      window.open(notification.actionUrl, '_blank');
+      window.open(notification.actionUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
-  const handleRemove = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleRemove = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     onRemove(notification.id);
   };
 
   return (
-    <div
-      className={`
-        relative p-4 border-l-4 cursor-pointer transition-all duration-200
-        ${priorityColor}
-        ${notification.isRead 
-          ? 'bg-white hover:bg-gray-50' 
-          : 'bg-blue-50 hover:bg-blue-100 border-l-blue-500'
-        }
-      `}
-      role="listitem"
+    <article
+      className={`relative border-l-4 p-4 transition-all duration-200 ${priorityColor} ${
+        notification.isRead
+          ? 'bg-white hover:bg-gray-50'
+          : 'border-l-blue-500 bg-blue-50 hover:bg-blue-100'
+      }`}
+      aria-label={`${notification.isRead ? 'Read' : 'Unread'} ${notification.priority} priority ${notification.category} notification`}
     >
-      {/* Remove button */}
       <button
+        type="button"
         onClick={handleRemove}
-        className="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-200 transition-colors"
-        aria-label="Remove notification"
+        tabIndex={0}
+        className="absolute right-2 top-2 rounded-full p-1 transition-colors hover:bg-gray-200"
+        aria-label={`Remove notification: ${notification.title}`}
       >
-        <X size={14} className="text-gray-500" />
+        <X size={14} className="text-gray-500" aria-hidden="true" />
       </button>
 
-      {/* Notification content */}
-      <div
-        className="flex gap-3"
-        role="button"
+      <button
+        type="button"
+        onClick={handleActivate}
         tabIndex={0}
-        aria-label={`${notification.isRead ? 'Read' : 'Unread'} ${notification.priority} priority ${notification.category} notification: ${notification.title}`}
-        onClick={handleClick}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleClick();
-          }
-        }}
+        className="flex w-full gap-3 pr-8 text-left outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        aria-describedby={`notification-${notification.id}-meta notification-${notification.id}-message`}
       >
-        {/* Category icon */}
-        <div className={`
-          flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
-          ${categoryColor}
-        `}>
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${categoryColor}`}
+          aria-hidden="true"
+        >
           <Icon size={18} aria-hidden="true" />
         </div>
 
-        {/* Message content */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
-              <h4 className={`
-                font-medium text-gray-900 truncate
-                ${notification.isRead ? 'font-normal' : 'font-semibold'}
-              `}>
+              <h4
+                className={`truncate text-gray-900 ${
+                  notification.isRead ? 'font-normal' : 'font-semibold'
+                }`}
+              >
                 {notification.title}
               </h4>
-              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+              <p
+                id={`notification-${notification.id}-message`}
+                className="mt-1 line-clamp-2 text-sm text-gray-600"
+              >
                 {notification.message}
               </p>
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-between mt-2">
+          <div
+            id={`notification-${notification.id}-meta`}
+            className="mt-2 flex items-center justify-between"
+          >
             <div className="flex items-center gap-3 text-xs text-gray-500">
               <div className="flex items-center gap-1">
                 <Clock size={12} aria-hidden="true" />
                 <span>{formatTimestamp(notification.timestamp)}</span>
               </div>
-              <span className={`
-                px-2 py-0.5 rounded-full text-xs font-medium
-                ${categoryColor}
-              `}>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${categoryColor}`}>
                 {notification.category}
               </span>
             </div>
-            
+
             {!notification.isRead && (
-              <div className="w-2 h-2 bg-blue-500 rounded-full" aria-label="Unread"></div>
+              <span className="h-2 w-2 rounded-full bg-blue-500" aria-label="Unread notification" />
             )}
           </div>
         </div>
-      </div>
+      </button>
 
-      {/* Priority indicator for high priority */}
       {notification.priority === 'high' && (
-        <div className="absolute top-2 left-2">
-          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" aria-label="High priority"></div>
-        </div>
+        <span className="absolute left-2 top-2 h-2 w-2 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
       )}
-    </div>
+    </article>
   );
 };
 

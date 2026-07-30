@@ -2,6 +2,7 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, Address, Bytes, Env, String, Vec,
     Map, BytesN, Symbol,
 };
+use crate::utils::pause::PauseUtils;
 
 /// Verifiable Random Function (VRF) implementation for Stellar blockchain
 /// Provides fair, transparent, and tamper-proof randomization for:
@@ -101,6 +102,7 @@ impl VRFSystem {
         provider: Address,
         weight: u32,
     ) -> u64 {
+        PauseUtils::require_not_paused(&env);
         provider.require_auth();
 
         if weight > 10000 {
@@ -134,6 +136,7 @@ impl VRFSystem {
         purpose: String,
         context: String,
     ) -> u64 {
+        PauseUtils::require_not_paused(&env);
         requester.require_auth();
 
         let request_id: u64 = env.storage().persistent()
@@ -191,6 +194,7 @@ impl VRFSystem {
         request_id: u64,
         entropy: BytesN<32>,
     ) {
+        PauseUtils::require_not_paused(&env);
         let source: EntropySource = env.storage().persistent()
             .get(&StorageKey::EntropySource(source_id))
             .unwrap_or_else(|| panic!("Entropy source not found"));
@@ -232,6 +236,7 @@ impl VRFSystem {
         random_value: u128,
         proof: BytesN<64>,
     ) {
+        PauseUtils::require_not_paused(&env);
         let mut request: VRFRequest = env.storage().persistent()
             .get(&StorageKey::VRFRequest(request_id))
             .unwrap_or_else(|| panic!("VRF request not found"));
@@ -259,6 +264,7 @@ impl VRFSystem {
         entropy_hash: BytesN<32>,
         contributors: Vec<Address>,
     ) -> u64 {
+        PauseUtils::require_not_paused(&env);
         let beacon_id: u64 = env.storage().persistent()
             .get(&StorageKey::NextBeaconId)
             .unwrap_or(0u64);
@@ -286,6 +292,7 @@ impl VRFSystem {
         commitment_hash: BytesN<32>,
         valid_until: u64,
     ) {
+        PauseUtils::require_not_paused(&env);
         committer.require_auth();
 
         let key = StorageKey::Commitment(committer.clone(), env.ledger().sequence() as u64);
@@ -303,6 +310,7 @@ impl VRFSystem {
         committer: Address,
         revealed_value: String,
     ) -> String {
+        PauseUtils::require_not_paused(&env);
         let key = StorageKey::Commitment(committer.clone(), env.ledger().sequence() as u64);
         
         let commitment: CommitmentData = env.storage().temporary()

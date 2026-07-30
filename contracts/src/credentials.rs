@@ -62,6 +62,8 @@ pub fn issue_credential(
     if issuer != admin {
         panic!("Unauthorized issuer");
     }
+    // RBAC: require Issuer role
+    crate::access_control::require_role(env, &issuer, crate::access_control::Role::Issuer);
 
     // Use shared storage utility for ID generation
     let credential_id = StorageUtils::get_next_id(env, EntityType::Credential);
@@ -153,6 +155,8 @@ pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) {
     if revoker != admin {
         panic!("Only admin can revoke");
     }
+    // RBAC: only Admin can revoke credentials
+    crate::access_control::require_role(env, &revoker, crate::access_control::Role::Admin);
 
     let mut credential: Credential = env
         .storage()

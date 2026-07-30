@@ -39,7 +39,7 @@ export class FileUploadService {
   }
 
   async uploadFiles(
-    files: Express.Multer.File[], 
+    files: any[],
     folderPath: string,
     options: UploadOptions = {}
   ): Promise<AssignmentFile[]> {
@@ -67,7 +67,7 @@ export class FileUploadService {
   }
 
   async uploadSingleFile(
-    file: Express.Multer.File,
+    file: any,
     folderPath: string,
     options: UploadOptions = {}
   ): Promise<AssignmentFile> {
@@ -158,7 +158,7 @@ export class FileUploadService {
   }
 
   private async validateFile(
-    file: Express.Multer.File, 
+    file: any, 
     options: UploadOptions
   ): Promise<void> {
     // Check file size
@@ -178,7 +178,7 @@ export class FileUploadService {
     await this.validateFileContent(file);
   }
 
-  private async validateFileContent(file: Express.Multer.File): Promise<void> {
+  private async validateFileContent(file: any): Promise<void> {
     // Check for malicious content in code files
     const codeExtensions = ['.js', '.ts', '.py', '.java', '.cpp', '.c', '.php', '.rb'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -218,9 +218,9 @@ export class FileUploadService {
   }
 
   private async processFile(
-    file: Express.Multer.File,
+    file: any,
     options: UploadOptions
-  ): Promise<Express.Multer.File> {
+  ): Promise<any> {
     let processedFile = file;
 
     // Process images
@@ -237,9 +237,9 @@ export class FileUploadService {
   }
 
   private async processImage(
-    file: Express.Multer.File,
+    file: any,
     options: UploadOptions
-  ): Promise<Express.Multer.File> {
+  ): Promise<any> {
     // Validate image integrity
     try {
       await sharp(file.buffer).metadata();
@@ -273,16 +273,16 @@ export class FileUploadService {
   }
 
   private async processDocument(
-    file: Express.Multer.File,
+    file: any,
     options: UploadOptions
-  ): Promise<Express.Multer.File> {
+  ): Promise<any> {
     // For documents, we might want to extract metadata or generate previews
     // For now, just return the original file
     return file;
   }
 
   private async uploadToStorage(
-    file: Express.Multer.File,
+    file: any,
     folderPath: string
   ): Promise<AssignmentFile> {
     const fileExtension = path.extname(file.originalname);

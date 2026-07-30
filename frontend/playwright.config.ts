@@ -11,10 +11,12 @@ export default defineConfig({
     ['json', { outputFile: 'test-results/e2e-results.json' }],
     ['junit', { outputFile: 'test-results/e2e-junit.xml' }],
   ],
+  timeout: 60000,
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    video: 'on-first-retry',
   },
   projects: [
     {

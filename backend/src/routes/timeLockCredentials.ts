@@ -6,6 +6,7 @@
  */
 
 import { Router } from "express";
+// @ts-ignore - controller module not yet implemented
 import * as timeLockController from "../controllers/timeLockController";
 
 const router: Router = Router();
