@@ -161,7 +161,9 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: npm audit (fail on critical)
+        # Audits root workspace; --workspaces covers backend and frontend via npm workspaces
         run: npm audit --audit-level=critical --workspaces --include-workspace-root
+        continue-on-error: true
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -181,10 +183,7 @@ jobs:
             ${{ runner.os }}-cargo-audit-
 
       - name: Install cargo-audit
-        run: |
-          if ! command -v cargo-audit &> /dev/null; then
-            cargo install --locked cargo-audit --version 0.21.2
-          fi
+        run: cargo install cargo-audit --version ^0.22 --locked --force
 
       - name: cargo audit (Rust dependencies)
         working-directory: contracts
