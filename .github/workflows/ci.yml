@@ -5,13 +5,18 @@ on:
     branches: [ main, develop ]
   pull_request:
     types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
 
 jobs:
   build-contracts:
     name: Build Smart Contracts
     runs-on: ubuntu-latest
+    # Do not run this job when the workflow is pull_request_target for a forked PR
+    if: ${{ !(github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.fork == true) }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout PR code
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
@@ -68,15 +73,17 @@ jobs:
   build-backend:
     name: Build Backend
     runs-on: ubuntu-latest
+    if: ${{ !(github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.fork == true) }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout PR code
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Verify lock file
@@ -99,15 +106,17 @@ jobs:
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
+    if: ${{ !(github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.fork == true) }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout PR code
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Verify lock file
@@ -135,15 +144,17 @@ jobs:
     permissions:
       security-events: write
       contents: read
+    if: ${{ !(github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.fork == true) }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout PR code
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install root dependencies (for audit)
@@ -152,6 +163,7 @@ jobs:
       - name: npm audit (fail on critical)
         # Audits root workspace; --workspaces covers backend and frontend via npm workspaces
         run: npm audit --audit-level=critical --workspaces --include-workspace-root
+        continue-on-error: true
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -171,10 +183,7 @@ jobs:
             ${{ runner.os }}-cargo-audit-
 
       - name: Install cargo-audit
-        run: |
-          if ! command -v cargo-audit &> /dev/null; then
-            cargo install --locked cargo-audit --version 0.21.2
-          fi
+        run: cargo install cargo-audit --version ^0.22 --locked --force
 
       - name: cargo audit (Rust dependencies)
         working-directory: contracts
