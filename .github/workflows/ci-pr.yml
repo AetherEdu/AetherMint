@@ -76,7 +76,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-audit
-          key: ${{ runner.os }}-cargo-audit-bin-0.21.2
+          key: ${{ runner.os }}-cargo-audit-bin-0.22
 
       - name: Check formatting
         run: cd contracts && cargo fmt --all -- --check
@@ -258,11 +258,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-audit
-          key: ${{ runner.os }}-cargo-audit-bin-0.21.2
+          key: ${{ runner.os }}-cargo-audit-bin-0.22
 
       - name: Install cargo-audit (if not cached)
         if: steps.cache-audit.outputs.cache-hit != 'true'
-        run: cargo install --locked cargo-audit --version 0.21.2
+        run: cargo install --locked cargo-audit --version ^0.22 --force
 
       - name: cargo audit (Rust dependencies, non-blocking)
         working-directory: contracts
