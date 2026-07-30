@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { UserProfile, ProfileFormData } from '../types/profile';
+import { useFormValidation } from '../lib/validation/useFormValidation';
+import { profileFormSchema, type ProfileFormData } from '../lib/validation/schemas';
+import { UserProfile } from '../types/profile';
 import { useProfile } from '../hooks/useProfile';
-import { User, MapPin, Globe, Lock, Save, X, Camera } from 'lucide-react';
+import { User, MapPin, Globe, Lock, Save, X, Camera, AlertCircle } from 'lucide-react';
 
 interface ProfileEditorProps {
   onClose?: () => void;
@@ -22,10 +23,40 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
     handleSubmit,
     formState: { errors, isDirty },
     reset,
-    watch
-  } = useForm<ProfileFormData>();
+    errorAnnouncementId,
+    errorAnnouncement,
+    resetForm,
+  } = useFormValidation<ProfileFormData>({
+    schema: profileFormSchema,
+    persistenceKey: 'profile-editor',
+    mode: 'onChange',
+    onSubmit: async (data) => {
+      setIsSubmitting(true);
+      setSubmitError(null);
 
-  const watchedValues = watch();
+      try {
+        if (!profile) {
+          setSubmitError('No profile data available');
+          return;
+        }
+
+        const response = await updateProfile(data);
+
+        if (response.success) {
+          onSuccess?.();
+          onClose?.();
+        } else {
+          setSubmitError(response.message || 'Failed to update profile');
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+        setSubmitError(errorMessage);
+        console.error('Profile update error:', error);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+  });
 
   useEffect(() => {
     if (profile) {
@@ -52,35 +83,8 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
     }
   };
 
-  const onSubmit = async (data: ProfileFormData) => {
-    setIsSubmitting(true);
-    setSubmitError(null);
-
-    try {
-      if (!profile) {
-        setSubmitError('No profile data available');
-        return;
-      }
-
-      const response = await updateProfile(data);
-      
-      if (response.success) {
-        onSuccess?.();
-        onClose?.();
-      } else {
-        setSubmitError(response.message || 'Failed to update profile');
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      setSubmitError(errorMessage);
-      console.error('Profile update error:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleCancel = () => {
-    reset();
+    resetForm();
     setAvatarPreview(profile?.avatar || null);
     setSubmitError(null);
     onClose?.();
@@ -110,8 +114,15 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
         </button>
       </div>
 
+      {/* Accessible error announcement for screen readers (Issue #275) */}
+      {errorAnnouncement && (
+        <div id={errorAnnouncementId} className="sr-only" aria-live="assertive" aria-atomic="true" role="alert">
+          {errorAnnouncement}
+        </div>
+      )}
+
       {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="p-4 sm:p-6 space-y-5 sm:space-y-6">
+      <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6">
         {/* Avatar Section */}
         <div className="flex items-center gap-6">
           <div className="relative">
@@ -168,22 +179,17 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
             <input
               id="name"
               type="text"
-              {...register('name', {
-                required: 'Name is required',
-                minLength: {
-                  value: 2,
-                  message: 'Name must be at least 2 characters'
-                },
-                maxLength: {
-                  value: 50,
-                  message: 'Name cannot exceed 50 characters'
-                }
-              })}
-              className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              {...register('name')}
+              className={`w-full px-4 py-3 sm:py-2.5 text-base border rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.name ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-slate-600'
+              }`}
               placeholder="Enter your name"
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'name-error' : undefined}
             />
             {errors.name && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              <p id="name-error" role="alert" aria-live="assertive" className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 {errors.name.message}
               </p>
             )}
@@ -200,18 +206,17 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
             <input
               id="email"
               type="email"
-              {...register('email', {
-                required: 'Email is required',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'Invalid email address'
-                }
-              })}
-              className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              {...register('email')}
+              className={`w-full px-4 py-3 sm:py-2.5 text-base border rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.email ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-slate-600'
+              }`}
               placeholder="your.email@example.com"
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? 'email-error' : undefined}
             />
             {errors.email && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              <p id="email-error" role="alert" aria-live="assertive" className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 {errors.email.message}
               </p>
             )}
@@ -228,17 +233,17 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
             <textarea
               id="bio"
               rows={3}
-              {...register('bio', {
-                maxLength: {
-                  value: 500,
-                  message: 'Bio cannot exceed 500 characters'
-                }
-              })}
-              className="w-full px-4 py-3 sm:py-2.5 text-base border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              {...register('bio')}
+              className={`w-full px-4 py-3 sm:py-2.5 text-base border rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                errors.bio ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-slate-600'
+              }`}
               placeholder="Tell us about yourself..."
+              aria-invalid={!!errors.bio}
+              aria-describedby={errors.bio ? 'bio-error' : undefined}
             />
             {errors.bio && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              <p id="bio-error" role="alert" aria-live="assertive" className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 {errors.bio.message}
               </p>
             )}
@@ -264,19 +269,15 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
               <input
                 id="location"
                 type="text"
-                {...register('location', {
-                  maxLength: {
-                    value: 100,
-                    message: 'Location cannot exceed 100 characters'
-                  }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                {...register('location')}
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.location ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-slate-600'
+                }`}
                 placeholder="City, Country"
+                aria-invalid={!!errors.location}
               />
               {errors.location && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                  {errors.location.message}
-                </p>
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.location.message}</p>
               )}
             </div>
 
@@ -292,19 +293,15 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
               <input
                 id="website"
                 type="url"
-                {...register('website', {
-                  pattern: {
-                    value: /^https?:\/\/.+/i,
-                    message: 'Please enter a valid URL (http:// or https://)'
-                  }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                {...register('website')}
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.website ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-slate-600'
+                }`}
                 placeholder="https://yourwebsite.com"
+                aria-invalid={!!errors.website}
               />
               {errors.website && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                  {errors.website.message}
-                </p>
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.website.message}</p>
               )}
             </div>
           </div>
@@ -336,9 +333,9 @@ export function ProfileEditor({ onClose, onSuccess }: ProfileEditorProps) {
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Submit Error */}
         {submitError && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4" role="alert" aria-live="assertive">
             <p className="text-sm text-red-600 dark:text-red-400">{submitError}</p>
           </div>
         )}
