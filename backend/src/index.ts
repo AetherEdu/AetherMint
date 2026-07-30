@@ -346,7 +346,6 @@ app.use('/api/v1/vrf', vrfRoutes);
 app.use('/api/v1/translate', translationRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
-app.use('/api/v1/jobs', jobRoutes);
 app.get('/api/v1/health', (req, res) => {
   if (isShuttingDown()) {
     res.status(503).json({
