@@ -224,6 +224,11 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 // public, authenticated-user, or admin tier.
 app.use('/api', tieredRateLimiter);
 
+// GraphQL endpoint — mounted immediately; the Apollo Server is started lazily
+// in startServer() and serves 503 until ready.
+const graphqlBootstrap = createGraphQLPlaceholder();
+app.use('/graphql', rateLimits.graphql, graphqlBootstrap.middleware);
+
 // API routes
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/events', eventLoggerRoutes);
