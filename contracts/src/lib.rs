@@ -156,6 +156,7 @@ mod user_profile_test;
 mod vrf_system_test;
 
 #[cfg(test)]
+mod access_control_test;
 mod pause_test;
 
 pub mod utils;
@@ -167,6 +168,7 @@ mod dna_storage_checkpoint_test;
 #[cfg(test)]
 mod dna_storage_test;
 
+/// Optimized user profile with packed storage
 use crate::profile_nft::ProfileNFT;
 #[contracttype]
 #[derive(Clone)]
@@ -334,6 +336,15 @@ impl AetherMintContract {
         validate_string_length(&env, &course_id, MAX_SHORT_TEXT_LENGTH);
         validate_string_length(&env, &ipfs_hash, MAX_URI_LENGTH);
 
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .unwrap_or_else(|| panic!("Admin not found"));
+
+        if issuer != admin {
+            panic!("Only admin can issue credentials");
+        }
         // RBAC: require Issuer role (Admin also satisfies this via has_role)
         access_control::require_role(&env, &issuer, access_control::Role::Issuer);
 
@@ -416,6 +427,15 @@ impl AetherMintContract {
         validate_string_length(&env, &description, MAX_DESCRIPTION_LENGTH);
         validate_positive_u64(&env, price);
 
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .unwrap_or_else(|| panic!("Admin not found"));
+
+        if instructor != admin {
+            panic!("Only admin can create courses");
+        }
         // RBAC: require Instructor role
         access_control::require_role(&env, &instructor, access_control::Role::Instructor);
 
