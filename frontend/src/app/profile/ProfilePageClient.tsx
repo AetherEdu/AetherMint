@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useProfile } from '../../hooks/useProfile';
+import { useTour } from '../../lib/tour/TourContext';
 import { ProfileEditor } from '../../components/ProfileEditor';
 import { AchievementDisplay } from '../../components/AchievementDisplay';
 import { CredentialList } from '../../components/CredentialList';
@@ -34,6 +35,25 @@ export default function ProfilePageClient() {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [showEditModal, setShowEditModal] = useState(false);
+  const { startTour, setTourSteps } = useTour();
+
+  useEffect(() => {
+    setTourSteps([
+      {
+        targetId: 'profile-header',
+        title: 'Your Profile',
+        content: 'Here you can see your profile details and edit your information.',
+        position: 'bottom',
+      },
+      {
+        targetId: 'profile-tabs',
+        title: 'Navigation',
+        content: 'Switch between overview, achievements, credentials, stats, and settings.',
+        position: 'bottom',
+      }
+    ]);
+    startTour('profile-tour');
+  }, [setTourSteps, startTour]);
 
   const tabs = [
     { id: 'overview' as ActiveTab, label: 'Overview', icon: User },
@@ -101,7 +121,7 @@ export default function ProfilePageClient() {
 
       <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4" id="profile-header">
             <div className="flex-1">
               <ProfileHeader user={profile} />
             </div>
@@ -116,7 +136,7 @@ export default function ProfilePageClient() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-40">
+      <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-40" id="profile-tabs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             {tabs.map((tab) => {
