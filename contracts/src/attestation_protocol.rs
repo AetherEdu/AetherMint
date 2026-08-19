@@ -14,7 +14,7 @@
 //! - The contract admin can [`deactivate_attester`] (and [`reactivate_attester`]).
 
 use soroban_sdk::{
-    contracterror, contracttype, panic_with_error, Address, BytesN, Env, String, Vec,
+    contracterror, contracttype, panic_with_error, symbol_short, Address, BytesN, Env, String, Vec,
 };
 
 use crate::credential_registry;

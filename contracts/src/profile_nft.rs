@@ -9,7 +9,7 @@ use crate::utils::validation::{
     validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH,
     MAX_URI_LENGTH,
 };
-use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Vec};
+use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
 
 /// Maximum number of skills per profile NFT
 pub const MAX_SKILLS: u32 = 20;
@@ -294,7 +294,7 @@ pub fn unverify_profile_nft(env: &Env, admin: Address, token_id: u64) -> bool {
         .set(&ProfileNFTKey::Token(token_id), &nft);
 
     env.events().publish(
-        (symbol_short!("profile"), Symbol::new(&env, "unverified")),
+        (symbol_short!("profile"), Symbol::new(env, "unverified")),
         (token_id, admin),
     );
 

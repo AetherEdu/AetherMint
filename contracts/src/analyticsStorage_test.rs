@@ -282,7 +282,15 @@ fn test_record_metrics_with_max_values() {
     client.initialize(&admin);
 
     // Record metrics with maximum values
-    client.record_metrics(&u64::MAX, &u64::MAX, &u64::MAX, &u64::MAX, &u32::MAX, &u32::MAX, &u64::MAX);
+    client.record_metrics(
+        &u64::MAX,
+        &u64::MAX,
+        &u64::MAX,
+        &u64::MAX,
+        &u32::MAX,
+        &u32::MAX,
+        &u64::MAX,
+    );
 
     let latest = client.get_latest().unwrap();
     assert_eq!(latest.total_users, u64::MAX);
@@ -427,8 +435,14 @@ fn test_multiple_outcome_records() {
 
     assert_eq!(retrieved1.len(), 1);
     assert_eq!(retrieved2.len(), 1);
-    assert_eq!(retrieved1.get(0).unwrap().course_id, symbol_short!("COURSE1"));
-    assert_eq!(retrieved2.get(0).unwrap().course_id, symbol_short!("COURSE2"));
+    assert_eq!(
+        retrieved1.get(0).unwrap().course_id,
+        symbol_short!("COURSE1")
+    );
+    assert_eq!(
+        retrieved2.get(0).unwrap().course_id,
+        symbol_short!("COURSE2")
+    );
 }
 
 #[test]
