@@ -147,6 +147,7 @@ pub mod utils;
 
 pub mod dna_services;
 pub mod dna_storage;
+pub mod bridge;
 #[cfg(test)]
 mod dna_storage_checkpoint_test;
 #[cfg(test)]
@@ -891,6 +892,87 @@ impl AetherMintContract {
     /// Return the maximum number of credentials allowed in a single batch.
     pub fn max_batch_size(_env: Env) -> u32 {
         MAX_BATCH_SIZE
+    }
+
+    // ===== Bridge Relayer Monitoring & Fraud Proofs (issue #423) =====
+
+    /// Initialize the bridge subsystem with an admin.
+    pub fn initialize_bridge(env: Env, admin: Address) {
+        bridge::initialize_bridge(&env, admin);
+    }
+
+    /// Register a relayer with a stake of at least the minimum required.
+    pub fn register_relayer(env: Env, relayer: Address, stake: i128) {
+        bridge::register_relayer(&env, relayer, stake);
+    }
+
+    /// Report relayer liveness.
+    pub fn heartbeat(env: Env, relayer: Address) {
+        bridge::heartbeat(&env, relayer);
+    }
+
+    /// Submit an optimistic cross-chain attestation.
+    pub fn submit_attestation(
+        env: Env,
+        relayer: Address,
+        message_id: String,
+        source_chain: u32,
+        destination_chain: u32,
+        state_root: String,
+    ) -> u64 {
+        bridge::submit_attestation(
+            &env,
+            relayer,
+            message_id,
+            source_chain,
+            destination_chain,
+            state_root,
+        )
+    }
+
+    /// Submit a fraud proof against a pending attestation.
+    pub fn submit_fraud_proof(
+        env: Env,
+        challenger: Address,
+        attestation_id: u64,
+        evidence: String,
+    ) -> bool {
+        bridge::submit_fraud_proof(&env, challenger, attestation_id, evidence)
+    }
+
+    /// Finalize an attestation after the dispute window has closed.
+    pub fn finalize_attestation(env: Env, attestation_id: u64) {
+        bridge::finalize_attestation(&env, attestation_id);
+    }
+
+    /// Admin-only: freeze an active relayer.
+    pub fn freeze_relayer(env: Env, admin: Address, relayer: Address) {
+        bridge::freeze_relayer(&env, admin, relayer);
+    }
+
+    /// Admin-only: unfreeze a frozen relayer.
+    pub fn unfreeze_relayer(env: Env, admin: Address, relayer: Address) {
+        bridge::unfreeze_relayer(&env, admin, relayer);
+    }
+
+    /// Fetch a relayer record.
+    pub fn get_relayer(env: Env, relayer: Address) -> bridge::Relayer {
+        bridge::get_relayer(&env, relayer)
+    }
+
+    /// Fetch an attestation record.
+    pub fn get_attestation(env: Env, attestation_id: u64) -> bridge::Attestation {
+        bridge::get_attestation(&env, attestation_id)
+    }
+
+    /// Whether a relayer is currently frozen.
+    pub fn is_relayer_frozen(env: Env, relayer: Address) -> bool {
+        bridge::is_relayer_frozen(&env, relayer)
+    }
+
+    /// Whether a relayer is live (active and within the liveness window).
+    pub fn is_relayer_live(env: Env, relayer: Address) -> bool {
+        bridge::is_relayer_live(&env, relayer)
     }
 
     // ===== Pause / Unpause (Circuit Breaker) =====
