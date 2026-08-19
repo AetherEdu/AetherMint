@@ -8,6 +8,7 @@ use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, 
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
 use crate::utils::pause::PauseUtils;
+use crate::utils::storage::StorageVersion;
 use crate::utils::validation::{
     validate_non_zero_address, validate_positive_u64, validate_string_length,
     MAX_DESCRIPTION_LENGTH, MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
@@ -121,6 +122,14 @@ pub mod user_profile;
 // pub mod syncCoordination;
 pub mod proctoring;
 pub mod tokenomics;
+
+// Dynamic fees, marketplace, and profile NFT modules.
+// Kept as free-function modules (no `#[contract]`) so they share the single
+// `AetherMintContract` instance rather than declaring conflicting contracts.
+pub mod dynamic_fees;
+pub mod marketplace;
+pub mod profile_nft;
+
 #[cfg(test)]
 mod analyticsStorage_test;
 #[cfg(test)]
@@ -288,7 +297,9 @@ impl AetherMintContract {
             .instance()
             .set(&DataKey::CredentialCount, &0u64);
         env.storage().instance().set(&DataKey::CourseCount, &0u64);
-        env.storage().instance().set(&DataKey::AchievementCount, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::AchievementCount, &0u64);
 
         // Stamp the storage schema version (issue #120). Initializing here
         // means every later call into durable storage goes through
@@ -923,14 +934,8 @@ impl AetherMintContract {
     // ===== Marketplace Functions =====
 
     /// Create a marketplace listing for an item (credential, course, or NFT).
-    pub fn list_item(
-        env: Env,
-        seller: Address,
-        item_id: u64,
-        price: u64,
-        item_type: u32,
-    ) -> u64 {
-        marketplace::list_item(&env, &seller, item_id, price, item_type)
+    pub fn list_item(env: Env, seller: Address, item_id: u64, price: u64, item_type: u32) -> u64 {
+        marketplace::list_item(&env, &seller, item_id, item_type, price)
     }
 
     /// Buy an item — transfers ownership with escrow holding funds.

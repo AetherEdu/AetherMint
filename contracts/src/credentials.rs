@@ -1,6 +1,6 @@
 use crate::credential_events::{publish_credential_event, CredentialLifecycleEvent};
 use crate::utils::storage::{EntityType, StorageUtils};
-use soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{contracttype, Address, Env, String, Vec};
 
 /// Optimized credential keys with better organization
 #[contracttype]
