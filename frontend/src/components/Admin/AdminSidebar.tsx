@@ -13,6 +13,7 @@ import {
   BarChart3,
   Database,
   Bell,
+  Languages,
   LogOut,
   Menu,
   X,
@@ -51,6 +52,7 @@ const sidebarItems: SidebarItem[] = [
     children: [
       { title: 'Courses', href: '/admin/content/courses', icon: BookOpen },
       { title: 'Quizzes', href: '/admin/content/quizzes', icon: FileText },
+      { title: 'Localization', href: '/admin/localization', icon: Languages },
       { title: 'Moderation', href: '/admin/content/moderation', icon: Shield }
     ]
   },
