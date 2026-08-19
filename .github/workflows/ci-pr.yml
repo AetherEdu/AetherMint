@@ -130,6 +130,51 @@ jobs:
             cd contracts && cargo test --lib --release
           fi
 
+  spec-test-contracts:
+    name: Spec Tests — Bounded Model Checking
+    needs: build-contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            contracts/target/
+          key: ${{ runner.os }}-cargo-contracts-${{ hashFiles('contracts/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-contracts-
+
+      - name: Run specification-based tests (Issue #425)
+        # Runs only the *_spec_test modules so results are surfaced separately
+        # from unit tests and the output is easier to read in CI.
+        run: |
+          cd contracts && cargo test --lib --release \
+            -- spec_ --nocapture 2>&1 | tee /tmp/spec-test-output.txt
+          # Fail the job if any spec violation was detected.
+          if grep -q "FAILED\|panicked at" /tmp/spec-test-output.txt; then
+            echo "::error::One or more specification invariants were violated. See output above."
+            exit 1
+          fi
+
+      - name: Upload spec test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spec-test-report
+          path: /tmp/spec-test-output.txt
+          retention-days: 30
+
   build-backend:
     name: Build Backend
     needs: detect-changes
@@ -286,6 +331,7 @@ jobs:
     needs:
       - build-contracts
       - test-contracts
+      - spec-test-contracts
       - build-backend
       - test-backend
       - build-frontend
@@ -297,6 +343,7 @@ jobs:
         run: |
           echo "build-contracts: ${{ needs.build-contracts.result }}"
           echo "test-contracts: ${{ needs.test-contracts.result }}"
+          echo "spec-test-contracts: ${{ needs.spec-test-contracts.result }}"
           echo "build-backend: ${{ needs.build-backend.result }}"
           echo "test-backend: ${{ needs.test-backend.result }}"
           echo "build-frontend: ${{ needs.build-frontend.result }}"
@@ -305,6 +352,7 @@ jobs:
       - name: Fail if any critical job failed
         if: >
           needs.build-contracts.result == 'failure' ||
+          needs.spec-test-contracts.result == 'failure' ||
           needs.build-backend.result == 'failure' ||
           needs.build-frontend.result == 'failure'
         run: exit 1

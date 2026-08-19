@@ -8,6 +8,7 @@ use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, 
 
 use crate::credential_registry::{BatchCredentialParams, MAX_BATCH_SIZE};
 use crate::utils::pause::PauseUtils;
+use crate::utils::storage::StorageVersion;
 use crate::utils::validation::{
     validate_non_zero_address, validate_positive_u64, validate_string_length,
     MAX_DESCRIPTION_LENGTH, MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
@@ -100,10 +101,21 @@ mod tokenomics_events_test;
 pub mod credential_registry;
 #[cfg(test)]
 mod credential_registry_test;
+#[cfg(test)]
+mod credential_registry_spec_test;
 
 pub mod schema_registry;
 #[cfg(test)]
 mod schema_registry_test;
+#[cfg(test)]
+mod schema_registry_spec_test;
+
+#[cfg(test)]
+pub mod specs;
+
+#[cfg(test)]
+mod governance_spec_test;
+
 pub mod dynamic_nft;
 #[cfg(test)]
 mod dynamic_nft_test;
@@ -125,6 +137,14 @@ pub mod user_profile;
 // pub mod syncCoordination;
 pub mod proctoring;
 pub mod tokenomics;
+
+// Dynamic fees, marketplace, and profile NFT modules.
+// Kept as free-function modules (no `#[contract]`) so they share the single
+// `AetherMintContract` instance rather than declaring conflicting contracts.
+pub mod dynamic_fees;
+pub mod marketplace;
+pub mod profile_nft;
+
 #[cfg(test)]
 mod analyticsStorage_test;
 #[cfg(test)]
@@ -150,6 +170,7 @@ mod pause_test;
 
 pub mod utils;
 
+pub mod bridge;
 pub mod dna_services;
 pub mod dna_storage;
 #[cfg(test)]
@@ -294,7 +315,9 @@ impl AetherMintContract {
             .instance()
             .set(&DataKey::CredentialCount, &0u64);
         env.storage().instance().set(&DataKey::CourseCount, &0u64);
-        env.storage().instance().set(&DataKey::AchievementCount, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::AchievementCount, &0u64);
 
         // Stamp the storage schema version (issue #120). Initializing here
         // means every later call into durable storage goes through
@@ -917,6 +940,87 @@ impl AetherMintContract {
         MAX_BATCH_SIZE
     }
 
+    // ===== Bridge Relayer Monitoring & Fraud Proofs (issue #423) =====
+
+    /// Initialize the bridge subsystem with an admin.
+    pub fn initialize_bridge(env: Env, admin: Address) {
+        bridge::initialize_bridge(&env, admin);
+    }
+
+    /// Register a relayer with a stake of at least the minimum required.
+    pub fn register_relayer(env: Env, relayer: Address, stake: i128) {
+        bridge::register_relayer(&env, relayer, stake);
+    }
+
+    /// Report relayer liveness.
+    pub fn heartbeat(env: Env, relayer: Address) {
+        bridge::heartbeat(&env, relayer);
+    }
+
+    /// Submit an optimistic cross-chain attestation.
+    pub fn submit_attestation(
+        env: Env,
+        relayer: Address,
+        message_id: String,
+        source_chain: u32,
+        destination_chain: u32,
+        state_root: String,
+    ) -> u64 {
+        bridge::submit_attestation(
+            &env,
+            relayer,
+            message_id,
+            source_chain,
+            destination_chain,
+            state_root,
+        )
+    }
+
+    /// Submit a fraud proof against a pending attestation.
+    pub fn submit_fraud_proof(
+        env: Env,
+        challenger: Address,
+        attestation_id: u64,
+        evidence: String,
+    ) -> bool {
+        bridge::submit_fraud_proof(&env, challenger, attestation_id, evidence)
+    }
+
+    /// Finalize an attestation after the dispute window has closed.
+    pub fn finalize_attestation(env: Env, attestation_id: u64) {
+        bridge::finalize_attestation(&env, attestation_id);
+    }
+
+    /// Admin-only: freeze an active relayer.
+    pub fn freeze_relayer(env: Env, admin: Address, relayer: Address) {
+        bridge::freeze_relayer(&env, admin, relayer);
+    }
+
+    /// Admin-only: unfreeze a frozen relayer.
+    pub fn unfreeze_relayer(env: Env, admin: Address, relayer: Address) {
+        bridge::unfreeze_relayer(&env, admin, relayer);
+    }
+
+    /// Fetch a relayer record.
+    pub fn get_relayer(env: Env, relayer: Address) -> bridge::Relayer {
+        bridge::get_relayer(&env, relayer)
+    }
+
+    /// Fetch an attestation record.
+    pub fn get_attestation(env: Env, attestation_id: u64) -> bridge::Attestation {
+        bridge::get_attestation(&env, attestation_id)
+    }
+
+    /// Whether a relayer is currently frozen.
+    pub fn is_relayer_frozen(env: Env, relayer: Address) -> bool {
+        bridge::is_relayer_frozen(&env, relayer)
+    }
+
+    /// Whether a relayer is live (active and within the liveness window).
+    pub fn is_relayer_live(env: Env, relayer: Address) -> bool {
+        bridge::is_relayer_live(&env, relayer)
+    }
+
     // ===== Pause / Unpause (Circuit Breaker) =====
 
     /// Pause the contract (Admin only)
@@ -947,14 +1051,8 @@ impl AetherMintContract {
     // ===== Marketplace Functions =====
 
     /// Create a marketplace listing for an item (credential, course, or NFT).
-    pub fn list_item(
-        env: Env,
-        seller: Address,
-        item_id: u64,
-        price: u64,
-        item_type: u32,
-    ) -> u64 {
-        marketplace::list_item(&env, &seller, item_id, price, item_type)
+    pub fn list_item(env: Env, seller: Address, item_id: u64, price: u64, item_type: u32) -> u64 {
+        marketplace::list_item(&env, &seller, item_id, item_type, price)
     }
 
     /// Buy an item — transfers ownership with escrow holding funds.

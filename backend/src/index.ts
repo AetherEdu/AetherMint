@@ -40,6 +40,9 @@ import * as transactionProcessor from './workers/transactionProcessor';
 // @ts-ignore
 import * as transactionEvents from './events/transactionEvents';
 
+// Bridge relayer monitor watch job — Issue #423
+import { bridgeMonitorJob } from './workers/bridgeMonitorJob';
+
 // Background job queue — Issue #258
 import { getJobQueue } from './services/jobQueue';
 
@@ -263,6 +266,11 @@ app.use('/api/gamification', gamificationRoutes);
 const bridgeRoutes = loadRoute('./routes/bridge');
 app.use('/api/bridge', bridgeRoutes);
 
+// Bridge relayer monitoring routes — Issue #423
+// @ts-ignore
+const bridgeMonitorRoutes = loadRoute('./routes/bridgeMonitor');
+app.use('/api/bridge-monitor', bridgeMonitorRoutes);
+
 // Time-Locked Credential routes with idempotency (Issue #264)
 // @ts-ignore
 const timeLockCredentialsRoutes = loadRoute('./routes/timeLockCredentials');
@@ -277,6 +285,11 @@ app.use('/api/vrf', vrfRoutes);
 // @ts-ignore
 const translationRoutes = loadRoute('./routes/translation');
 app.use('/api/translate', translationRoutes);
+
+// Course content localization pipeline routes — Issue #418
+// @ts-ignore
+const localizationRoutes = loadRoute('./routes/localization');
+app.use('/api/localization', localizationRoutes);
 
 // Bulk operations routes (Admin) – Issue #262
 // @ts-ignore
@@ -347,9 +360,11 @@ app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/autonomous-agents', autonomousAgentsRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/bridge', bridgeRoutes);
+app.use('/api/v1/bridge-monitor', bridgeMonitorRoutes);
 app.use('/api/v1/time-lock', timeLockCredentialsRoutes);
 app.use('/api/v1/vrf', vrfRoutes);
 app.use('/api/v1/translate', translationRoutes);
+app.use('/api/v1/localization', localizationRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.get('/api/v1/health', (req, res) => {
@@ -511,6 +526,9 @@ async function startServer() {
     }
     if (typeof (transactionEvents as any).startListening === 'function') {
       await (transactionEvents as any).startListening();
+    }
+    if (typeof bridgeMonitorJob.start === 'function') {
+      await bridgeMonitorJob.start();
     }
 
     // Initialise the presence & availability system (Issue #405). Fails open
