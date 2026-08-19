@@ -277,6 +277,11 @@ app.use('/api/vrf', vrfRoutes);
 const translationRoutes = loadRoute('./routes/translation');
 app.use('/api/translate', translationRoutes);
 
+// Course content localization pipeline routes — Issue #418
+// @ts-ignore
+const localizationRoutes = loadRoute('./routes/localization');
+app.use('/api/localization', localizationRoutes);
+
 // Bulk operations routes (Admin) – Issue #262
 // @ts-ignore
 const bulkOperationsRoutes = loadRoute('./routes/bulkOperations');
@@ -349,6 +354,7 @@ app.use('/api/v1/bridge', bridgeRoutes);
 app.use('/api/v1/time-lock', timeLockCredentialsRoutes);
 app.use('/api/v1/vrf', vrfRoutes);
 app.use('/api/v1/translate', translationRoutes);
+app.use('/api/v1/localization', localizationRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.get('/api/v1/health', (req, res) => {
