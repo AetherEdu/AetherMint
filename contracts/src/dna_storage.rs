@@ -1,5 +1,4 @@
-use crate::credentials::CredentialKey;
-use soroban_sdk::{contracttype, panic_with_error, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{contracttype, Address, Bytes, Env, String, Symbol, Vec};
 
 /// DNA nucleotide bases
 #[contracttype]
@@ -45,9 +44,9 @@ impl Nucleotide {
 #[contracttype]
 #[derive(Clone)]
 pub struct DNASequence {
-    pub sequence: Vec<u8>, // Packed nucleotides (2 bits per base)
-    pub length: u32,       // Number of bases
-    pub checksum: u32,     // CRC32 checksum for integrity
+    pub sequence: Bytes, // Packed nucleotides (2 bits per base)
+    pub length: u32,     // Number of bases
+    pub checksum: u32,   // CRC32 checksum for integrity
     pub metadata: DnaMetadata,
 }
 
@@ -55,9 +54,9 @@ pub struct DNASequence {
 #[contracttype]
 #[derive(Clone)]
 pub struct DnaMetadata {
-    pub encoding_version: u8,
-    pub compression_level: u8,
-    pub error_correction: u8,
+    pub encoding_version: u32,
+    pub compression_level: u32,
+    pub error_correction: u32,
     pub storage_timestamp: u64,
     pub synthesis_batch: String,
     pub sequencing_id: String,
@@ -107,6 +106,7 @@ pub enum DNAStorageKey {
     SynthesisBatch(String),   // Batch ID -> Vec<u64> credential IDs
     SequencingRecord(String), // Sequencing ID -> DNACredential
     IndexMap(String),         // Hash -> credential_id
+    HybridRef(String),        // Reference ID -> HybridStorageRef
 }
 
 /// Events for DNA operations
@@ -123,37 +123,46 @@ pub enum DNAEvent {
 /// Encode digital data to DNA sequence
 pub fn encode_to_dna(
     env: &Env,
-    data: &Vec<u8>,
+    data: &Bytes,
     error_correction: ErrorCorrectionLevel,
     protocol: DNAStorageProtocol,
 ) -> DNASequence {
+    // Resolve the error-correction level to its on-chain code up front, before
+    // the value is moved into `apply_error_correction`.
+    let error_correction_code = match error_correction {
+        ErrorCorrectionLevel::None => 0,
+        ErrorCorrectionLevel::Basic => 1,
+        ErrorCorrectionLevel::ReedSolomon => 2,
+        ErrorCorrectionLevel::Advanced => 3,
+    };
+
     let mut encoded_data = data.clone();
 
     // Apply error correction
     encoded_data = apply_error_correction(env, &encoded_data, error_correction);
 
     // Convert binary to DNA bases (2 bits per base)
-    let mut sequence = Vec::new(env);
+    let mut sequence = Bytes::new(env);
     let mut length = 0u32;
 
     for byte in encoded_data.iter() {
         // High nibble (bits 4-7)
-        let high_base = ((byte >> 6) & 0x03) as u8;
+        let high_base = (byte >> 6) & 0x03;
         sequence.push_back(high_base);
         length += 1;
 
         // Second nibble (bits 4-5)
-        let second_base = ((byte >> 4) & 0x03) as u8;
+        let second_base = (byte >> 4) & 0x03;
         sequence.push_back(second_base);
         length += 1;
 
         // Third nibble (bits 2-3)
-        let third_base = ((byte >> 2) & 0x03) as u8;
+        let third_base = (byte >> 2) & 0x03;
         sequence.push_back(third_base);
         length += 1;
 
         // Low nibble (bits 0-1)
-        let low_base = (byte & 0x03) as u8;
+        let low_base = byte & 0x03;
         sequence.push_back(low_base);
         length += 1;
     }
@@ -171,14 +180,9 @@ pub fn encode_to_dna(
     let metadata = DnaMetadata {
         encoding_version: 1,
         compression_level: 0,
-        error_correction: match error_correction {
-            ErrorCorrectionLevel::None => 0,
-            ErrorCorrectionLevel::Basic => 1,
-            ErrorCorrectionLevel::ReedSolomon => 2,
-            ErrorCorrectionLevel::Advanced => 3,
-        },
+        error_correction: error_correction_code,
         storage_timestamp: env.ledger().timestamp(),
-        synthesis_batch: crate::u64_to_string(env, env.ledger().sequence(), "batch_"),
+        synthesis_batch: crate::u64_to_string(env, env.ledger().sequence() as u64, "batch_"),
         sequencing_id: String::from_str(env, ""),
     };
 
@@ -191,11 +195,11 @@ pub fn encode_to_dna(
 }
 
 /// Decode DNA sequence back to digital data
-pub fn decode_from_dna(env: &Env, dna_sequence: &DNASequence) -> Vec<u8> {
+pub fn decode_from_dna(env: &Env, dna_sequence: &DNASequence) -> Bytes {
     // Verify checksum
     let calculated_checksum = calculate_dna_checksum(env, &dna_sequence.sequence);
     if calculated_checksum != dna_sequence.checksum {
-        panic_with_error!(env, "DNA sequence checksum verification failed");
+        panic!("DNA sequence checksum verification failed");
     }
 
     let mut sequence = dna_sequence.sequence.clone();
@@ -206,7 +210,7 @@ pub fn decode_from_dna(env: &Env, dna_sequence: &DNASequence) -> Vec<u8> {
     }
 
     // Convert DNA bases back to binary
-    let mut decoded_data = Vec::new(env);
+    let mut decoded_data = Bytes::new(env);
     let mut current_byte = 0u8;
     let mut bit_count = 0u8;
 
@@ -236,7 +240,7 @@ pub fn decode_from_dna(env: &Env, dna_sequence: &DNASequence) -> Vec<u8> {
 /// Store credential in DNA format
 pub fn store_credential_in_dna(
     env: &Env,
-    credential_id: u64,
+    _credential_id: u64,
     issuer: Address,
     recipient: Address,
     title: String,
@@ -247,14 +251,14 @@ pub fn store_credential_in_dna(
     issuer.require_auth();
 
     // Generate unique credential ID
-    let credential_id = env.ledger().sequence() + 1;
+    let credential_id = env.ledger().sequence() as u64 + 1;
 
     // Create credential data structure
     let credential_data = create_credential_data(
         env,
         credential_id,
         issuer,
-        recipient,
+        recipient.clone(),
         title,
         description,
         course_id,
@@ -280,7 +284,7 @@ pub fn store_credential_in_dna(
         sequencing_date: None,
         storage_protocol: DNAStorageProtocol::Hybrid,
         error_correction: ErrorCorrectionLevel::Advanced,
-        integrity_hash,
+        integrity_hash: integrity_hash.clone(),
     };
 
     // Store DNA credential
@@ -319,9 +323,10 @@ pub fn store_credential_in_dna(
         .set(&DNAStorageKey::DNACredentialCount, &(count + 1));
 
     // Create index mapping
-    env.storage()
-        .instance()
-        .set(&DNAStorageKey::IndexMap(integrity_hash), &credential_id);
+    env.storage().instance().set(
+        &DNAStorageKey::IndexMap(integrity_hash.clone()),
+        &credential_id,
+    );
 
     // Emit event
     env.events().publish(
@@ -360,7 +365,7 @@ pub fn verify_dna_credential(env: &Env, credential_id: u64) -> bool {
 }
 
 /// Retrieve credential from DNA storage
-pub fn retrieve_credential_from_dna(env: &Env, credential_id: u64) -> Vec<u8> {
+pub fn retrieve_credential_from_dna(env: &Env, credential_id: u64) -> Bytes {
     let dna_credential: DNACredential = env
         .storage()
         .persistent()
@@ -388,7 +393,7 @@ pub fn get_user_dna_credentials(env: &Env, user: Address) -> Vec<u64> {
 }
 
 /// Apply error correction to data
-fn apply_error_correction(env: &Env, data: &Vec<u8>, level: ErrorCorrectionLevel) -> Vec<u8> {
+fn apply_error_correction(env: &Env, data: &Bytes, level: ErrorCorrectionLevel) -> Bytes {
     match level {
         ErrorCorrectionLevel::None => data.clone(),
         ErrorCorrectionLevel::Basic => add_parity_bits(env, data),
@@ -398,7 +403,7 @@ fn apply_error_correction(env: &Env, data: &Vec<u8>, level: ErrorCorrectionLevel
 }
 
 /// Remove error correction from data
-fn remove_error_correction(env: &Env, data: &Vec<u8>, level: ErrorCorrectionLevel) -> Vec<u8> {
+fn remove_error_correction(env: &Env, data: &Bytes, level: ErrorCorrectionLevel) -> Bytes {
     match level {
         ErrorCorrectionLevel::None => data.clone(),
         ErrorCorrectionLevel::Basic => remove_parity_bits(env, data),
@@ -408,53 +413,52 @@ fn remove_error_correction(env: &Env, data: &Vec<u8>, level: ErrorCorrectionLeve
 }
 
 /// Calculate DNA sequence checksum
-fn calculate_dna_checksum(env: &Env, sequence: &Vec<u8>) -> u32 {
+fn calculate_dna_checksum(_env: &Env, sequence: &Bytes) -> u32 {
     let mut checksum = 0u32;
     for byte in sequence.iter() {
-        checksum = checksum.wrapping_mul(31).wrapping_add(*byte as u32);
+        checksum = checksum.wrapping_mul(31).wrapping_add(byte as u32);
     }
     checksum
 }
 
 /// Add indexing primers to sequence
-fn add_indexing_primers(env: &Env, mut sequence: Vec<u8>) -> Vec<u8> {
+fn add_indexing_primers(env: &Env, sequence: Bytes) -> Bytes {
     // Simplified primer addition (ATGC repeated pattern)
-    let primer = vec![0u8, 3u8, 2u8, 1u8, 0u8, 3u8, 2u8, 1u8, 0u8, 3u8]; // ATGCATGCAT
-    let mut new_sequence = Vec::new(env);
+    let primer = Bytes::from_array(env, &[0u8, 3u8, 2u8, 1u8, 0u8, 3u8, 2u8, 1u8, 0u8, 3u8]);
+    let mut new_sequence = Bytes::new(env);
 
     // Add forward primer
-    for base in primer.iter() {
-        new_sequence.push_back(*base);
-    }
+    new_sequence.append(&primer);
 
     // Add original sequence
-    for base in sequence.iter() {
-        new_sequence.push_back(*base);
-    }
+    new_sequence.append(&sequence);
 
     // Add reverse primer (complement)
+    let mut reverse_primer = Bytes::new(env);
     for base in primer.iter().rev() {
-        new_sequence.push_back(*base);
+        reverse_primer.push_back(base);
     }
+    new_sequence.append(&reverse_primer);
 
     new_sequence
 }
 
 /// Remove indexing primers from sequence
-fn remove_indexing_primers(env: &Env, sequence: Vec<u8>) -> Vec<u8> {
+fn remove_indexing_primers(env: &Env, sequence: Bytes) -> Bytes {
     if sequence.len() < 20 {
         return sequence;
     }
 
     // Remove first 10 and last 10 bases (primers)
-    let mut trimmed = Vec::new(env);
+    let mut trimmed = Bytes::new(env);
     for i in 10..sequence.len() - 10 {
-        trimmed.push_back(sequence.get(i).unwrap_or(&0));
+        trimmed.push_back(sequence.get(i).unwrap_or(0));
     }
     trimmed
 }
 
 /// Create credential data structure for encoding
+#[allow(clippy::too_many_arguments)]
 fn create_credential_data(
     env: &Env,
     credential_id: u64,
@@ -464,8 +468,8 @@ fn create_credential_data(
     description: String,
     course_id: String,
     ipfs_hash: String,
-) -> Vec<u8> {
-    let mut data = Vec::new(env);
+) -> Bytes {
+    let mut data = Bytes::new(env);
 
     // Add credential ID (8 bytes)
     for i in 0..8 {
@@ -474,85 +478,70 @@ fn create_credential_data(
 
     // Add addresses (simplified - using string representation)
     let issuer_str = issuer.to_string();
-    let issuer_bytes: soroban_sdk::Bytes = issuer_str.into();
-    for byte in issuer_bytes.iter() {
-        data.push_back(byte);
-    }
+    let issuer_bytes: Bytes = issuer_str.into();
+    data.append(&issuer_bytes);
     data.push_back(0); // Separator
 
-    let recipient_str2 = recipient.to_string();
-    let recipient_bytes: soroban_sdk::Bytes = recipient_str2.into();
-    for byte in recipient_bytes.iter() {
-        data.push_back(byte);
-    }
+    let recipient_str = recipient.to_string();
+    let recipient_bytes: Bytes = recipient_str.into();
+    data.append(&recipient_bytes);
     data.push_back(0); // Separator
 
     // Add strings
-    let title_bytes: soroban_sdk::Bytes = title.into();
-    for byte in title_bytes.iter() {
-        data.push_back(byte);
-    }
+    let title_bytes: Bytes = title.into();
+    data.append(&title_bytes);
     data.push_back(0);
 
-    let desc_bytes: soroban_sdk::Bytes = description.into();
-    for byte in desc_bytes.iter() {
-        data.push_back(byte);
-    }
+    let desc_bytes: Bytes = description.into();
+    data.append(&desc_bytes);
     data.push_back(0);
 
-    let course_bytes: soroban_sdk::Bytes = course_id.into();
-    for byte in course_bytes.iter() {
-        data.push_back(byte);
-    }
+    let course_bytes: Bytes = course_id.into();
+    data.append(&course_bytes);
     data.push_back(0);
 
-    let ipfs_bytes: soroban_sdk::Bytes = ipfs_hash.into();
-    for byte in ipfs_bytes.iter() {
-        data.push_back(byte);
-    }
+    let ipfs_bytes: Bytes = ipfs_hash.into();
+    data.append(&ipfs_bytes);
     data.push_back(0);
 
     data
 }
 
 /// Calculate SHA-256 hash (simplified implementation)
-fn calculate_sha256_hash(env: &Env, data: &Vec<u8>) -> String {
+fn calculate_sha256_hash(env: &Env, data: &Bytes) -> String {
     let mut hash = 0u64;
     for byte in data.iter() {
-        hash = hash.wrapping_mul(31).wrapping_add(*byte as u64);
+        hash = hash.wrapping_mul(31).wrapping_add(byte as u64);
     }
     crate::u64_to_string(env, hash, "")
 }
 
 /// Verify blockchain reference exists
 fn verify_blockchain_reference(env: &Env, reference: &String) -> bool {
-    // Simplified verification - check if credential exists on blockchain
-    let mut reference_buf = [0u8; 64];
-    let ref_len = reference.copy_into_slice(&mut reference_buf);
-    if ref_len >= 5
-        && reference_buf[0] == b'c'
-        && reference_buf[1] == b'r'
-        && reference_buf[2] == b'e'
-        && reference_buf[3] == b'd'
-        && reference_buf[4] == b'_'
-    {
-        // Simplified: just check if any credential exists
-        if let Some(_) = env
-            .storage()
-            .persistent()
-            .get::<_, u64>(&DNAStorageKey::DNACredentialCount)
-        {
-            return true;
-        }
+    if reference.len() < 5 {
+        return false;
     }
-    false
+    let bytes = reference.to_bytes();
+    let is_cred_prefix = bytes.get(0) == Some(b'c')
+        && bytes.get(1) == Some(b'r')
+        && bytes.get(2) == Some(b'e')
+        && bytes.get(3) == Some(b'd')
+        && bytes.get(4) == Some(b'_');
+    if !is_cred_prefix {
+        return false;
+    }
+    // Simplified: just check if the credential count marker exists
+    env.storage()
+        .instance()
+        .get::<_, u64>(&DNAStorageKey::DNACredentialCount)
+        .is_some()
 }
 
 // Error correction implementations (simplified)
-fn add_parity_bits(env: &Env, data: &Vec<u8>) -> Vec<u8> {
-    let mut result = Vec::new(env);
+fn add_parity_bits(env: &Env, data: &Bytes) -> Bytes {
+    let mut result = Bytes::new(env);
     for byte in data.iter() {
-        result.push_back(*byte);
+        result.push_back(byte);
         // Simple parity bit
         let parity = byte.count_ones() % 2;
         result.push_back(parity as u8);
@@ -560,45 +549,43 @@ fn add_parity_bits(env: &Env, data: &Vec<u8>) -> Vec<u8> {
     result
 }
 
-fn remove_parity_bits(env: &Env, data: &Vec<u8>) -> Vec<u8> {
-    let mut result = Vec::new(env);
+fn remove_parity_bits(env: &Env, data: &Bytes) -> Bytes {
+    let mut result = Bytes::new(env);
     for i in (0..data.len()).step_by(2) {
-        if i < data.len() {
-            result.push_back(data.get(i).unwrap_or(&0));
-        }
+        result.push_back(data.get(i).unwrap_or(0));
     }
     result
 }
 
-fn apply_reed_solomon(env: &Env, data: &Vec<u8>) -> Vec<u8> {
+fn apply_reed_solomon(_env: &Env, data: &Bytes) -> Bytes {
     // Simplified Reed-Solomon - add redundancy
     let mut result = data.clone();
     // Add 10% redundancy
     let redundancy = (data.len() / 10).max(1);
     for i in 0..redundancy {
-        let redundant_byte = data.get(i % data.len()).unwrap_or(&0);
-        result.push_back(*redundant_byte);
+        let redundant_byte = data.get(i % data.len()).unwrap_or(0);
+        result.push_back(redundant_byte);
     }
     result
 }
 
-fn remove_reed_solomon(env: &Env, data: &Vec<u8>) -> Vec<u8> {
+fn remove_reed_solomon(env: &Env, data: &Bytes) -> Bytes {
     // Remove redundancy (simplified)
     let original_len = data.len() * 9 / 10; // Approximate
-    let mut result = Vec::new(env);
+    let mut result = Bytes::new(env);
     for i in 0..original_len.min(data.len()) {
-        result.push_back(data.get(i).unwrap_or(&0));
+        result.push_back(data.get(i).unwrap_or(0));
     }
     result
 }
 
-fn apply_hybrid_correction(env: &Env, data: &Vec<u8>) -> Vec<u8> {
+fn apply_hybrid_correction(env: &Env, data: &Bytes) -> Bytes {
     // Apply both parity and Reed-Solomon
     let with_parity = add_parity_bits(env, data);
     apply_reed_solomon(env, &with_parity)
 }
 
-fn remove_hybrid_correction(env: &Env, data: &Vec<u8>) -> Vec<u8> {
+fn remove_hybrid_correction(env: &Env, data: &Bytes) -> Bytes {
     let without_rs = remove_reed_solomon(env, data);
     remove_parity_bits(env, &without_rs)
 }
@@ -633,7 +620,7 @@ pub enum CheckpointKey {
 fn snapshot_hash(ids: &Vec<u64>) -> u64 {
     let mut h: u64 = 14695981039346656037u64; // FNV-1a offset basis
     for id in ids.iter() {
-        let bytes = (*id).to_le_bytes();
+        let bytes = id.to_le_bytes();
         for b in bytes {
             h ^= b as u64;
             h = h.wrapping_mul(1099511628211u64);
@@ -672,7 +659,7 @@ pub fn create_checkpoint(env: &Env, label: String) -> u64 {
         .get(&CheckpointKey::Index)
         .unwrap_or_else(|| Vec::new(env));
 
-    if index.len() as u32 >= MAX_CHECKPOINTS {
+    if index.len() >= MAX_CHECKPOINTS {
         panic!("Maximum checkpoint limit reached");
     }
 
@@ -684,7 +671,7 @@ pub fn create_checkpoint(env: &Env, label: String) -> u64 {
         checkpoint_id,
         label,
         timestamp: env.ledger().timestamp(),
-        data_size: snapshot.len() as u32,
+        data_size: snapshot.len(),
         hash,
     };
 
@@ -734,7 +721,7 @@ pub fn restore_checkpoint(env: &Env, checkpoint_id: u64) -> bool {
     for cred_id in current.iter() {
         let mut found = false;
         for snap_id in snapshot.iter() {
-            if *snap_id == *cred_id {
+            if snap_id == cred_id {
                 found = true;
                 break;
             }
@@ -742,7 +729,7 @@ pub fn restore_checkpoint(env: &Env, checkpoint_id: u64) -> bool {
         if !found {
             env.storage()
                 .persistent()
-                .remove(&DNAStorageKey::DNACredential(*cred_id));
+                .remove(&DNAStorageKey::DNACredential(cred_id));
         }
     }
 
@@ -767,7 +754,7 @@ pub fn list_checkpoints(env: &Env) -> Vec<CheckpointMeta> {
         if let Some(meta) = env
             .storage()
             .instance()
-            .get::<_, CheckpointMeta>(&CheckpointKey::Meta(*id))
+            .get::<_, CheckpointMeta>(&CheckpointKey::Meta(id))
         {
             result.push_back(meta);
         }
@@ -778,7 +765,7 @@ pub fn list_checkpoints(env: &Env) -> Vec<CheckpointMeta> {
 /// Delete a checkpoint by ID (admin operation).
 /// Returns true if the checkpoint existed and was removed.
 pub fn delete_checkpoint(env: &Env, checkpoint_id: u64) -> bool {
-    let mut index: Vec<u64> = env
+    let index: Vec<u64> = env
         .storage()
         .instance()
         .get(&CheckpointKey::Index)
@@ -787,10 +774,10 @@ pub fn delete_checkpoint(env: &Env, checkpoint_id: u64) -> bool {
     let mut found = false;
     let mut new_index = Vec::new(env);
     for id in index.iter() {
-        if *id == checkpoint_id {
+        if id == checkpoint_id {
             found = true;
         } else {
-            new_index.push_back(*id);
+            new_index.push_back(id);
         }
     }
 
