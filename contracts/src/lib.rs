@@ -100,6 +100,10 @@ mod tokenomics_events_test;
 pub mod credential_registry;
 #[cfg(test)]
 mod credential_registry_test;
+
+pub mod schema_registry;
+#[cfg(test)]
+mod schema_registry_test;
 pub mod dynamic_nft;
 #[cfg(test)]
 mod dynamic_nft_test;
