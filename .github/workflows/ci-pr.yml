@@ -269,6 +269,18 @@ jobs:
         env:
           NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: ${{ secrets.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA' }}
 
+      - name: Build Storybook
+        run: npm run storybook:build -w frontend
+        env:
+          NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: ${{ secrets.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA' }}
+
+      - name: Upload Storybook artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook-static
+          path: frontend/storybook-static
+          if-no-files-found: error
+
   security-scan:
     name: Security Scan
     needs: detect-changes
