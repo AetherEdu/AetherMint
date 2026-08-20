@@ -129,6 +129,10 @@ const agiTutorRoutes = loadRoute('./routes/agiTutorRoutes');
 // @ts-ignore
 const analyticsRoutes = loadRoute('./routes/analytics');
 
+// Learner dashboard aggregation
+// @ts-ignore
+const dashboardRoutes = loadRoute('./routes/dashboard');
+
 // CSP Violation Reporting route
 // @ts-ignore
 const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
@@ -249,6 +253,7 @@ app.use('/api/smart-wallet', smartWalletRoutes);
 app.use('/api/secure-comm', secureCommRoutes);
 app.use('/api/agi-tutor', agiTutorRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Autonomous Agents routes
 // @ts-ignore
@@ -356,6 +361,7 @@ app.use('/api/v1/smart-wallet', smartWalletRoutes);
 app.use('/api/v1/secure-comm', secureCommRoutes);
 app.use('/api/v1/agi-tutor', agiTutorRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/autonomous-agents', autonomousAgentsRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/bridge', bridgeRoutes);
@@ -607,6 +613,7 @@ server.listen(PORT, () => {
            '/api/aco',
            '/api/federated-learning',
            '/api/agi-tutor',
+           '/api/dashboard',
            '/api/secure-comm',
            '/api/audit',
            '/api/metrics',
