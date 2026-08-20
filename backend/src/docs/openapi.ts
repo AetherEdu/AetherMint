@@ -162,7 +162,7 @@ const components = {
         id: { type: 'string', example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' },
         type: {
           type: 'string',
-          enum: ['email', 'credential_minting', 'analytics_aggregation', 'notification', 'report_generation', 'data_export', 'content_processing', 'general'],
+          enum: ['email', 'credential_minting', 'analytics_aggregation', 'notification', 'report_generation', 'data_export', 'content_processing', 'question_generation', 'general'],
           example: 'email',
         },
         status: {
@@ -200,7 +200,7 @@ const components = {
       properties: {
         type: {
           type: 'string',
-          enum: ['email', 'credential_minting', 'analytics_aggregation', 'notification', 'report_generation', 'data_export', 'content_processing', 'general'],
+          enum: ['email', 'credential_minting', 'analytics_aggregation', 'notification', 'report_generation', 'data_export', 'content_processing', 'question_generation', 'general'],
           example: 'email',
         },
         payload: { type: 'object', example: { to: 'user@example.com', subject: 'Welcome!' } },
@@ -611,6 +611,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'Enrollments', description: 'Course enrollment lifecycle' },
       { name: 'Payments', description: 'Stellar & fiat payment processing' },
       { name: 'Quizzes', description: 'Quiz creation, management, and submissions' },
+      { name: 'Question Generation', description: 'Source-based question generation, educator review, and quiz import' },
       { name: 'Content', description: 'IPFS-backed content storage and retrieval' },
       { name: 'Transactions', description: 'Stellar transaction queue management' },
       { name: 'Analytics', description: 'Platform and learning analytics' },

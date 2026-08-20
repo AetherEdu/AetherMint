@@ -41,6 +41,8 @@ import * as transactionEvents from './events/transactionEvents';
 
 // Bridge relayer monitor watch job — Issue #423
 import { bridgeMonitorJob } from './workers/bridgeMonitorJob';
+import { processQuestionGenerationJob } from './workers/questionGenJob';
+import questionGeneratorService from './services/questionGen/questionGenerator';
 
 // Background job queue — Issue #258
 import { getJobQueue } from './services/jobQueue';
@@ -90,6 +92,8 @@ const loadRoute = (routePath: string) => {
 // Import routes
 // @ts-ignore
 const quizRoutes = loadRoute('./routes/quizRoutes');
+// @ts-ignore
+const questionGenerationRoutes = loadRoute('./routes/questionGen');
 // @ts-ignore
 const eventLoggerRoutes = loadRoute('./routes/eventLoggerRoutes');
 // @ts-ignore
@@ -234,6 +238,7 @@ app.use('/graphql', rateLimits.graphql, graphqlBootstrap.middleware);
 
 // API routes
 app.use('/api/quizzes', quizRoutes);
+app.use('/api/question-generation', questionGenerationRoutes);
 app.use('/api/events', eventLoggerRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/content', contentRoutes);
@@ -341,6 +346,7 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/v1', apiVersionHeader);
 
 app.use('/api/v1/quizzes', quizRoutes);
+app.use('/api/v1/question-generation', questionGenerationRoutes);
 app.use('/api/v1/events', eventLoggerRoutes);
 app.use('/api/v1/sync', syncRoutes);
 app.use('/api/v1/content', contentRoutes);
@@ -562,6 +568,16 @@ async function startServer() {
       logger.info(`Processing content processing job ${job.id}`, job.payload);
       job.progress = 100;
     });
+    jobQueue.registerHandler('question_generation', async (job) => {
+      await processQuestionGenerationJob(job);
+    });
+    questionGeneratorService.setQueue({
+      enqueue: (generationId) => jobQueue.enqueue({
+        type: 'question_generation',
+        payload: { generationId },
+        metadata: { feature: 'question-generation' },
+      }),
+    });
     jobQueue.registerHandler('general', async (job) => {
       logger.info(`Processing general job ${job.id}`, job.payload);
       job.progress = 100;
@@ -598,6 +614,7 @@ server.listen(PORT, () => {
          port: PORT,
          routes: [
            '/api/quizzes',
+           '/api/question-generation',
            '/api/events',
            '/api/sync',
            '/api/content',
