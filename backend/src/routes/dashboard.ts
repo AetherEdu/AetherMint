@@ -45,6 +45,12 @@ function dayKey(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
+function documentId(value: unknown): string {
+  if (!value || typeof value !== 'object') return '';
+  const record = value as Record<string, unknown>;
+  return String(record._id ?? record.id ?? '');
+}
+
 function calculateStreak(dates: Date[]): { current: number; longest: number } {
   const uniqueDays = Array.from(new Set(dates.map(dayKey)))
     .map((value) => new Date(`${value}T00:00:00.000Z`))
@@ -138,7 +144,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response, next) => {
         { _id: { $in: courseIds } },
       ],
     }).lean() as unknown as Array<ICourseDocument>;
-    const courseById = new Map(courses.map((course) => [String(course._id), course]));
+    const courseById = new Map(courses.map((course) => [documentId(course), course]));
     for (const course of courses) courseById.set(course.slug, course);
 
     const enrollments: DashboardEnrollment[] = typedEnrollments.map((enrollment) => {
@@ -147,7 +153,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response, next) => {
       const metadata = enrollment.metadata || {};
       const totalLessons = Math.max(1, asNumber((metadata as Record<string, unknown>).totalLessons, 1));
       return {
-        id: String(enrollment._id),
+        id: documentId(enrollment),
         courseId: enrollment.courseId,
         status: enrollment.status,
         enrolledAt: asDate(enrollment.enrolledAt),
@@ -158,7 +164,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response, next) => {
         certificateIssued: Boolean(enrollment.certificateIssued),
         course: course
           ? {
-              id: String(course._id),
+              id: documentId(course),
               title: course.title,
               slug: course.slug,
               description: course.shortDescription || course.description,
@@ -197,7 +203,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response, next) => {
     const skillNames = new Set(skills.map((skill) => skill.name.toLowerCase()));
     const recommendations = recommendedCourses
       .map((course) => ({
-        id: String(course._id),
+        id: documentId(course),
         slug: course.slug,
         title: course.title,
         description: course.shortDescription || course.description,

@@ -50,7 +50,7 @@ const router: Router = Router();
  *         description: Quiz created
  *       '400':
  *         description: Validation error
- *         $ref: '#/components/schemas/Error'
+ *         $ref: '#/components/schemas/ProblemDetails'
  */
 router.post(
   "/",
