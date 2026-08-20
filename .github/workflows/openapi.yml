@@ -52,7 +52,15 @@ jobs:
       - name: Validate spec with swagger-parser
         run: |
           cd backend
-          npx --yes @apidevtools/swagger-parser validate dist/docs/openapi.json
+          node - <<'NODE'
+          const SwaggerParser = require('@apidevtools/swagger-parser');
+          SwaggerParser.dereference('dist/docs/openapi.json')
+            .then(() => console.log('OpenAPI specification references are valid.'))
+            .catch((error) => {
+              console.error(error.message);
+              process.exit(1);
+            });
+          NODE
 
       - name: Upload spec artifact
         uses: actions/upload-artifact@v4

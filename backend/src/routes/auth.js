@@ -99,7 +99,7 @@ function generateToken(user) {
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               $ref: '#/components/schemas/ProblemDetails'
  *       409:
  *         description: User already exists
  */
