@@ -4,6 +4,8 @@ import { Redis } from 'ioredis';
 import { createServer } from 'http';
 import { INotification } from '../models/Notification';
 import logger from '../utils/logger';
+import presenceService from './presence';
+import { PresenceEvent, PresenceStatus } from '../events/presenceEvents';
 const collaborationService = require('./collaborationService').default || require('./collaborationService');
 
 // Define the shape of the notification data that will be sent to the client
@@ -53,6 +55,9 @@ class WebsocketService {
   // can be closed on graceful shutdown.
   private pubClient: Redis | null = null;
   private subClient: Redis | null = null;
+  // Socket-level presence memberships so a disconnect can leave every space
+  // and mark the user offline once their last socket is gone. (Issue #405)
+  private presenceBySocket = new Map<string, { userId: string; spaceIds: Set<string> }>();
 
   constructor(server?: any) {
     // Allow callers (notably the test suite) to inject a pre-built Server
@@ -92,6 +97,7 @@ class WebsocketService {
     this.setupHorizontalScaling();
 
     this.setupConnectionHandlers();
+    this.setupPresenceForwarding();
     this.startHeartbeat();
   }
 
@@ -216,6 +222,54 @@ class WebsocketService {
         this.io.emit(`workspace-document-${payload.workspaceId}`, document);
       });
 
+      // ── Presence & availability (Issue #405) ─────────────────────────────
+      socket.on('presence:join', (payload: { spaceId: string; userId: string; displayName?: string; role?: string }) => {
+        presenceService.joinSpace(payload.spaceId, {
+          userId: payload.userId,
+          displayName: payload.displayName ?? payload.userId,
+          role: payload.role,
+        });
+        socket.join(this.getPresenceRoom(payload.spaceId));
+
+        let entry = this.presenceBySocket.get(socket.id);
+        if (!entry) {
+          entry = { userId: payload.userId, spaceIds: new Set<string>() };
+          this.presenceBySocket.set(socket.id, entry);
+        }
+        entry.spaceIds.add(payload.spaceId);
+
+        socket.emit('presence:updated', presenceService.getPresence(payload.spaceId));
+      });
+
+      socket.on('presence:leave', (payload: { spaceId: string; userId: string }) => {
+        presenceService.leaveSpace(payload.spaceId, payload.userId);
+        socket.leave(this.getPresenceRoom(payload.spaceId));
+
+        const entry = this.presenceBySocket.get(socket.id);
+        if (entry) {
+          entry.spaceIds.delete(payload.spaceId);
+          if (entry.spaceIds.size === 0) {
+            this.presenceBySocket.delete(socket.id);
+          }
+        }
+      });
+
+      socket.on('presence:set-status', (payload: { userId: string; status: PresenceStatus }) => {
+        presenceService.setStatus(payload.userId, payload.status);
+      });
+
+      socket.on('presence:set-privacy', (payload: { spaceId: string; userId: string; hidden: boolean }) => {
+        presenceService.setHidden(payload.spaceId, payload.userId, payload.hidden);
+      });
+
+      socket.on('presence:typing', (payload: { spaceId: string; userId: string; isTyping: boolean }) => {
+        presenceService.setTyping(payload.spaceId, payload.userId, payload.isTyping);
+      });
+
+      socket.on('presence:heartbeat', (payload: { userId: string; spaceId?: string }) => {
+        presenceService.heartbeat(payload.userId, payload.spaceId);
+      });
+
       socket.on('disconnect', (reason) => {
         const state = this.connectionStates.get(socket.id);
         if (state) {
@@ -223,6 +277,7 @@ class WebsocketService {
           logger.info('User disconnected', { socketId: socket.id, reason, isReconnecting: state.isReconnecting });
         }
         
+        this.cleanupPresenceForSocket(socket.id);
         delete this.socketUsers[socket.id];
         this.removeSocket(socket);
       });
@@ -401,6 +456,68 @@ class WebsocketService {
 
   private getRoomName(classroomId: string): string {
     return `classroom:${classroomId}`;
+  }
+
+  private getPresenceRoom(spaceId: string): string {
+    return `presence:${spaceId}`;
+  }
+
+  /**
+   * Forward presence events to connected clients. Space-scoped events go to
+   * the space's room; user-level status changes broadcast globally because a
+   * single user can be present in several spaces at once.
+   */
+  private setupPresenceForwarding(): void {
+    presenceService.on('*', (event: PresenceEvent) => {
+      switch (event.type) {
+        case 'USER_STATUS_CHANGED':
+        case 'USER_ONLINE':
+        case 'USER_OFFLINE':
+          this.io.emit('presence:status', event);
+          break;
+        case 'SPACE_JOINED':
+        case 'SPACE_LEFT':
+        case 'PRESENCE_HIDDEN':
+        case 'PRESENCE_SHOWN':
+          if (event.spaceId) {
+            this.io.to(this.getPresenceRoom(event.spaceId)).emit(
+              'presence:updated',
+              presenceService.getPresence(event.spaceId)
+            );
+          }
+          break;
+        case 'TYPING_STARTED':
+        case 'TYPING_STOPPED':
+          if (event.spaceId) {
+            this.io.to(this.getPresenceRoom(event.spaceId)).emit('presence:typing', event);
+          }
+          break;
+      }
+    });
+  }
+
+  /** Leave every space a socket joined and mark its user offline when no other socket remains. */
+  private cleanupPresenceForSocket(socketId: string): void {
+    const entry = this.presenceBySocket.get(socketId);
+    if (!entry) {
+      return;
+    }
+
+    for (const spaceId of entry.spaceIds) {
+      presenceService.leaveSpace(spaceId, entry.userId);
+    }
+    this.presenceBySocket.delete(socketId);
+
+    let stillConnected = false;
+    for (const other of this.presenceBySocket.values()) {
+      if (other.userId === entry.userId) {
+        stillConnected = true;
+        break;
+      }
+    }
+    if (!stillConnected) {
+      presenceService.setOffline(entry.userId);
+    }
   }
 
   // --- Reconnection and State Sync Methods ---

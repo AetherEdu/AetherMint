@@ -16,6 +16,7 @@ import { connectRedis } from './utils/redis';
 import { initWebsocketService } from './services/websocketService';
 import { setSyncWebsocketEmitter } from './services/syncService';
 import { initCollaborationService } from './services/initCollaboration';
+import presenceService from './services/presence';
 import redisConfig from './config/redis';
 import {
   registerShutdownHandlers,
@@ -530,6 +531,10 @@ async function startServer() {
       await bridgeMonitorJob.start();
     }
 
+    // Initialise the presence & availability system (Issue #405). Fails open
+    // when Redis is unreachable so single-node deployments keep working.
+    await presenceService.initialize();
+
     // Initialise background job queue — Issue #258
     const jobQueue = getJobQueue(redis, { pollIntervalMs: 2000, concurrency: 5 });
     // Register built-in handlers for common job types
@@ -635,7 +640,7 @@ if (require.main === module) {
       { name: 'transaction-queue', run: () => typeof (transactionQueue as any).stopProcessing === 'function' && (transactionQueue as any).stopProcessing() },
       { name: 'transaction-processor', run: () => typeof (transactionProcessor as any).stop === 'function' && (transactionProcessor as any).stop() },
       { name: 'transaction-events', run: () => typeof (transactionEvents as any).stopListening === 'function' && (transactionEvents as any).stopListening() },
-      { name: 'bridge-monitor-job', run: () => typeof bridgeMonitorJob.stop === 'function' && bridgeMonitorJob.stop() },
+      { name: 'presence', run: () => presenceService.destroy() },
       { name: 'job-queue', run: async () => { try { const jq = getJobQueue(); await jq.destroy(); } catch { /* queue may not be initialised */ } } },
       {
         name: 'redis',

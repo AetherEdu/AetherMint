@@ -22,7 +22,7 @@
  * mocks in tests.
  */
 
-import { Keypair, SorobanRpc, TransactionBuilder, Networks, BASE_FEE } from "@stellar/stellar-sdk";
+import { Keypair, rpc, TransactionBuilder, Networks, BASE_FEE } from "@stellar/stellar-sdk";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,10 +144,10 @@ export interface SchemasServiceDeps {
 
 export class SchemasService {
   private readonly cache = new SchemaCache();
-  private readonly server: SorobanRpc.Server;
+  private readonly server: rpc.Server;
 
   constructor(private readonly deps: SchemasServiceDeps) {
-    this.server = new SorobanRpc.Server(deps.rpcUrl, { allowHttp: deps.rpcUrl.startsWith("http://") });
+    this.server = new rpc.Server(deps.rpcUrl, { allowHttp: deps.rpcUrl.startsWith("http://") });
   }
 
   // ── Registration ────────────────────────────────────────────────────────────
@@ -400,7 +400,7 @@ export class SchemasService {
    * pre-generated bindings.
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private buildRegisterSchemaOperation(input: RegisterSchemaInput, schemaUri: string) {
+  private buildRegisterSchemaOperation(input: RegisterSchemaInput, schemaUri: string): never {
     // TODO: Replace with generated contract bindings once `stellar contract
     // bindings typescript --id <contractId>` has been run.
     // The operation args map directly to the `register_schema` Rust function:
@@ -446,7 +446,7 @@ export class SchemasService {
     _functionName: string,
     _caller: string,
     _schemaId: bigint
-  ) {
+  ): never {
     // TODO: Replace with generated contract bindings.
     throw new Error("buildLifecycleOperation: replace this stub with generated Soroban contract bindings.");
   }
