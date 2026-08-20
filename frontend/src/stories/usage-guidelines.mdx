@@ -1,0 +1,25 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Documentation/Usage Guidelines" />
+
+# Component usage guidelines
+
+## Prefer shared primitives
+
+Use `Button`, `Card`, `Badge`, `FormField`, `Skeleton`, and `ErrorBoundary` instead of creating one-off equivalents. This keeps behavior, responsive styling, and accessibility fixes consistent.
+
+## Show meaningful states
+
+Stories should cover the default, hover or focus, disabled, loading, error, and empty states that a component can encounter. Composite stories should use deterministic fixtures and avoid live network requests.
+
+## Forms
+
+Associate every field with a label, expose validation through `aria-describedby`, and keep error messages actionable. Do not rely on color alone to communicate state.
+
+## Recovery
+
+Error states should explain what happened and provide a safe next action when retrying is meaningful. Loading states should expose a status label to assistive technology.
+
+## Responsive and dark themes
+
+Use the viewport toolbar to check mobile and desktop layouts. Use the theme toolbar to verify text, borders, controls, and focus indicators in both light and dark themes.
