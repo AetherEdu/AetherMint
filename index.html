@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AetherMint API Reference</title>
+  <link rel="stylesheet" href="swagger-ui.css" />
+  <style>
+    body { margin: 0; background: #0d1117; }
+    .topbar { background-color: #1a1a2e !important; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="swagger-ui-bundle.js"></script>
+  <script src="swagger-ui-standalone-preset.js"></script>
+  <script>
+    SwaggerUIBundle({
+      url: './openapi.json',
+      dom_id: '#swagger-ui',
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+      layout: 'StandaloneLayout',
+      docExpansion: 'list',
+      filter: true,
+      showRequestDuration: true,
+    });
+  </script>
+</body>
+</html>
