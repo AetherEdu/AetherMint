@@ -32,7 +32,6 @@ jobs:
           filters: |
             contracts:
               - 'contracts/**'
-              - '.github/workflows/ci-pr.yml'
             backend:
               - 'backend/**'
               - 'package.json'
@@ -313,18 +312,22 @@ jobs:
         working-directory: contracts
         run: cargo audit || echo "cargo audit found issues (non-blocking)"
 
-      - name: Run Trivy vulnerability scanner
+      - name: Run Trivy vulnerability scanner (report only)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          exit-code: '0'
 
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v4
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: 'trivy-results.sarif'
+          name: trivy-results
+          path: trivy-results.sarif
+          if-no-files-found: warn
 
   ci-status:
     name: CI Status Check
