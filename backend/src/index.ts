@@ -301,6 +301,11 @@ app.use('/api/translate', translationRoutes);
 const localizationRoutes = loadRoute('./routes/localization');
 app.use('/api/localization', localizationRoutes);
 
+// Multi-tenant institution workspaces — Issue #399
+// @ts-ignore
+const tenantsRoutes = loadRoute('./routes/tenants');
+app.use('/api/tenants', tenantsRoutes);
+
 // Bulk operations routes (Admin) – Issue #262
 // @ts-ignore
 const bulkOperationsRoutes = loadRoute('./routes/bulkOperations');
@@ -377,6 +382,7 @@ app.use('/api/v1/time-lock', timeLockCredentialsRoutes);
 app.use('/api/v1/vrf', vrfRoutes);
 app.use('/api/v1/translate', translationRoutes);
 app.use('/api/v1/localization', localizationRoutes);
+app.use('/api/v1/tenants', tenantsRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.get('/api/v1/health', (req, res) => {
