@@ -1,0 +1,43 @@
+# External traffic entry point. Replace aethermint.example.com with the real
+# host, and provision the TLS secret (e.g. via cert-manager) before enabling
+# TLS. The ingress controller is assumed to be ingress-nginx; swap
+# ingressClassName and annotations for the controller in use.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aethermint
+  labels:
+    app.kubernetes.io/name: aethermint
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 25m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Uncomment once cert-manager is installed and a ClusterIssuer exists:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - aethermint.example.com
+      secretName: aethermint-tls
+  rules:
+    - host: aethermint.example.com
+      http:
+        paths:
+          # Next.js application
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aethermint-frontend
+                port:
+                  number: 80
+          # API traffic goes straight to the backend, bypassing the Next.js
+          # runtime.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: aethermint-backend
+                port:
+                  number: 3001
