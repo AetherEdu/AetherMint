@@ -27,15 +27,17 @@ type TourContextType = {
 const TourContext = createContext<TourContextType | undefined>(undefined);
 
 export function TourProvider({ children }: { children: ReactNode }) {
-  const [isClient, setIsClient] = useState(false);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true); // default true to prevent flash
+  // The provider is always mounted — even during SSR/static generation — so
+  // that components calling useTour() (TourGuide, OnboardingModal, profile
+  // pages) render safely. Onboarding state defaults to "completed" to avoid
+  // flashing the modal before the localStorage read resolves on the client.
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true);
   const [dismissedTours, setDismissedTours] = useState<string[]>([]);
   const [activeTour, setActiveTour] = useState<string | null>(null);
   const [tourSteps, setTourSteps] = useState<TourStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   useEffect(() => {
-    setIsClient(true);
     const onboardingState = localStorage.getItem('aethermint_onboarding_completed');
     if (onboardingState !== 'true') {
       setHasCompletedOnboarding(false);
@@ -93,8 +95,6 @@ export function TourProvider({ children }: { children: ReactNode }) {
       setCurrentStepIndex(prev => prev - 1);
     }
   };
-
-  if (!isClient) return <>{children}</>;
 
   return (
     <TourContext.Provider
