@@ -1,0 +1,426 @@
+# Grafana dashboard for AetherMint SLOs (Issue #415).
+#
+# Visualises SLO compliance and error budgets for the enrollment, verification
+# and playback journeys. Provisioned as a ConfigMap so it can be loaded with
+# Grafana's sidecar dashboard provider
+# (https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards).
+#
+# Expects a Prometheus datasource named `prometheus` (UID `prometheus`).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aethermint-slo-dashboard
+  labels:
+    app.kubernetes.io/name: aethermint
+    app.kubernetes.io/part-of: aethermint
+    grafana_dashboard: "1"
+data:
+  aethermint-slos.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "graphTooltip": 1,
+      "links": [],
+      "panels": [
+        {
+          "id": 1,
+          "title": "Error budget remaining (24h window)",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "panels": []
+        },
+        {
+          "id": 2,
+          "title": "Enrollment error budget",
+          "type": "stat",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 0.25 },
+                  { "color": "green", "value": 0.5 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "targets": [
+            {
+              "expr": "aethermint:slo_error_budget_remaining{journey=\"enrollment\"}",
+              "legendFormat": "remaining",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Verification error budget",
+          "type": "stat",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 0.25 },
+                  { "color": "green", "value": 0.5 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "targets": [
+            {
+              "expr": "aethermint:slo_error_budget_remaining{journey=\"verification\"}",
+              "legendFormat": "remaining",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Playback error budget",
+          "type": "stat",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 0.25 },
+                  { "color": "green", "value": 0.5 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "targets": [
+            {
+              "expr": "aethermint:slo_error_budget_remaining{journey=\"playback\"}",
+              "legendFormat": "remaining",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "SLO compliance",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "panels": []
+        },
+        {
+          "id": 6,
+          "title": "Enrollment error ratio (5m) vs SLO target 0.5%",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 7, "w": 8, "x": 0, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi" } },
+          "targets": [
+            {
+              "expr": "aethermint:slo_error_ratio:rate5m{journey=\"enrollment\"}",
+              "legendFormat": "error ratio",
+              "refId": "A"
+            },
+            {
+              "expr": "1 - 0.995",
+              "legendFormat": "SLO target",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "Verification error ratio (5m) vs SLO target 0.1%",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 7, "w": 8, "x": 8, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi" } },
+          "targets": [
+            {
+              "expr": "aethermint:slo_error_ratio:rate5m{journey=\"verification\"}",
+              "legendFormat": "error ratio",
+              "refId": "A"
+            },
+            {
+              "expr": "1 - 0.999",
+              "legendFormat": "SLO target",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "title": "Playback error ratio (5m) vs SLO target 0.1%",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 7, "w": 8, "x": 16, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi" } },
+          "targets": [
+            {
+              "expr": "aethermint:slo_error_ratio:rate5m{journey=\"playback\"}",
+              "legendFormat": "error ratio",
+              "refId": "A"
+            },
+            {
+              "expr": "1 - 0.999",
+              "legendFormat": "SLO target",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "title": "Latency",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+          "panels": []
+        },
+        {
+          "id": 10,
+          "title": "Enrollment latency p95/p99 (s)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 7, "w": 8, "x": 0, "y": 14 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi" } },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(aethermint_slo_request_duration_seconds_bucket{journey=\"enrollment\"}[5m])))",
+              "legendFormat": "p95",
+              "refId": "A"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum by (le) (rate(aethermint_slo_request_duration_seconds_bucket{journey=\"enrollment\"}[5m])))",
+              "legendFormat": "p99",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "title": "Verification latency p95/p99 (s)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 7, "w": 8, "x": 8, "y": 14 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi" } },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(aethermint_slo_request_duration_seconds_bucket{journey=\"verification\"}[5m])))",
+              "legendFormat": "p95",
+              "refId": "A"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum by (le) (rate(aethermint_slo_request_duration_seconds_bucket{journey=\"verification\"}[5m])))",
+              "legendFormat": "p99",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "title": "Playback latency p95/p99 (s)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 7, "w": 8, "x": 16, "y": 14 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi" } },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(aethermint_slo_request_duration_seconds_bucket{journey=\"playback\"}[5m])))",
+              "legendFormat": "p95",
+              "refId": "A"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum by (le) (rate(aethermint_slo_request_duration_seconds_bucket{journey=\"playback\"}[5m])))",
+              "legendFormat": "p99",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "title": "Traffic & health",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+          "panels": []
+        },
+        {
+          "id": 14,
+          "title": "Journey request rate by result (rps)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 22 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+          "targets": [
+            {
+              "expr": "sum by (journey, result) (rate(aethermint_slo_requests_total[5m]))",
+              "legendFormat": "{{ journey }} · {{ result }}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 15,
+          "title": "Failures per journey (rps)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 7, "w": 6, "x": 12, "y": 22 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 60, "showPoints": "never" },
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi" } },
+          "targets": [
+            {
+              "expr": "aethermint:slo_errors_total:rate5m",
+              "legendFormat": "{{ journey }}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 16,
+          "title": "Seconds since last successful journey request",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 7, "w": 6, "x": 18, "y": 22 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 300 },
+                  { "color": "red", "value": 600 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi" } },
+          "targets": [
+            {
+              "expr": "time() - aethermint_slo_last_success_timestamp_seconds",
+              "legendFormat": "{{ journey }}",
+              "refId": "A"
+            }
+          ]
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["aethermint", "slo"],
+      "templating": { "list": [] },
+      "time": { "from": "now-6h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "AetherMint SLOs",
+      "uid": "aethermint-slos",
+      "version": 1,
+      "weekStart": ""
+    }

@@ -9,6 +9,8 @@ import logger from './utils/logger';
 import requestId from './middleware/requestId';
 import requestLogger from './middleware/requestLogger';
 import { metricsMiddleware, websocketConnectionsActive } from './middleware/metrics';
+// Registers SLO journey metrics on the shared Prometheus registry (Issue #415)
+import './metrics/slo';
 import responseCompression from './middleware/compression';
 import { errorHandler } from './middleware/errorHandler';
 import { NotFoundError } from './utils/errors';
