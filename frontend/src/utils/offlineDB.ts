@@ -12,9 +12,9 @@
  */
 
 const DB_NAME = 'AetherMintOfflineDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
-export type OfflineStoreName = 'courses' | 'progress' | 'syncQueue';
+export type OfflineStoreName = 'courses' | 'lessons' | 'progress' | 'syncQueue';
 
 /**
  * Anything stored inside `courses`. Callers can extend this in their own
@@ -23,6 +23,18 @@ export type OfflineStoreName = 'courses' | 'progress' | 'syncQueue';
 export interface OfflineCourseRecord<T = unknown> {
   id: string;
   data: T;
+  downloadedAt: number;
+}
+
+/** Individual lesson stored for offline study */
+export interface OfflineLessonRecord<T = unknown> {
+  id: string; // e.g. `${courseId}_${lessonId}`
+  courseId: string;
+  lessonId: string;
+  title: string;
+  content: T;
+  mediaUrl?: string;
+  sizeBytes: number;
   downloadedAt: number;
 }
 
@@ -38,6 +50,14 @@ export interface OfflineQueuedAction<T = unknown> {
   id?: number;
   payload: T;
   queuedAt: number;
+}
+
+/** Storage Quota details returned by navigator.storage */
+export interface StorageQuotaInfo {
+  quota: number; // Bytes total available
+  usage: number; // Bytes used
+  usagePercentage: number; // 0 - 100
+  availableBytes: number;
 }
 
 /**
@@ -73,6 +93,10 @@ export const initDB = (): Promise<IDBDatabase> => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains('courses')) {
         db.createObjectStore('courses', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('lessons')) {
+        const lessonStore = db.createObjectStore('lessons', { keyPath: 'id' });
+        lessonStore.createIndex('courseId', 'courseId', { unique: false });
       }
       if (!db.objectStoreNames.contains('progress')) {
         db.createObjectStore('progress', { keyPath: 'id' });
@@ -285,3 +309,112 @@ export const drainOfflineActions = async <T = unknown>(): Promise<
       reject(request.error ?? new Error('IDB syncQueue read failed'));
   });
 };
+
+// ---------------------------------------------------------------------------
+// Public API — `lessons` offline storage.
+
+/** Save a lesson for offline reading/playback. */
+export const saveLessonOffline = async <T>(
+  courseId: string,
+  lessonId: string,
+  title: string,
+  content: T,
+  mediaUrl?: string,
+  sizeBytes: number = 0
+): Promise<void> => {
+  const record: OfflineLessonRecord<T> = {
+    id: `${courseId}_${lessonId}`,
+    courseId,
+    lessonId,
+    title,
+    content,
+    mediaUrl,
+    sizeBytes: sizeBytes || JSON.stringify(content).length,
+    downloadedAt: Date.now(),
+  };
+  return runRequest('lessons', 'readwrite', (store) => store.put(record));
+};
+
+/** Get a downloaded offline lesson. */
+export const getOfflineLesson = async <T = unknown>(
+  courseId: string,
+  lessonId: string
+): Promise<OfflineLessonRecord<T> | null> => {
+  const id = `${courseId}_${lessonId}`;
+  const record = await runRequest<OfflineLessonRecord<T> | undefined>(
+    'lessons',
+    'readonly',
+    (store) => store.get(id)
+  );
+  return record || null;
+};
+
+/** List all offline lessons for a course. */
+export const listOfflineLessonsByCourse = async <T = unknown>(
+  courseId: string
+): Promise<Array<OfflineLessonRecord<T>>> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('lessons', 'readonly');
+    const store = transaction.objectStore('lessons');
+    const index = store.index('courseId');
+    const request = index.getAll(courseId);
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error ?? new Error('Failed to fetch offline lessons'));
+  });
+};
+
+/** Delete a downloaded offline lesson. */
+export const deleteOfflineLesson = async (
+  courseId: string,
+  lessonId: string
+): Promise<void> => {
+  const id = `${courseId}_${lessonId}`;
+  return runRequest<void, 'lessons'>('lessons', 'readwrite', (store) =>
+    store.delete(id)
+  );
+};
+
+/** List all offline lessons stored across all courses. */
+export const listAllOfflineLessons = async <T = unknown>(): Promise<
+  Array<OfflineLessonRecord<T>>
+> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('lessons', 'readonly');
+    const store = transaction.objectStore('lessons');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error ?? new Error('Failed to list all offline lessons'));
+  });
+};
+
+// ---------------------------------------------------------------------------
+// Public API — Storage Quota & Storage Management.
+
+/** Get browser storage quota estimate and offline usage calculation. */
+export const getStorageQuotaInfo = async (): Promise<StorageQuotaInfo> => {
+  if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+    const estimate = await navigator.storage.estimate();
+    const quota = estimate.quota || 1024 * 1024 * 1024; // fallback 1GB
+    const usage = estimate.usage || 0;
+    const usagePercentage = Math.min(100, (usage / quota) * 100);
+    const availableBytes = Math.max(0, quota - usage);
+
+    return {
+      quota,
+      usage,
+      usagePercentage,
+      availableBytes,
+    };
+  }
+
+  // Fallback default estimate
+  return {
+    quota: 1024 * 1024 * 500, // 500 MB
+    usage: 0,
+    usagePercentage: 0,
+    availableBytes: 1024 * 1024 * 500,
+  };
+};
+
