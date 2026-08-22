@@ -146,6 +146,10 @@ const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 // @ts-ignore
 const jobRoutes = loadRoute('./routes/jobRoutes');
 
+// Unified payments routes — Issue #391 (Stripe fiat + Stellar crypto)
+// @ts-ignore
+const paymentsRoutes = loadRoute('./routes/payments');
+
 // Initialize Express app
 const app: Application = express();
 const server = createServer(app);
@@ -169,7 +173,14 @@ app.use(helmet());
 app.use(cspMiddleware);
 app.use(securityHeadersMiddleware);
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+// Stash the raw request body so Stripe webhook signatures can be verified
+// against the exact bytes Stripe signed (Issue #391).
+app.use(express.json({
+  limit: '10mb',
+  verify: (req: any, _res: any, buf: Buffer) => {
+    req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestId);
 app.use(requestLogger);
@@ -260,6 +271,9 @@ app.use('/api/secure-comm', secureCommRoutes);
 app.use('/api/agi-tutor', agiTutorRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+// Unified payments — Issue #391
+app.use('/api/payments', paymentsRoutes);
 
 // Autonomous Agents routes
 // @ts-ignore
@@ -369,6 +383,7 @@ app.use('/api/v1/secure-comm', secureCommRoutes);
 app.use('/api/v1/agi-tutor', agiTutorRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/payments', paymentsRoutes);
 app.use('/api/v1/autonomous-agents', autonomousAgentsRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/bridge', bridgeRoutes);
