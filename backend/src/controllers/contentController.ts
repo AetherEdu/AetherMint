@@ -3,7 +3,7 @@
  * Handles HTTP requests for content management
  */
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { ContentService } from '../services/contentService';
 import { MediaService } from '../services/mediaService';
 import { 
@@ -14,6 +14,7 @@ import {
   ContentExportOptions 
 } from '../models/Content';
 import logger from '../utils/logger';
+import { NotFoundError, AuthError, ValidationError } from '../utils/errors';
 
 export class ContentController {
   constructor(
@@ -24,12 +25,11 @@ export class ContentController {
   /**
    * Create new content
    */
-  async createContent(req: Request, res: Response): Promise<void> {
+  async createContent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
+        throw new AuthError('Unauthorized');
       }
 
       const contentRequest: ContentCreateRequest = req.body;
@@ -41,28 +41,21 @@ export class ContentController {
         message: 'Content created successfully'
       });
     } catch (error) {
-      logger.error('Error in createContent:', error);
-      res.status(400).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Get content by ID
    */
-  async getContentById(req: Request, res: Response): Promise<void> {
+  async getContentById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const content = await this.contentService.getContentById(id);
 
       if (!content) {
-        res.status(404).json({
-          success: false,
-          error: 'Content not found'
-        });
-        return;
+        throw new NotFoundError('Content not found');
       }
 
       // Increment view count
@@ -74,18 +67,15 @@ export class ContentController {
         data: content
       });
     } catch (error) {
-      logger.error('Error in getContentById:', error);
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Get content with filters
    */
-  async getContent(req: Request, res: Response): Promise<void> {
+  async getContent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const filter: ContentFilter = {
         courseId: req.query.courseId as string,
@@ -122,25 +112,21 @@ export class ContentController {
         }
       });
     } catch (error) {
-      logger.error('Error in getContent:', error);
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Update content
    */
-  async updateContent(req: Request, res: Response): Promise<void> {
+  async updateContent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
       
       if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
+        throw new AuthError('Unauthorized');
       }
 
       const updateRequest: ContentUpdateRequest = req.body;
@@ -152,25 +138,21 @@ export class ContentController {
         message: 'Content updated successfully'
       });
     } catch (error) {
-      logger.error('Error in updateContent:', error);
-      res.status(400).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Delete content
    */
-  async deleteContent(req: Request, res: Response): Promise<void> {
+  async deleteContent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
       
       if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
+        throw new AuthError('Unauthorized');
       }
 
       await this.contentService.deleteContent(id, userId);
@@ -180,25 +162,21 @@ export class ContentController {
         message: 'Content deleted successfully'
       });
     } catch (error) {
-      logger.error('Error in deleteContent:', error);
-      res.status(400).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Publish content
    */
-  async publishContent(req: Request, res: Response): Promise<void> {
+  async publishContent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
       
       if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
+        throw new AuthError('Unauthorized');
       }
 
       const content = await this.contentService.publishContent(id, userId);
@@ -209,31 +187,23 @@ export class ContentController {
         message: 'Content published successfully'
       });
     } catch (error) {
-      logger.error('Error in publishContent:', error);
-      res.status(400).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Upload media file
    */
-  async uploadMedia(req: Request, res: Response): Promise<void> {
+  async uploadMedia(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
+        throw new AuthError('Unauthorized');
       }
 
-      if (!req.file) {
-        res.status(400).json({
-          success: false,
-          error: 'No file uploaded'
-        });
-        return;
+      if (!(req as any).file) {
+        throw new ValidationError('No file uploaded');
       }
 
       const options = {
@@ -246,9 +216,9 @@ export class ContentController {
       };
 
       const result = await this.mediaService.uploadMedia(
-        req.file.buffer,
-        req.file.originalname,
-        req.file.mimetype,
+        (req as any).file.buffer,
+        (req as any).file.originalname,
+        (req as any).file.mimetype,
         userId,
         options
       );
@@ -259,28 +229,21 @@ export class ContentController {
         message: 'Media uploaded successfully'
       });
     } catch (error) {
-      logger.error('Error in uploadMedia:', error);
-      res.status(400).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Get media file
    */
-  async getMediaFile(req: Request, res: Response): Promise<void> {
+  async getMediaFile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const mediaFile = await this.mediaService.getMediaFile(id);
 
       if (!mediaFile) {
-        res.status(404).json({
-          success: false,
-          error: 'Media file not found'
-        });
-        return;
+        throw new NotFoundError('Media file not found');
       }
 
       res.json({
@@ -288,25 +251,21 @@ export class ContentController {
         data: mediaFile
       });
     } catch (error) {
-      logger.error('Error in getMediaFile:', error);
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Delete media file
    */
-  async deleteMediaFile(req: Request, res: Response): Promise<void> {
+  async deleteMediaFile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
       
       if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
+        throw new AuthError('Unauthorized');
       }
 
       await this.mediaService.deleteMediaFile(id);
@@ -316,24 +275,20 @@ export class ContentController {
         message: 'Media file deleted successfully'
       });
     } catch (error) {
-      logger.error('Error in deleteMediaFile:', error);
-      res.status(400).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Perform bulk operations
    */
-  async bulkOperation(req: Request, res: Response): Promise<void> {
+  async bulkOperation(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.id;
       
       if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
+        throw new AuthError('Unauthorized');
       }
 
       const operation: BulkOperation = req.body;
@@ -345,18 +300,15 @@ export class ContentController {
         affectedItems: operation.contentIds.length
       });
     } catch (error) {
-      logger.error('Error in bulkOperation:', error);
-      res.status(400).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Export content
    */
-  async exportContent(req: Request, res: Response): Promise<void> {
+  async exportContent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const options: ContentExportOptions = {
         format: req.query.format as any || 'json',
@@ -384,36 +336,28 @@ export class ContentController {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(exportData);
     } catch (error) {
-      logger.error('Error in exportContent:', error);
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Import content
    */
-  async importContent(req: Request, res: Response): Promise<void> {
+  async importContent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.id;
       
       if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
+        throw new AuthError('Unauthorized');
       }
 
-      if (!req.file) {
-        res.status(400).json({
-          success: false,
-          error: 'No file uploaded'
-        });
-        return;
+      if (!(req as any).file) {
+        throw new ValidationError('No file uploaded');
       }
 
       const format = req.body.format || 'json';
-      const data = req.file.buffer.toString('utf-8');
+      const data = (req as any).file.buffer.toString('utf-8');
       
       const result = await this.contentService.importContent(data, format, userId);
 
@@ -425,18 +369,15 @@ export class ContentController {
           : `Import completed with ${result.failed} errors`
       });
     } catch (error) {
-      logger.error('Error in importContent:', error);
-      res.status(400).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 
   /**
    * Get media statistics
    */
-  async getMediaStats(req: Request, res: Response): Promise<void> {
+  async getMediaStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const stats = await this.mediaService.getMediaStats();
 
@@ -445,11 +386,8 @@ export class ContentController {
         data: stats
       });
     } catch (error) {
-      logger.error('Error in getMediaStats:', error);
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('Error in contentController:', error);
+      next(error);
     }
   }
 

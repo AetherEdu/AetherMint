@@ -1,0 +1,154 @@
+name: OpenAPI Docs
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/src/docs/**'
+      - 'backend/src/routes/**'
+      - 'backend/src/controllers/**'
+      - '.github/workflows/openapi.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/src/docs/**'
+      - 'backend/src/routes/**'
+      - 'backend/src/controllers/**'
+      - '.github/workflows/openapi.yml'
+
+jobs:
+  validate-openapi:
+    name: Validate OpenAPI Spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: npm ci -w backend
+
+      - name: Generate OpenAPI spec JSON
+        run: |
+          cd backend
+          npx ts-node -e "
+            const spec = require('./src/docs/openapi').openApiSpec;
+            const fs = require('fs');
+            fs.mkdirSync('dist/docs', { recursive: true });
+            fs.writeFileSync('dist/docs/openapi.json', JSON.stringify(spec, null, 2));
+            console.log('Spec written to dist/docs/openapi.json');
+            const paths = Object.keys(spec.paths || {});
+            console.log('Documented paths:', paths.length);
+            if (paths.length < 10) {
+              console.error('ERROR: fewer than 10 paths documented – check JSDoc annotations');
+              process.exit(1);
+            }
+          "
+
+      - name: Validate spec with swagger-parser
+        run: |
+          cd backend
+          node - <<'NODE'
+          const SwaggerParser = require('@apidevtools/swagger-parser');
+          SwaggerParser.dereference('dist/docs/openapi.json')
+            .then(() => console.log('OpenAPI specification references are valid.'))
+            .catch((error) => {
+              console.error(error.message);
+              process.exit(1);
+            });
+          NODE
+
+      - name: Upload spec artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: backend/dist/docs/openapi.json
+          retention-days: 30
+
+  publish-docs:
+    name: Publish Docs to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: validate-openapi
+    # Only publish on pushes to main
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: npm ci -w backend
+
+      - name: Generate OpenAPI spec
+        run: |
+          cd backend
+          npx ts-node -e "
+            const spec = require('./src/docs/openapi').openApiSpec;
+            const fs = require('fs');
+            fs.mkdirSync('dist/docs', { recursive: true });
+            fs.writeFileSync('dist/docs/openapi.json', JSON.stringify(spec, null, 2));
+          "
+
+      - name: Build Swagger UI static site
+        run: |
+          mkdir -p docs-site
+          # Copy the bundled Swagger UI dist from the installed package
+          SWAGGER_DIST=$(node -e "console.log(require('path').dirname(require.resolve('swagger-ui-dist/package.json')))" 2>/dev/null || npx --yes find-up-json swagger-ui-dist)
+          cp -r "$(node -e "console.log(require('path').dirname(require.resolve('swagger-ui-dist/swagger-ui.css')))")"/* docs-site/ 2>/dev/null || \
+          npx --yes swagger-ui-watcher backend/dist/docs/openapi.json --outDir docs-site || true
+
+          # Write index.html pointing at our spec
+          cat > docs-site/index.html << 'HTML'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>AetherMint API Reference</title>
+            <link rel="stylesheet" href="swagger-ui.css" />
+            <style>
+              body { margin: 0; background: #0d1117; }
+              .topbar { background-color: #1a1a2e !important; }
+            </style>
+          </head>
+          <body>
+            <div id="swagger-ui"></div>
+            <script src="swagger-ui-bundle.js"></script>
+            <script src="swagger-ui-standalone-preset.js"></script>
+            <script>
+              SwaggerUIBundle({
+                url: './openapi.json',
+                dom_id: '#swagger-ui',
+                presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+                layout: 'StandaloneLayout',
+                docExpansion: 'list',
+                filter: true,
+                showRequestDuration: true,
+              });
+            </script>
+          </body>
+          </html>
+          HTML
+
+          # Copy spec into docs-site
+          cp backend/dist/docs/openapi.json docs-site/openapi.json
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs-site
+          commit_message: 'docs: publish OpenAPI spec [skip ci]'

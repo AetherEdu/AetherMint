@@ -4,6 +4,44 @@
     "tagline": "Plateforme d'Apprentissage Décentralisée",
     "description": "Apprenez le développement blockchain avec des cours alimentés par Stellar"
   },
+  "language": {
+    "selectTitle": "Sélectionnez votre langue",
+    "selectSubtitle": "Choisissez votre langue préférée pour une meilleure expérience",
+    "switcherAria": "Sélectionner la langue",
+    "searchPlaceholder": "Rechercher des langues...",
+    "detected": "Détecté depuis votre navigateur : {{locale}}",
+    "changed": "Langue changée pour {{locale}}"
+  },
+  "header": {
+    "brand": "AetherMint",
+    "menuToggle": "Basculer le menu de navigation",
+    "skipToContent": "Aller au contenu principal",
+    "openSearch": "Ouvrir la recherche",
+    "closeSearch": "Fermer la recherche"
+  },
+  "footer": {
+    "copyright": "© {{year}} AetherMint Éducation. Tous droits réservés.",
+    "madeWith": "Conçu avec ❤️ sur Stellar",
+    "language": "Langue",
+    "switchTip": "Ajoutez ?lang=fr (ou votre code préféré) pour partager des liens localisés."
+  },
+  "index": {
+    "title": "Studio d'Apprentissage Temporel",
+    "description": "Un prototype frontend pour l'accélération adaptative de l'apprentissage avec rythme temporel, personnalisation et garde-fous.",
+    "eyebrow": "Prototype de fonctionnalité Frontend",
+    "h1": "Studio d'Apprentissage Temporel",
+    "subtitle": "Une interprétation frontend sûre de l'apprentissage par dilatation temporelle : rythme adaptatif, fenêtres de focalisation intensifiées, et garde-fous réversibles qui compressent la perception d'un bloc d'étude sans prétendre modifier le temps réel.",
+    "accelerate": "Activer la projection 2x+",
+    "normalize": "Normaliser la session",
+    "viewDemo": "Voir la démo existante",
+    "safetyNote": "Note de sécurité :",
+    "safetyNoteBody": "cette interface modélise le rythme cognitif et l'heuristique de retour. Elle ne revendique aucune efficacité médicale, traitement par neurofeedback ou manipulation littérale de la perception du temps.",
+    "recommendedScale": "Échelle recommandée",
+    "speedGain": "Gain de vitesse projeté",
+    "perceivedSpan": "Durée perçue de l'étude",
+    "masteryConfidence": "Confiance de maîtrise",
+    "safetyState": "État de sécurité"
+  },
   "navigation": {
     "home": "Accueil",
     "courses": "Cours",
@@ -67,7 +105,8 @@
     "publish": "Publier",
     "unpublish": "Dépublier",
     "archive": "Archiver",
-    "restore": "Restaurer"
+    "restore": "Restaurer",
+    "open": "Ouvrir"
   },
   "status": {
     "loading": "Chargement...",
@@ -302,5 +341,37 @@
     "github": "GitHub",
     "youtube": "YouTube",
     "medium": "Medium"
+  },
+  "errors": {
+    "title": "Une erreur s'est produite",
+    "generic": "Quelque chose s'est mal passé. Veuillez réessayer.",
+    "reload": "Recharger la page",
+    "back": "Retour",
+    "notFound": {
+      "title": "Page introuvable",
+      "message": "La page que vous cherchez n'existe pas ou a été déplacée."
+    },
+    "forbidden": {
+      "title": "Accès refusé",
+      "message": "Vous n'avez pas les autorisations nécessaires pour consulter cette page."
+    },
+    "serverError": {
+      "title": "Erreur du serveur",
+      "message": "Le serveur a rencontré un problème. Réessayez dans quelques instants."
+    },
+    "offline": {
+      "title": "Hors ligne",
+      "message": "Vous êtes hors ligne. Vos modifications seront synchronisées dès la reconnexion."
+    }
+  },
+  "validation": {
+    "required": "Ce champ est obligatoire",
+    "minLength": "Veuillez saisir au moins {{count}} caractères",
+    "maxLength": "Veuillez ne pas dépasser {{count}} caractères",
+    "invalidEmail": "Veuillez saisir une adresse email valide",
+    "invalidUrl": "Veuillez saisir une URL valide",
+    "mismatch": "Les valeurs ne correspondent pas",
+    "positiveNumber": "Veuillez saisir un nombre positif",
+    "integer": "Veuillez saisir un nombre entier"
   }
 }

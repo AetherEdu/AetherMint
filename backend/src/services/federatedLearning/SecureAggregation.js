@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { paillier } = require('paillier-js');
+const paillier = require('paillier-js');
 const BigInteger = require('big-integer');
 const logger = require('../../utils/logger');
 
@@ -19,7 +19,7 @@ class SecureAggregation {
   async initializeKeys() {
     try {
       // Generate Paillier key pair for homomorphic encryption
-      const { publicKey, privateKey } = await paillier.generateRandomKeys(this.keySize);
+      const { publicKey, privateKey } = paillier.generateRandomKeys(this.keySize);
       this.publicKey = publicKey;
       this.privateKey = privateKey;
 
@@ -32,7 +32,7 @@ class SecureAggregation {
   }
 
   /**
-   * Generate secret shares for a value
+   * Generate secret shares for a value using Shamir's Secret Sharing.
    */
   generateSecretShares(value, participantCount, threshold) {
     if (participantCount < threshold) {
@@ -40,11 +40,15 @@ class SecureAggregation {
     }
 
     const shares = [];
-    const coefficients = [value];
+    const coefficients = [BigInteger(value)];
     
     // Generate random coefficients for polynomial
+    const n = this.publicKey ? this.publicKey.n : BigInteger(10).pow(77);
     for (let i = 1; i < threshold; i++) {
-      coefficients.push(BigInteger.randomBetween(0, this.publicKey.n));
+      // Generate cryptographically secure random BigInteger
+      const randBytes = crypto.randomBytes(32);
+      const rand = BigInteger(randBytes.toString('hex'), 16);
+      coefficients.push(rand.mod(n));
     }
 
     // Generate shares for each participant
@@ -52,7 +56,7 @@ class SecureAggregation {
       let share = coefficients[0];
       for (let j = 1; j < threshold; j++) {
         const term = coefficients[j].multiply(BigInteger(i).pow(j));
-        share = share.add(term).mod(this.publicKey.n);
+        share = share.add(term).mod(n);
       }
       shares.push({
         participantId: i,
@@ -66,17 +70,53 @@ class SecureAggregation {
   /**
    * Encrypt model parameters using homomorphic encryption
    */
+  /**
+   * Encode a numeric value into a non-negative BigInteger in [0, n).
+   * Negative values are mapped via modular arithmetic (n + value) so that
+   * homomorphic addition is preserved: enc(n+a) + enc(n+b) mod n^2 decrypts
+   * to a + b.
+   */
+  _encodeValue(value) {
+    const scaled = Math.round(value * 1000000);
+    const n = this.publicKey ? this.publicKey.n : BigInteger(10).pow(77);
+    let bigVal = BigInteger(scaled);
+    if (bigVal.isNegative()) {
+      bigVal = n.add(bigVal); // n + (-abs) = n - abs
+    }
+    return bigVal;
+  }
+
+  /**
+   * Decode a BigInteger back to a float, reversing _encodeValue.
+   */
+  _decodeValue(bigInt) {
+    const n = this.publicKey ? this.publicKey.n : BigInteger(10).pow(77);
+    const halfN = n.divide(2);
+    let value = bigInt;
+    if (value.greater(halfN)) {
+      value = value.minus(n);
+    }
+    return value.valueOf() / 1000000;
+  }
+
+  /**
+   * Encrypt model parameters using homomorphic encryption.
+   * Numeric values are Paillier-encrypted; array values are stored as-is
+   * (arrays cannot participate in homomorphic aggregation).
+   */
   encryptParameters(parameters) {
+    if (parameters == null) return {};
     const encryptedParams = {};
-    
+
     for (const [key, value] of Object.entries(parameters)) {
-      // Convert to BigInteger for encryption
-      const bigIntValue = BigInteger(value * 1000000); // Preserve precision
-      const encrypted = this.publicKey.encrypt(bigIntValue);
-      encryptedParams[key] = {
-        ciphertext: encrypted.ciphertext.toString(),
-        randomness: encrypted.r.toString()
-      };
+      if (Array.isArray(value)) {
+        // Arrays are stored as metadata for round-trip only
+        encryptedParams[key] = JSON.stringify({ __arr: value });
+      } else {
+        const encoded = this._encodeValue(Number(value));
+        const ciphertext = this.publicKey.encrypt(encoded);
+        encryptedParams[key] = ciphertext.toString();
+      }
     }
 
     return encryptedParams;
@@ -85,17 +125,27 @@ class SecureAggregation {
   /**
    * Decrypt aggregated parameters
    */
+  /**
+   * Decrypt aggregated parameters.
+   */
   decryptParameters(encryptedParams) {
+    if (encryptedParams == null) return {};
     const decryptedParams = {};
-    
-    for (const [key, encrypted] of Object.entries(encryptedParams)) {
-      const encryptedValue = {
-        ciphertext: BigInteger(encrypted.ciphertext),
-        r: BigInteger(encrypted.randomness)
-      };
-      
-      const decrypted = this.privateKey.decrypt(encryptedValue);
-      decryptedParams[key] = decrypted.toNumber() / 1000000; // Restore precision
+
+    for (const [key, encryptedStr] of Object.entries(encryptedParams)) {
+      // Check for array metadata marker
+      if (typeof encryptedStr === 'string' && encryptedStr.startsWith('{"__arr":')) {
+        try {
+          const parsed = JSON.parse(encryptedStr);
+          decryptedParams[key] = parsed.__arr;
+        } catch (e) {
+          decryptedParams[key] = [];
+        }
+      } else {
+        const ciphertext = BigInteger(encryptedStr);
+        const decrypted = this.privateKey.decrypt(ciphertext);
+        decryptedParams[key] = this._decodeValue(decrypted);
+      }
     }
 
     return decryptedParams;
@@ -109,41 +159,31 @@ class SecureAggregation {
       throw new Error('No encrypted updates to aggregate');
     }
 
+    const n2 = this.publicKey._n2 || this.publicKey.n.pow(2);
     const aggregated = {};
     const firstUpdate = encryptedUpdates[0];
     
-    // Initialize with first update
+    // Initialize with first update (each value is a ciphertext string)
     for (const key of Object.keys(firstUpdate)) {
-      aggregated[key] = {
-        ciphertext: BigInteger(firstUpdate[key].ciphertext),
-        randomness: BigInteger(firstUpdate[key].randomness)
-      };
+      aggregated[key] = BigInteger(firstUpdate[key]);
     }
 
-    // Homomorphically add remaining updates
+    // Homomorphically add remaining updates via modular multiplication
     for (let i = 1; i < encryptedUpdates.length; i++) {
       const update = encryptedUpdates[i];
       for (const key of Object.keys(update)) {
-        const encryptedValue1 = {
-          ciphertext: aggregated[key].ciphertext,
-          r: aggregated[key].randomness
-        };
-        
-        const encryptedValue2 = {
-          ciphertext: BigInteger(update[key].ciphertext),
-          r: BigInteger(update[key].randomness)
-        };
-        
-        // Homomorphic addition
-        const sum = this.publicKey.addition(encryptedValue1, encryptedValue2);
-        aggregated[key] = {
-          ciphertext: sum.ciphertext.toString(),
-          randomness: sum.r.toString()
-        };
+        const c = BigInteger(update[key]);
+        // Paillier homomorphic addition: c1 * c2 mod n^2
+        aggregated[key] = aggregated[key].multiply(c).mod(n2);
       }
     }
 
-    return aggregated;
+    // Return as strings for compatibility with encryptParameters format
+    const result = {};
+    for (const key of Object.keys(aggregated)) {
+      result[key] = aggregated[key].toString();
+    }
+    return result;
   }
 
   /**
@@ -292,19 +332,22 @@ class SecureAggregation {
     // Generate correlated noise for all parameters
     const noise = {};
     const seed = crypto.randomBytes(32);
-    const random = crypto.createHash('sha256').update(seed).digest();
+    const random = crypto.createHash('sha256').update(seed).digest('hex');
     
     // Use seed to generate reproducible noise
     let counter = 0;
     const generateNoise = () => {
       const hash = crypto.createHash('sha256')
         .update(random + counter.toString())
-        .digest();
+        .digest('hex');
       counter++;
       
-      // Convert hash to uniform random number
-      const u = parseInt(hash.substring(0, 8), 16) / 0xffffffff;
-      return beta * Math.sign(u - 0.5) * Math.log(1 - 2 * Math.abs(u - 0.5));
+      // Convert hash to uniform random number in (0, 1), avoiding exact 0 or 1
+      const raw = parseInt(hash.substring(0, 8), 16) / 0xffffffff;
+      const u = Math.max(0.000001, Math.min(0.999999, raw));
+      const noise = beta * Math.sign(u - 0.5) * Math.log(1 - 2 * Math.abs(u - 0.5));
+      // Clamp extreme values (beyond 5*beta is statistically negligible)
+      return Math.max(-5 * beta, Math.min(5 * beta, noise));
     };
 
     return { noise, generateNoise };

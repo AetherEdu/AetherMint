@@ -13,17 +13,24 @@ interface WebSocketMessage {
 interface UseWebSocketReturn {
   sendMessage: (message: string, context?: any) => Promise<WebSocketMessage | null>;
   isConnected: boolean;
-  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
+  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error' | 'reconnecting';
   socket: Socket | null;
+  lastSeenSequence: number;
+  reconnect: () => void;
+  disconnect: () => void;
 }
 
 export const useWebSocket = (): UseWebSocketReturn => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error'>('disconnected');
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
+  const [lastSeenSequence, setLastSeenSequence] = useState(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 5;
+  const maxReconnectAttempts = Infinity; // Unlimited reconnection attempts
+  const maxReconnectDelay = 30000; // 30 seconds max delay
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const localStateRef = useRef<Map<string, any>>(new Map());
 
   const connect = useCallback(() => {
     if (socket?.connected) return;
@@ -36,10 +43,7 @@ export const useWebSocket = (): UseWebSocketReturn => {
     const newSocket = io(wsUrl, {
       transports: ['websocket', 'polling'],
       timeout: 10000,
-      reconnection: true,
-      reconnectionAttempts: maxReconnectAttempts,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnection: false, // We handle reconnection manually for better control
     });
 
     newSocket.on('connect', () => {
@@ -47,6 +51,11 @@ export const useWebSocket = (): UseWebSocketReturn => {
       setIsConnected(true);
       setConnectionStatus('connected');
       reconnectAttemptsRef.current = 0;
+      
+      // Request state sync on reconnect if we have a previous sequence
+      if (lastSeenSequence > 0) {
+        newSocket.emit('request-state-sync', { lastSeenSequence });
+      }
       
       // Join chat room
       newSocket.emit('join-chat', {
@@ -58,17 +67,22 @@ export const useWebSocket = (): UseWebSocketReturn => {
     newSocket.on('disconnect', (reason) => {
       console.log('WebSocket disconnected:', reason);
       setIsConnected(false);
-      setConnectionStatus('disconnected');
       
       // Attempt to reconnect if not intentionally disconnected
-      if (reason !== 'io client disconnect' && reconnectAttemptsRef.current < maxReconnectAttempts) {
+      if (reason !== 'io client disconnect') {
+        setConnectionStatus('reconnecting');
+        
         reconnectAttemptsRef.current++;
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 5000);
+        // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), maxReconnectDelay);
+        
+        console.log(`Reconnecting in ${delay}ms... Attempt ${reconnectAttemptsRef.current}`);
         
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log(`Reconnecting... Attempt ${reconnectAttemptsRef.current}`);
           connect();
         }, delay);
+      } else {
+        setConnectionStatus('disconnected');
       }
     });
 
@@ -76,6 +90,17 @@ export const useWebSocket = (): UseWebSocketReturn => {
       console.error('WebSocket connection error:', error);
       setConnectionStatus('error');
       setIsConnected(false);
+      
+      // Continue reconnection attempts on error
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        reconnectAttemptsRef.current++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), maxReconnectDelay);
+        
+        reconnectTimeoutRef.current = setTimeout(() => {
+          setConnectionStatus('reconnecting');
+          connect();
+        }, delay);
+      }
     });
 
     newSocket.on('message', (data: WebSocketMessage) => {
@@ -88,13 +113,38 @@ export const useWebSocket = (): UseWebSocketReturn => {
       // This would be handled by the chat component
     });
 
+    // Handle state sync response
+    newSocket.on('state-sync', (data: { missedEvents: any[]; currentSequence: number; timestamp: Date }) => {
+      console.log('State sync received', { missedEventsCount: data.missedEvents.length, currentSequence: data.currentSequence });
+      
+      // Reconcile missed events with local state
+      data.missedEvents.forEach((event: any) => {
+        localStateRef.current.set(`${event.event}_${event.sequence}`, event.data);
+      });
+      
+      setLastSeenSequence(data.currentSequence);
+      
+      // Acknowledge the sync
+      newSocket.emit('ack-sequence', { sequence: data.currentSequence });
+    });
+    
+    // Handle ping/pong heartbeat
+    newSocket.on('ping', (data: { timestamp: Date }) => {
+      newSocket.emit('pong');
+    });
+
     setSocket(newSocket);
-  }, [socket]);
+  }, [lastSeenSequence]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
+    }
+    
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
     }
     
     if (socket) {
@@ -104,6 +154,12 @@ export const useWebSocket = (): UseWebSocketReturn => {
       setConnectionStatus('disconnected');
     }
   }, [socket]);
+  
+  const reconnect = useCallback(() => {
+    disconnect();
+    reconnectAttemptsRef.current = 0;
+    setTimeout(() => connect(), 100);
+  }, [disconnect, connect]);
 
   const sendMessage = useCallback(async (message: string, context?: any): Promise<WebSocketMessage | null> => {
     if (!socket || !socket.connected) {
@@ -148,11 +204,26 @@ export const useWebSocket = (): UseWebSocketReturn => {
     };
   }, [connect, disconnect]);
 
+  // Track sequence numbers for events
+  const trackEvent = useCallback((event: string, data: any) => {
+    const sequence = lastSeenSequence + 1;
+    setLastSeenSequence(sequence);
+    localStateRef.current.set(`${event}_${sequence}`, data);
+    
+    // Acknowledge to server
+    if (socket?.connected) {
+      socket.emit('ack-sequence', { sequence });
+    }
+  }, [lastSeenSequence, socket]);
+
   return {
     sendMessage,
     isConnected,
     connectionStatus,
-    socket
+    socket,
+    lastSeenSequence,
+    reconnect,
+    disconnect
   };
 };
 

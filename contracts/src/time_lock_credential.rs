@@ -58,7 +58,8 @@ pub enum StorageKey {
     TotalSchedules,
 }
 
-#[contract]
+// Contract attributes disabled - see lib.rs for main contract
+// #[contract]
 pub struct TimeLockCredential;
 
 #[contractimpl]

@@ -1,5 +1,6 @@
 import Joi from 'joi';
 import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { ValidationError } from '../utils/errors';
 
 type ValidationSource = 'body' | 'query' | 'params';
 
@@ -35,11 +36,8 @@ export function validate(
       });
 
       if (error) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: error.details.map(d => ({ field: d.path.join('.'), message: d.message })),
-        });
+        const details = error.details.map(d => ({ field: d.path.join('.'), message: d.message }));
+        return next(new ValidationError('Validation failed', details));
       }
 
       req[source] = value;
@@ -48,30 +46,26 @@ export function validate(
 
     const validationSchema = schema as ValidationSchema;
 
-    for (const source of ['body', 'query', 'params'] as const) {
-      if (validationSchema[source]) {
-        const { error, value } = validationSchema[source]!.validate(req[source], {
+    for (const src of ['body', 'query', 'params'] as const) {
+      if (validationSchema[src]) {
+        const { error, value } = validationSchema[src]!.validate(req[src], {
           abortEarly: false,
           allowUnknown: false,
           stripUnknown: true,
-          ...(source === 'query' && { convert: true }),
+          ...(src === 'query' && { convert: true }),
         });
         if (error) {
           error.details.forEach(d =>
             errors.push({ field: d.path.join('.'), message: d.message })
           );
         } else {
-          req[source] = value;
+          req[src] = value;
         }
       }
     }
 
     if (errors.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors,
-      });
+      return next(new ValidationError('Validation failed', errors));
     }
 
     next();

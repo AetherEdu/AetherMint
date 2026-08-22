@@ -2,7 +2,15 @@ import React from 'react';
 
 export interface Question {
   id: string;
-  type: 'multiple-choice' | 'true-false' | 'short-answer' | 'essay' | 'fill-in-the-blank' | 'code-submission' | 'drag-and-drop' | 'image-based';
+  type:
+    | 'multiple-choice'
+    | 'true-false'
+    | 'short-answer'
+    | 'essay'
+    | 'fill-in-the-blank'
+    | 'code-submission'
+    | 'drag-and-drop'
+    | 'image-based';
   question: string;
   options?: string[] | any[];
   imageUrl?: string;
@@ -21,62 +29,89 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   answer,
   onChange,
 }) => {
+  const questionTitleId = `question-${question.id}-title`;
+  const answerFieldId = `question-${question.id}-answer`;
+  const helpTextId = `question-${question.id}-help`;
+
   const renderMCQ = () => {
-    const options = (question.options || []) as (string | { id: string, text: string })[];
+    const options = (question.options || []) as (
+      | string
+      | { id: string; text: string }
+    )[];
+
     return (
-      <div className="space-y-3">
+      <fieldset className="space-y-3" aria-labelledby={questionTitleId} aria-describedby={helpTextId}>
+        <legend className="sr-only">{question.question}</legend>
         {options.map((option, index) => {
           const optionText = typeof option === 'string' ? option : option.text;
           const optionId = typeof option === 'string' ? index : option.id;
-          const isSelected = answer === optionId;
-          
+          const inputId = `${answerFieldId}-${String(optionId)}`;
+          const isSelected = String(answer) === String(optionId);
+
           return (
-            <button
-              key={index}
-              onClick={() => onChange(optionId)}
-              className={`w-full text-left p-4 rounded-lg border transition-all duration-200 ${
+            <label
+              key={String(optionId)}
+              htmlFor={inputId}
+              className={`flex cursor-pointer items-center rounded-lg border p-4 transition-all duration-200 focus-within:ring-2 focus-within:ring-blue-500 ${
                 isSelected
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500'
-                  : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                  : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
               }`}
             >
-              <div className="flex items-center">
-                <div
-                  className={`w-6 h-6 rounded-full border flex items-center justify-center mr-3 ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-500 text-white'
-                      : 'border-gray-400 text-gray-400'
-                  }`}
-                >
-                  {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
-                </div>
-                <span>{optionText}</span>
-              </div>
-            </button>
+              <input
+                id={inputId}
+                type="radio"
+                name={question.id}
+                checked={isSelected}
+                onChange={() => onChange(optionId)}
+                className="sr-only"
+              />
+              <span
+                aria-hidden="true"
+                className={`mr-3 flex h-6 w-6 items-center justify-center rounded-full border ${
+                  isSelected
+                    ? 'border-blue-500 bg-blue-500 text-white'
+                    : 'border-gray-400 text-gray-400'
+                }`}
+              >
+                {isSelected && <span className="h-2 w-2 rounded-full bg-white" />}
+              </span>
+              <span>{optionText}</span>
+            </label>
           );
         })}
-      </div>
+      </fieldset>
     );
   };
 
   const renderEssay = () => (
-    <textarea
-      value={answer || ''}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Write your answer here..."
-      className="w-full min-h-[200px] p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-    />
+    <>
+      <label htmlFor={answerFieldId} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        Answer for {question.question}
+      </label>
+      <textarea
+        id={answerFieldId}
+        value={answer || ''}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Write your answer here..."
+        className="mt-2 w-full min-h-[200px] rounded-lg border border-gray-200 bg-white p-4 text-gray-900 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+      />
+    </>
   );
 
   const renderCode = () => (
     <div className="space-y-4">
-      <div className="p-3 bg-gray-100 dark:bg-gray-900 rounded-md text-sm font-mono text-gray-600 dark:text-gray-400">
-        // Write your code solution here
+      <div className="rounded-md bg-gray-100 p-3 font-mono text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-400">
+        {'// Write your code solution here'}
       </div>
+      <label htmlFor={answerFieldId} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        Code answer for {question.question}
+      </label>
       <textarea
+        id={answerFieldId}
         value={answer || question.codeTemplate || ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full min-h-[300px] p-4 rounded-lg bg-gray-950 text-emerald-400 font-mono text-sm border-none focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full min-h-[300px] rounded-lg border border-gray-200 bg-gray-950 p-4 font-mono text-sm text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-gray-800"
         spellCheck="false"
       />
     </div>
@@ -85,9 +120,13 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   const renderImage = () => (
     <div className="space-y-4">
       {question.imageUrl && (
-        <div className="mb-4 overflow-hidden rounded-lg">
-          <img src={question.imageUrl} alt="Question Context" className="max-w-full h-auto object-cover hover:scale-105 transition-transform duration-500" />
-        </div>
+        <figure className="overflow-hidden rounded-lg">
+          <img
+            src={question.imageUrl}
+            alt={`Question context for ${question.question}`}
+            className="h-auto max-w-full object-cover transition-transform duration-500 hover:scale-105"
+          />
+        </figure>
       )}
       {renderMCQ()}
     </div>
@@ -108,25 +147,35 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         return renderImage();
       default:
         return (
-          <div className="p-4 bg-yellow-50 dark:bg-yellow-900/10 text-yellow-700 dark:text-yellow-400 rounded-lg">
-            This question type ({question.type}) is currently requiring a specialized interface.
+          <div className="rounded-lg bg-yellow-50 p-4 text-yellow-700 dark:bg-yellow-900/10 dark:text-yellow-400">
+            This question type ({question.type}) currently requires a specialized interface.
           </div>
         );
     }
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
+    <section
+      className="rounded-xl border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-800 dark:bg-gray-900"
+      aria-labelledby={questionTitleId}
+      aria-describedby={helpTextId}
+    >
       <div className="mb-6">
-        <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+        <span className="mb-2 inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-medium uppercase tracking-wider text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
           {question.type.replace('-', ' ')}
         </span>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+        <h3
+          id={questionTitleId}
+          className="text-xl font-bold leading-tight text-gray-900 dark:text-white"
+        >
           {question.question}
         </h3>
+        <p id={helpTextId} className="sr-only">
+          Use the keyboard to answer the question. Multiple choice questions use radio buttons.
+        </p>
       </div>
       {renderContent()}
-    </div>
+    </section>
   );
 };
 

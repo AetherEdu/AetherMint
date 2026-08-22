@@ -1,193 +1,264 @@
-const rateLimit = require('express-rate-limit');
-const redisConfig = require('../config/redis');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const { rateLimitConfig } = require('../config/redis');
+const {
+  decrementRateLimitCounter,
+  incrementRateLimitCounter,
+  resetRateLimitCounter,
+} = require('../utils/redis');
 const securityConfig = require('../config/security');
 const logger = require('../utils/logger');
+const { RateLimitError, ServiceUnavailableError } = require('../utils/errors');
 
-/**
- * Custom Simple Redis Store for express-rate-limit
- */
+const getIp = (req) => req.ip || req.socket?.remoteAddress || 'unknown';
+
+const getAuthenticatedUser = (req) => {
+  if (req.user && (req.user.id || req.user.sub)) {
+    return {
+      id: String(req.user.id || req.user.sub),
+      role: String(req.user.role || '').toLowerCase(),
+    };
+  }
+
+  const authorization = req.headers?.authorization;
+  if (!authorization || !authorization.startsWith('Bearer ')) return null;
+
+  try {
+    const token = authorization.slice(7);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const id = decoded.id || decoded.sub;
+    if (!id) return null;
+    return { id: String(id), role: String(decoded.role || '').toLowerCase() };
+  } catch {
+    return null;
+  }
+};
+
+const endpointName = (req) => {
+  const routePath = req.route?.path || '';
+  const path = `${req.baseUrl || ''}${routePath}` || req.path || 'unknown';
+  return `${req.method || 'ALL'}:${path}`;
+};
+
+const hashKey = (value) =>
+  crypto.createHash('sha256').update(String(value)).digest('hex');
+
+const shouldSkip = (req) => {
+  if (!rateLimitConfig.enabled) return true;
+  if (process.env.NODE_ENV === 'test') {
+    return req.headers['x-test-security'] !== 'true';
+  }
+  return securityConfig.whitelist.includes(getIp(req));
+};
+
+const identityFor = (req, scope) => {
+  const user = getAuthenticatedUser(req);
+  if (scope === 'user' && user) return `user:${user.id}`;
+  if (scope === 'endpoint') {
+    const actor = user ? `user:${user.id}` : `ip:${getIp(req)}`;
+    return `${endpointName(req)}:${actor}`;
+  }
+  return `ip:${getIp(req)}`;
+};
+
 class RedisStore {
   constructor(options = {}) {
-    this.prefix = options.prefix || 'rl:';
-    this.expiry = options.expiry || 60; // default 60 seconds
+    this.prefix = options.prefix || rateLimitConfig.keyPrefix;
+    this.expiry = options.expiry || 60;
+  }
+
+  key(key) {
+    return `${this.prefix}${hashKey(key)}`;
   }
 
   async increment(key) {
-    const fullKey = this.prefix + key;
-    try {
-      // Use multi to ensure atomicity
-      const multi = redisConfig.client.multi();
-      multi.incrBy(fullKey, 1);
-      multi.expire(fullKey, this.expiry);
-      const results = await multi.exec();
-      
-      const currentCount = results[0];
-      const ttl = results[1];
-
-      return {
-        totalHits: currentCount,
-        resetTime: new Date(Date.now() + (ttl * 1000 || this.expiry * 1000))
-      };
-    } catch (error) {
-      logger.error(`RedisStore error for key ${fullKey}:`, error);
-      // Fallback
-      return { totalHits: 0, resetTime: new Date() };
-    }
+    return incrementRateLimitCounter(this.key(key), this.expiry * 1000);
   }
 
   async decrement(key) {
-    const fullKey = this.prefix + key;
-    try {
-      await redisConfig.client.decr(fullKey);
-    } catch (error) {
-      logger.error(`RedisStore decrement error for key ${fullKey}:`, error);
-    }
+    await decrementRateLimitCounter(this.key(key));
   }
 
   async resetKey(key) {
-    const fullKey = this.prefix + key;
-    try {
-      await redisConfig.client.del(fullKey);
-    } catch (error) {
-      logger.error(`RedisStore resetKey error for key ${fullKey}:`, error);
-    }
+    await resetRateLimitCounter(this.key(key));
   }
 }
 
-/**
- * Factory for creating rate limiters with custom Redis store
- */
-const createRateLimiter = (options = {}) => {
-  const {
-    windowMs = securityConfig.tiers.default.windowMs,
-    max = securityConfig.tiers.default.max,
-    message = securityConfig.tiers.default.message,
-    keyPrefix = 'rl:',
-  } = options;
+const setHeaders = (res, result) => {
+  const resetSeconds = Math.max(
+    1,
+    Math.ceil((result.resetTime.getTime() - Date.now()) / 1000)
+  );
+  res.setHeader('X-RateLimit-Limit', String(result.limit));
+  res.setHeader('X-RateLimit-Remaining', String(Math.max(0, result.remaining)));
+  res.setHeader('X-RateLimit-Reset', String(Math.ceil(result.resetTime.getTime() / 1000)));
+  return resetSeconds;
+};
 
-  const securityService = require('../services/securityService');
+const consume = async (req, policy) => {
+  const identity = identityFor(req, policy.scope);
+  const baseKey = `${rateLimitConfig.keyPrefix}${policy.name}:`;
+  const mainStore = new RedisStore({
+    prefix: `${baseKey}window:`,
+    expiry: Math.ceil(policy.windowMs / 1000),
+  });
+  const burstStore = new RedisStore({
+    prefix: `${baseKey}burst:`,
+    expiry: Math.ceil(policy.burstWindowMs / 1000),
+  });
 
-  return rateLimit({
-    windowMs,
-    max,
-    message: {
-      success: false,
-      message,
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    store: new RedisStore({
-      prefix: keyPrefix,
-      expiry: Math.ceil(windowMs / 1000),
-    }),
-    handler: (req, res, next, options) => {
-      logger.warn(`Rate limit exceeded: ${req.ip} - ${req.method} ${req.path}`);
-      
-      // Log security event for rate limit breach
-      securityService.logSecurityEvent(req.ip, 'rate_limit_exceeded', {
+  const [main, burst] = await Promise.all([
+    mainStore.increment(identity),
+    burstStore.increment(identity),
+  ]);
+
+  if (!main || !burst) {
+    return { unavailable: true, policy };
+  }
+
+  const mainResult = {
+    limit: policy.max,
+    remaining: policy.max - main.totalHits,
+    resetTime: main.resetTime,
+    exceeded: main.totalHits > policy.max,
+  };
+  const burstResult = {
+    limit: policy.burstMax,
+    remaining: policy.burstMax - burst.totalHits,
+    resetTime: burst.resetTime,
+    exceeded: burst.totalHits > policy.burstMax,
+  };
+
+  return {
+    ...(burstResult.exceeded ? burstResult : mainResult),
+    exceeded: mainResult.exceeded || burstResult.exceeded,
+    policy,
+  };
+};
+
+const rejectRequest = async (req, res, result) => {
+  const retryAfter = setHeaders(res, result);
+  res.setHeader('Retry-After', String(retryAfter));
+
+  logger.warn(`Rate limit exceeded: ${getIp(req)} - ${req.method} ${req.path}`);
+
+  try {
+    const securityService = require('../services/securityService');
+    await Promise.resolve(securityService.logSecurityEvent(
+      getIp(req),
+      'rate_limit_exceeded',
+      {
         path: req.path,
         method: req.method,
-        prefix: keyPrefix,
-        user: req.user ? req.user.id : 'anonymous'
-      });
+        tier: result.policy.name,
+        user: getAuthenticatedUser(req)?.id || 'anonymous',
+      }
+    ));
+  } catch (error) {
+    logger.error('Failed to record rate limit security event:', error);
+  }
 
-      res.status(options.statusCode).send(options.message);
-    },
-    keyGenerator: (req) => {
-      // Use user ID if authenticated, else fallback to IP
-      if (req.user && (req.user.id || req.user.sub)) {
-        return `${keyPrefix}${req.user.id || req.user.sub}`;
-      }
-      return req.ip;
-    },
-    skip: (req) => {
-      // Skip whitelisted IPs or in test environment (unless explicitly testing security)
-      if (process.env.NODE_ENV === 'test' && req.headers['x-test-security'] === 'true') {
-        return false;
-      }
-      return securityConfig.whitelist.includes(req.ip) || process.env.NODE_ENV === 'test';
+  const err = new RateLimitError(result.policy.message || 'Rate limit exceeded');
+  err.details = { retryAfter, policy: result.policy.name };
+  return next(err);
+};
+
+const runPolicies = async (req, res, next, policies) => {
+  if (shouldSkip(req)) return next();
+
+  try {
+    const results = await Promise.all(policies.map((policy) => consume(req, policy)));
+    const unavailable = results.some((result) => result.unavailable);
+
+    if (unavailable && !rateLimitConfig.failOpen) {
+      return next(new ServiceUnavailableError('Request protection is temporarily unavailable. Please try again shortly.'));
     }
-  });
+
+    const exceeded = results.find((result) => result.exceeded);
+    if (exceeded) return rejectRequest(req, res, exceeded);
+
+    const available = results.filter((result) => !result.unavailable);
+    if (available.length) {
+      const mostConstrained = available.reduce((selected, result) =>
+        result.remaining / result.limit < selected.remaining / selected.limit
+          ? result
+          : selected
+      );
+      setHeaders(res, mostConstrained);
+    }
+
+    return next();
+  } catch (error) {
+    logger.error('Rate limiter failed:', error);
+    if (rateLimitConfig.failOpen) return next();
+    return next(new ServiceUnavailableError('Request protection is temporarily unavailable. Please try again shortly.'));
+  }
 };
 
-// Global rate limiter
-const globalLimiter = createRateLimiter({
-  windowMs: securityConfig.tiers.default.windowMs,
-  max: securityConfig.tiers.default.max,
-  keyPrefix: 'rl:global:',
+const normalizePolicy = (options = {}) => ({
+  windowMs: options.windowMs || rateLimitConfig.public.windowMs,
+  max: options.max || rateLimitConfig.public.max,
+  burstWindowMs: options.burstWindowMs || Math.min(options.windowMs || 60_000, 10_000),
+  burstMax: options.burstMax || Math.max(1, Math.ceil((options.max || 100) * 0.2)),
+  message: typeof options.message === 'string'
+    ? options.message
+    : rateLimitConfig.public.message,
+  name: options.name || String(options.keyPrefix || 'custom').replace(/[^a-z0-9_-]/gi, ''),
+  scope: options.scope || 'ip',
 });
 
-// Tier-based limiters (to be used after authentication)
-const studentLimiter = createRateLimiter({
-  windowMs: securityConfig.tiers.student.windowMs,
-  max: securityConfig.tiers.student.max,
-  message: securityConfig.tiers.student.message,
-  keyPrefix: 'rl:student:',
-});
+const createRateLimiter = (options = {}) => {
+  const policy = normalizePolicy(options);
+  return (req, res, next) => runPolicies(req, res, next, [policy]);
+};
 
-const instructorLimiter = createRateLimiter({
-  windowMs: securityConfig.tiers.instructor.windowMs,
-  max: securityConfig.tiers.instructor.max,
-  message: securityConfig.tiers.instructor.message,
-  keyPrefix: 'rl:instructor:',
-});
+const globalPolicy = { ...rateLimitConfig.global, name: 'global', scope: 'ip' };
+const publicPolicy = { ...rateLimitConfig.public, name: 'public', scope: 'ip' };
+const authenticatedPolicy = {
+  ...rateLimitConfig.authenticated,
+  name: 'authenticated',
+  scope: 'user',
+};
+const adminPolicy = { ...rateLimitConfig.admin, name: 'admin', scope: 'user' };
 
-const adminLimiter = createRateLimiter({
-  windowMs: securityConfig.tiers.admin.windowMs,
-  max: securityConfig.tiers.admin.max,
-  message: securityConfig.tiers.admin.message,
-  keyPrefix: 'rl:admin:',
-});
+const globalLimiter = (req, res, next) =>
+  runPolicies(req, res, next, [globalPolicy]);
 
-// Endpoint-specific limiters
-const authLimiter = createRateLimiter({
-  windowMs: securityConfig.endpoints.auth.windowMs,
-  max: securityConfig.endpoints.auth.max,
-  message: securityConfig.endpoints.auth.message,
-  keyPrefix: 'rl:auth:',
-});
+const publicLimiter = (req, res, next) =>
+  runPolicies(req, res, next, [globalPolicy, publicPolicy]);
 
-const transactionLimiter = createRateLimiter({
-  windowMs: securityConfig.endpoints.transactions.windowMs,
-  max: securityConfig.endpoints.transactions.max,
-  message: securityConfig.endpoints.transactions.message,
-  keyPrefix: 'rl:tx:',
-});
+const authenticatedLimiter = (req, res, next) =>
+  runPolicies(req, res, next, [globalPolicy, authenticatedPolicy]);
 
-const ipfsLimiter = createRateLimiter({
-  windowMs: securityConfig.endpoints.ipfs.windowMs,
-  max: securityConfig.endpoints.ipfs.max,
-  message: securityConfig.endpoints.ipfs.message,
-  keyPrefix: 'rl:ipfs:',
-});
+const adminLimiter = (req, res, next) =>
+  runPolicies(req, res, next, [globalPolicy, adminPolicy]);
 
-/**
- * Middleware to select rate limiter based on user role
- */
 const tieredRateLimiter = (req, res, next) => {
-  // If not authenticated, use global limiter by IP
-  if (!req.user) {
-    return globalLimiter(req, res, next);
-  }
-
-  // If authenticated, use role-based limiter which now uses UserID in keyGenerator
-  const role = req.user.role;
-  if (role === 'admin') {
-    return adminLimiter(req, res, next);
-  } else if (role === 'instructor' || role === 'educator') {
-    return instructorLimiter(req, res, next);
-  } else if (role === 'student') {
-    return studentLimiter(req, res, next);
-  } else {
-    return globalLimiter(req, res, next);
-  }
+  const user = getAuthenticatedUser(req);
+  if (!user) return publicLimiter(req, res, next);
+  if (user.role === 'admin') return adminLimiter(req, res, next);
+  return authenticatedLimiter(req, res, next);
 };
+
+const endpointLimiter = (name, config, scope = 'endpoint') =>
+  createRateLimiter({ ...config, name, scope });
+
+const authLimiter = endpointLimiter('auth', rateLimitConfig.endpoints.auth, 'endpoint');
+const transactionLimiter = endpointLimiter(
+  'transactions',
+  rateLimitConfig.endpoints.transactions
+);
+const ipfsLimiter = endpointLimiter('ipfs', rateLimitConfig.endpoints.ipfs);
 
 module.exports = {
+  RedisStore,
   globalLimiter,
+  publicLimiter,
+  authenticatedLimiter,
+  adminLimiter,
   tieredRateLimiter,
   authLimiter,
   transactionLimiter,
   ipfsLimiter,
-  createRateLimiter
+  createRateLimiter,
 };

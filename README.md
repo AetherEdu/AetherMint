@@ -51,6 +51,46 @@ AetherMint is a decentralized learning and credential verification platform powe
 - PostgreSQL
 - Redis
 - Freighter or compatible Stellar wallet
+- **Rust** (stable toolchain, 1.75+)
+- **Soroban SDK** (26.1.0)
+- **Soroban CLI** (26.1.0)
+
+### Rust and Soroban Setup
+
+#### Install Rust
+```bash
+# Install Rust via rustup
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Add wasm32v1-none target (required for Soroban contracts with Rust 1.84+)
+rustup target add wasm32v1-none
+```
+
+**Note**: If you have Rust 1.82 or earlier, use `wasm32-unknown-unknown` instead. However, Rust 1.84+ is recommended and requires the newer `wasm32v1-none` target.
+
+#### Install Soroban CLI
+```bash
+# Install specific version for compatibility
+cargo install --locked stellar-cli --version 26.1.0
+
+# Verify installation
+stellar version
+```
+
+#### Version Compatibility Matrix
+
+| Component | Version | Notes |
+|-----------|---------|-------|
+| soroban-sdk | 26.1.0 | Pinned with `=` in Cargo.toml |
+| stellar-cli (soroban-cli) | 26.1.0 | Must match SDK version |
+| Rust toolchain | 1.84.0+ (stable) | Required for wasm32v1-none target |
+| wasm32v1-none | (installed via rustup) | **Required build target for Rust 1.84+** |
+| wasm32-unknown-unknown | (legacy) | Only for Rust 1.81 or earlier |
+
+**Important**: 
+- The soroban-sdk and stellar-cli versions must be compatible. We use exact version pinning (`=26.1.0`) to ensure consistency across development and CI environments.
+- **Rust 1.84.0+** requires the `wasm32v1-none` target instead of the legacy `wasm32-unknown-unknown` target.
+- If you're using Rust 1.82 or 1.83, you must downgrade to Rust 1.81 or upgrade to 1.84+.
 
 ### Installation
 
@@ -89,6 +129,22 @@ cd ../frontend
 npm run dev
 ```
 
+## 📐 Architecture Decision Records
+
+Significant architectural decisions are documented as Architecture Decision Records (ADRs) in [`docs/adr/`](docs/adr/).
+
+| ADR | Decision | Status |
+|-----|----------|--------|
+| [001](docs/adr/001-stellar-soroban-choice.md) | Stellar/Soroban over Ethereum/EVM | Accepted |
+| [002](docs/adr/002-dual-database-strategy.md) | Dual database (PostgreSQL + MongoDB) | Accepted |
+| [003](docs/adr/003-ipfs-storage.md) | IPFS for decentralized content storage | Accepted |
+| [004](docs/adr/004-federated-learning.md) | Federated learning for AI/ML features | Accepted |
+| [005](docs/adr/005-quantum-resistant-crypto.md) | Quantum-resistant cryptography | Proposed |
+| [006](docs/adr/006-architecture-style.md) | Microservices-lite architecture | Accepted |
+| [007](docs/adr/007-typescript-strategy.md) | TypeScript gradual migration | Accepted |
+
+See the [ADR index](docs/adr/README.md) for details.
+
 ## 📁 Project Structure
 
 ```
@@ -113,10 +169,7 @@ aethermint-education/
 │   │   └── utils/         # Helper functions
 │   └── package.json        # Backend dependencies
 ├── docs/                   # Project documentation
-├── scripts/                # Deployment and utility scripts
-└── .github/               # GitHub workflows and templates
-    ├── workflows/           # CI/CD pipelines
-    └── ISSUE_TEMPLATE/      # Issue templates
+└── scripts/                # Deployment and utility scripts
 ```
 
 ## 🔧 Smart Contracts
@@ -127,6 +180,65 @@ The core Soroban contracts handle:
 - **CourseManager** - Manages course creation and enrollment
 - **AchievementIssuer** - Handles NFT-based achievement badges
 - **ProfileManager** - Manages on-chain learning profiles
+
+### Building Contracts
+
+```bash
+# Navigate to contracts directory
+cd contracts
+
+# Build for wasm32v1-none target (required for Rust 1.84+)
+cargo build --target wasm32v1-none --release
+
+# OR for Rust 1.81 or earlier, use the legacy target:
+# cargo build --target wasm32-unknown-unknown --release
+
+# Run tests
+cargo test --release
+
+# The compiled WASM will be in:
+# target/wasm32v1-none/release/aethermint_education_contracts.wasm
+# (or target/wasm32-unknown-unknown/release/ for legacy target)
+```
+
+**Important**: Make sure you're using the correct target for your Rust version:
+- **Rust 1.84+**: Use `wasm32v1-none` (recommended)
+- **Rust 1.81 or earlier**: Use `wasm32-unknown-unknown`
+- **Rust 1.82-1.83**: Not supported - upgrade to 1.84+ or downgrade to 1.81
+
+### Deploying Contracts
+
+```bash
+# Build the contract first with stellar contract build (recommended)
+stellar contract build
+
+# OR manually build
+cargo build --target wasm32v1-none --release
+
+# Deploy to testnet
+stellar contract deploy \
+  --wasm target/wasm32v1-none/release/aethermint_education_contracts.wasm \
+  --network testnet
+
+# Deploy to local standalone network
+stellar contract deploy \
+  --wasm target/wasm32v1-none/release/aethermint_education_contracts.wasm \
+  --network standalone
+```
+
+### Testing Contracts
+
+```bash
+# Run all contract tests
+cd contracts
+cargo test
+
+# Run specific test
+cargo test test_credential_issuance
+
+# Run with output
+cargo test -- --nocapture
+```
 
 ### ⚡ Storage Optimization
 
@@ -187,6 +299,30 @@ soroban contract invoke \
   --fn generate_gas_report \
   --wasm target/wasm32-unknown-unknown/release/aethermint_education.wasm
 ```
+
+## 📖 API Documentation
+
+AetherMint ships with fully interactive API reference documentation built on OpenAPI 3.0 / Swagger.
+
+| Resource | URL | Description |
+|----------|-----|-------------|
+| **Swagger UI** | `http://localhost:3001/api/docs` | Interactive browser-based API explorer |
+| **Raw OpenAPI spec** | `http://localhost:3001/api/docs/json` | Machine-readable JSON spec for tooling |
+| **Developer Portal** | `http://localhost:3002` | Full playground with code generation and auth docs |
+| **Auth Docs** | `http://localhost:3002/auth-docs` | JWT flow, API key usage, roles & error codes |
+| **Published docs** | [GitHub Pages](https://jobbykings.github.io/aethermint-education/) | Auto-updated on every push to `main` |
+
+To start the documentation locally:
+
+```bash
+# Swagger UI is served automatically by the backend
+cd backend && npm run dev           # → http://localhost:3001/api/docs
+
+# Developer portal (API Playground + Auth Docs)
+cd backend/portal && npm run dev    # → http://localhost:3002
+```
+
+The OpenAPI spec is validated on every CI run — a PR fails if fewer than 10 paths are documented or the spec is structurally invalid.
 
 ## �🌐 API Endpoints
 

@@ -1,0 +1,34 @@
+{
+  "errors": {
+    "title": "Algo salió mal",
+    "generic": "Ocurrió algo inesperado. Por favor, inténtalo de nuevo.",
+    "reload": "Recargar la página",
+    "back": "Volver",
+    "notFound": {
+      "title": "Página no encontrada",
+      "message": "La página que buscas no existe o ha sido movida."
+    },
+    "forbidden": {
+      "title": "Acceso denegado",
+      "message": "No tienes permiso para ver esta página."
+    },
+    "serverError": {
+      "title": "Error del servidor",
+      "message": "El servidor tuvo un problema inesperado. Inténtalo de nuevo en un momento."
+    },
+    "offline": {
+      "title": "Estás sin conexión",
+      "message": "Estás sin conexión. Tus cambios se sincronizarán cuando vuelvas a conectarte."
+    }
+  },
+  "validation": {
+    "required": "Este campo es obligatorio",
+    "minLength": "Ingresa al menos {{count}} caracteres",
+    "maxLength": "No superes los {{count}} caracteres",
+    "invalidEmail": "Ingresa una dirección de correo válida",
+    "invalidUrl": "Ingresa una URL válida",
+    "mismatch": "Los valores no coinciden",
+    "positiveNumber": "Ingresa un número positivo",
+    "integer": "Ingresa un número entero"
+  }
+}

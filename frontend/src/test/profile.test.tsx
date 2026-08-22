@@ -6,6 +6,15 @@ import { ProfileStats } from '../components/ProfileStats'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { testProfile, testAchievements, testCredentials, testStats } from '../test-profile'
 
+// Suppress console.error during ErrorBoundary tests since React logs caught errors
+let consoleErrorSpy: jest.SpyInstance;
+beforeEach(() => {
+  consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+afterEach(() => {
+  consoleErrorSpy.mockRestore();
+});
+
 // Mock the useProfile hook
 jest.mock('../hooks/useProfile', () => ({
   useProfile: () => ({

@@ -13,6 +13,7 @@ import {
   BarChart3,
   Database,
   Bell,
+  Languages,
   LogOut,
   Menu,
   X,
@@ -51,6 +52,7 @@ const sidebarItems: SidebarItem[] = [
     children: [
       { title: 'Courses', href: '/admin/content/courses', icon: BookOpen },
       { title: 'Quizzes', href: '/admin/content/quizzes', icon: FileText },
+      { title: 'Localization', href: '/admin/localization', icon: Languages },
       { title: 'Moderation', href: '/admin/content/moderation', icon: Shield }
     ]
   },
@@ -136,9 +138,9 @@ export default function AdminSidebar() {
 
   return (
     <div className={`
-      bg-white border-r border-gray-200 h-screen sticky top-0 flex flex-col
+      bg-white border-r border-gray-200 md:h-screen md:sticky md:top-0 flex flex-col
       transition-all duration-300
-      ${isCollapsed ? 'w-16' : 'w-64'}
+      w-full md:w-auto ${isCollapsed ? 'md:w-16' : 'md:w-64'}
     `}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200">

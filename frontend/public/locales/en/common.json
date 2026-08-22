@@ -4,6 +4,44 @@
     "tagline": "Decentralized Learning Platform",
     "description": "Learn blockchain development with courses powered by Stellar"
   },
+  "language": {
+    "selectTitle": "Select Your Language",
+    "selectSubtitle": "Choose your preferred language for the best experience",
+    "switcherAria": "Select language",
+    "searchPlaceholder": "Search languages...",
+    "detected": "Detected from your browser: {{locale}}",
+    "changed": "Language changed to {{locale}}"
+  },
+  "header": {
+    "brand": "AetherMint",
+    "menuToggle": "Toggle navigation menu",
+    "skipToContent": "Skip to main content",
+    "openSearch": "Open search",
+    "closeSearch": "Close search"
+  },
+  "footer": {
+    "copyright": "© {{year}} AetherMint Education. All rights reserved.",
+    "madeWith": "Made with ❤️ on Stellar",
+    "language": "Language",
+    "switchTip": "Add ?lang=es (or your preferred code) to share localized links."
+  },
+  "index": {
+    "title": "Temporal Learning Studio",
+    "description": "A frontend prototype for adaptive learning acceleration with temporal pacing, personalization, and safety guardrails.",
+    "eyebrow": "Frontend Feature Prototype",
+    "h1": "Temporal Learning Studio",
+    "subtitle": "A safe frontend interpretation of time-dilation learning: adaptive pacing, intensified focus windows, and reversible guardrails that compress how a study block feels without pretending to alter real-world time.",
+    "accelerate": "Unlock 2x+ Projection",
+    "normalize": "Normalize Session",
+    "viewDemo": "View existing demo",
+    "safetyNote": "Safety note:",
+    "safetyNoteBody": "this interface models cognitive pacing and feedback heuristics. It does not claim medical efficacy, neurofeedback treatment, or literal manipulation of time perception.",
+    "recommendedScale": "Recommended scale",
+    "speedGain": "Projected speed gain",
+    "perceivedSpan": "Perceived study span",
+    "masteryConfidence": "Mastery confidence",
+    "safetyState": "Safety state"
+  },
   "navigation": {
     "home": "Home",
     "courses": "Courses",

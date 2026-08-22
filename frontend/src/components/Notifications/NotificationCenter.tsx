@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Bell, BellRing, Filter, Check, CheckCheck, Trash2, Settings, X } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import NotificationItem from './NotificationItem';
 import PreferencesPanel from './PreferencesPanel';
 
@@ -21,6 +22,11 @@ const NotificationCenter: React.FC = () => {
   } = useNotifications();
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const focusTrapRef = useFocusTrap(isOpen, {
+    onEscape: () => setIsOpen(false),
+    initialFocusSelector: '[data-notification-close]',
+    lockScroll: false,
+  });
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -53,9 +59,12 @@ const NotificationCenter: React.FC = () => {
     <div className="relative" ref={dropdownRef}>
       {/* Notification Bell Button */}
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
-        aria-label="Notifications"
+        aria-controls="notification-center-panel"
+        aria-expanded={isOpen}
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
       >
         {unreadCount > 0 ? (
           <BellRing size={20} className="text-blue-600" />
@@ -65,22 +74,35 @@ const NotificationCenter: React.FC = () => {
         
         {/* Unread count badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium" aria-hidden="true">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
+        <span className="sr-only" aria-live="polite">
+          {unreadCount} unread notifications
+        </span>
       </button>
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[600px] overflow-hidden">
+        <div
+          id="notification-center-panel"
+          className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[600px] overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="notification-center-title"
+          ref={focusTrapRef}
+        >
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
+              <h3 id="notification-center-title" className="text-lg font-semibold text-gray-900">Notifications</h3>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1 rounded-md hover:bg-gray-100 transition-colors"
+                aria-label="Close notifications"
+                data-notification-close
               >
                 <X size={18} className="text-gray-500" />
               </button>
@@ -92,8 +114,10 @@ const NotificationCenter: React.FC = () => {
               <div className="flex gap-1 flex-wrap">
                 {categories.map((category) => (
                   <button
+                    type="button"
                     key={category.value}
                     onClick={() => setSelectedCategory(category.value as any)}
+                    aria-pressed={selectedCategory === category.value}
                     className={`
                       px-3 py-1 rounded-full text-xs font-medium transition-colors
                       ${selectedCategory === category.value
@@ -113,8 +137,10 @@ const NotificationCenter: React.FC = () => {
               <div className="flex gap-2">
                 {unreadCount > 0 && (
                   <button
+                    type="button"
                     onClick={markAllAsRead}
                     className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                    aria-label="Mark all notifications as read"
                   >
                     <CheckCheck size={14} />
                     Mark all read
@@ -122,8 +148,10 @@ const NotificationCenter: React.FC = () => {
                 )}
                 {notifications.length > 0 && (
                   <button
+                    type="button"
                     onClick={clearAllNotifications}
                     className="flex items-center gap-1 px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    aria-label="Clear all notifications"
                   >
                     <Trash2 size={14} />
                     Clear all
@@ -131,7 +159,10 @@ const NotificationCenter: React.FC = () => {
                 )}
               </div>
               <button
+                type="button"
                 onClick={() => setShowPreferences(!showPreferences)}
+                aria-expanded={showPreferences}
+                aria-controls="notification-preferences-panel"
                 className={`
                   flex items-center gap-1 px-3 py-1 text-sm rounded-md transition-colors
                   ${showPreferences
@@ -168,7 +199,7 @@ const NotificationCenter: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-gray-100" role="list" aria-label="Notifications">
                     {notifications.map((notification) => (
                       <NotificationItem
                         key={notification.id}

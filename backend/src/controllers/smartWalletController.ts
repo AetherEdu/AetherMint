@@ -3,7 +3,7 @@
  * Handles API requests for smart contract wallet operations
  */
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AccountAbstractionService } from '../services/smartWallet/AccountAbstractionService';
 import { SocialRecoveryService } from '../services/smartWallet/SocialRecoveryService';
 import { MultiSigService } from '../services/smartWallet/MultiSigService';
@@ -11,29 +11,33 @@ import { SessionKeyService } from '../services/smartWallet/SessionKeyService';
 import { CredentialAutomationService } from '../services/smartWallet/CredentialAutomationService';
 import { WalletActivityMonitor } from '../services/smartWallet/WalletActivityMonitor';
 import logger from '../utils/logger';
+import { NotFoundError } from '../utils/errors';
 
 // Initialize services
 const accountAbstractionService = new AccountAbstractionService({
   rpcUrl: process.env.ETH_RPC_URL || 'https://eth-sepolia.g.alchemy.com/v2/demo',
-  bundlerUrl: process.env.BUNDLER_URL || 'https://bundler.biconomy.io/api/v2/11155111',
-  entryPointAddress: process.env.ENTRY_POINT_ADDRESS || '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+  bundlerUrl:
+    process.env.BUNDLER_URL || 'https://bundler.biconomy.io/api/v2/11155111',
+  entryPointAddress:
+    process.env.ENTRY_POINT_ADDRESS ||
+    '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
   walletFactoryAddress: process.env.WALLET_FACTORY_ADDRESS || '',
-  paymasterAddress: process.env.PAYMASTER_ADDRESS || '',
+  paymasterAddress: process.env.PAYMASTER_ADDRESS || ''
 });
 
 const socialRecoveryService = new SocialRecoveryService({
   rpcUrl: process.env.ETH_RPC_URL || 'https://eth-sepolia.g.alchemy.com/v2/demo',
-  recoveryModuleAddress: process.env.RECOVERY_MODULE_ADDRESS || '',
+  recoveryModuleAddress: process.env.RECOVERY_MODULE_ADDRESS || ''
 });
 
 const multiSigService = new MultiSigService({
   rpcUrl: process.env.ETH_RPC_URL || 'https://eth-sepolia.g.alchemy.com/v2/demo',
-  multiSigModuleAddress: process.env.MULTISIG_MODULE_ADDRESS || '',
+  multiSigModuleAddress: process.env.MULTISIG_MODULE_ADDRESS || ''
 });
 
 const sessionKeyService = new SessionKeyService({
   rpcUrl: process.env.ETH_RPC_URL || 'https://eth-sepolia.g.alchemy.com/v2/demo',
-  sessionKeyModuleAddress: process.env.SESSION_KEY_MODULE_ADDRESS || '',
+  sessionKeyModuleAddress: process.env.SESSION_KEY_MODULE_ADDRESS || ''
 });
 
 const credentialAutomationService = new CredentialAutomationService({
@@ -43,35 +47,38 @@ const credentialAutomationService = new CredentialAutomationService({
     enabled: process.env.AUTO_RENEWAL_ENABLED === 'true',
     checkInterval: parseInt(process.env.RENEWAL_CHECK_INTERVAL || '300000'),
     warningThreshold: parseInt(process.env.RENEWAL_WARNING_THRESHOLD || '86400'),
-    batchSize: parseInt(process.env.RENEWAL_BATCH_SIZE || '50'),
-  },
+    batchSize: parseInt(process.env.RENEWAL_BATCH_SIZE || '50')
+  }
 });
 
 const walletActivityMonitor = new WalletActivityMonitor({
   rpcUrl: process.env.ETH_RPC_URL || 'https://eth-sepolia.g.alchemy.com/v2/demo',
-  checkInterval: parseInt(process.env.ACTIVITY_CHECK_INTERVAL || '60000'),
+  checkInterval: parseInt(process.env.ACTIVITY_CHECK_INTERVAL || '60000')
 });
 
-// Start automated services
 if (process.env.AUTO_RENEWAL_ENABLED === 'true') {
   credentialAutomationService.startMonitoring();
 }
 
-/**
- * Create smart wallet
- */
-export const createSmartWallet = async (req: Request, res: Response): Promise<void> => {
+export const createSmartWallet = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { ownerAddress, guardians, threshold } = req.body;
 
-    const socialRecoveryConfig = guardians && threshold ? {
-      guardians: guardians.map((g: any) => ({
-        address: g.address,
-        name: g.name,
-        addedAt: new Date(),
-      })),
-      threshold,
-    } : undefined;
+    const socialRecoveryConfig =
+      guardians && threshold
+        ? {
+            guardians: guardians.map((g: any) => ({
+              address: g.address,
+              name: g.name,
+              addedAt: new Date()
+            })),
+            threshold
+          }
+        : undefined;
 
     const result = await accountAbstractionService.createSmartWallet(
       ownerAddress,
@@ -81,21 +88,19 @@ export const createSmartWallet = async (req: Request, res: Response): Promise<vo
     res.status(201).json({
       success: true,
       data: result,
-      message: 'Smart wallet created successfully',
+      message: 'Smart wallet created successfully'
     });
   } catch (error) {
     logger.error('Create smart wallet error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create smart wallet',
-    });
+    next(error);
   }
 };
 
-/**
- * Execute transaction
- */
-export const executeTransaction = async (req: Request, res: Response): Promise<void> => {
+export const executeTransaction = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress, to, value, data, signature } = req.body;
 
@@ -110,28 +115,26 @@ export const executeTransaction = async (req: Request, res: Response): Promise<v
     res.json({
       success: true,
       data: { userOpHash },
-      message: 'Transaction submitted successfully',
+      message: 'Transaction submitted successfully'
     });
   } catch (error) {
     logger.error('Execute transaction error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to execute transaction',
-    });
+    next(error);
   }
 };
 
-/**
- * Execute batch transactions
- */
-export const executeBatchTransactions = async (req: Request, res: Response): Promise<void> => {
+export const executeBatchTransactions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress, transactions, signature } = req.body;
 
     const txs = transactions.map((tx: any) => ({
       to: tx.to,
       value: BigInt(tx.value),
-      data: tx.data,
+      data: tx.data
     }));
 
     const userOpHash = await accountAbstractionService.executeBatchTransactions(
@@ -143,21 +146,19 @@ export const executeBatchTransactions = async (req: Request, res: Response): Pro
     res.json({
       success: true,
       data: { userOpHash },
-      message: `Batch of ${transactions.length} transactions submitted successfully`,
+      message: `Batch of ${transactions.length} transactions submitted successfully`
     });
   } catch (error) {
     logger.error('Execute batch transactions error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to execute batch transactions',
-    });
+    next(error);
   }
 };
 
-/**
- * Setup social recovery
- */
-export const setupSocialRecovery = async (req: Request, res: Response): Promise<void> => {
+export const setupSocialRecovery = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress, guardians, threshold } = req.body;
 
@@ -166,7 +167,7 @@ export const setupSocialRecovery = async (req: Request, res: Response): Promise<
       guardians.map((g: any) => ({
         address: g.address,
         name: g.name,
-        addedAt: new Date(),
+        addedAt: new Date()
       })),
       threshold
     );
@@ -174,21 +175,19 @@ export const setupSocialRecovery = async (req: Request, res: Response): Promise<
     res.json({
       success: true,
       data: { callData },
-      message: 'Social recovery setup prepared',
+      message: 'Social recovery setup prepared'
     });
   } catch (error) {
     logger.error('Setup social recovery error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to setup social recovery',
-    });
+    next(error);
   }
 };
 
-/**
- * Initiate recovery
- */
-export const initiateRecovery = async (req: Request, res: Response): Promise<void> => {
+export const initiateRecovery = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress, newOwner, guardianAddress, guardianSignature } = req.body;
 
@@ -202,21 +201,19 @@ export const initiateRecovery = async (req: Request, res: Response): Promise<voi
     res.json({
       success: true,
       data: result,
-      message: 'Recovery initiated successfully',
+      message: 'Recovery initiated successfully'
     });
   } catch (error) {
     logger.error('Initiate recovery error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to initiate recovery',
-    });
+    next(error);
   }
 };
 
-/**
- * Support recovery
- */
-export const supportRecovery = async (req: Request, res: Response): Promise<void> => {
+export const supportRecovery = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { recoveryId, guardianAddress, guardianSignature } = req.body;
 
@@ -229,51 +226,40 @@ export const supportRecovery = async (req: Request, res: Response): Promise<void
     res.json({
       success: true,
       data: { callData },
-      message: 'Recovery support added',
+      message: 'Recovery support added'
     });
   } catch (error) {
     logger.error('Support recovery error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to support recovery',
-    });
+    next(error);
   }
 };
 
-/**
- * Get recovery request
- */
-export const getRecoveryRequest = async (req: Request, res: Response): Promise<void> => {
+export const getRecoveryRequest = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { recoveryId } = req.params;
 
-    const recoveryRequest = await socialRecoveryService.getRecoveryRequest(recoveryId);
+    const recoveryRequest = await socialRecoveryService.getRecoveryRequest(
+      recoveryId
+    );
 
-    if (!recoveryRequest) {
-      res.status(404).json({
-        success: false,
-        error: 'Recovery request not found',
-      });
-      return;
-    }
+    if (!recoveryRequest) throw new NotFoundError('Recovery request not found');
 
-    res.json({
-      success: true,
-      data: recoveryRequest,
-    });
+    res.json({ success: true, data: recoveryRequest });
   } catch (error) {
     logger.error('Get recovery request error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get recovery request',
-    });
+    next(error);
   }
 };
 
-/**
- * Setup multi-sig
- */
-export const setupMultiSig = async (req: Request, res: Response): Promise<void> => {
+export const setupMultiSig = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress, signers, threshold } = req.body;
 
@@ -286,21 +272,19 @@ export const setupMultiSig = async (req: Request, res: Response): Promise<void> 
     res.json({
       success: true,
       data: { callData },
-      message: 'Multi-sig setup prepared',
+      message: 'Multi-sig setup prepared'
     });
   } catch (error) {
     logger.error('Setup multi-sig error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to setup multi-sig',
-    });
+    next(error);
   }
 };
 
-/**
- * Propose transaction
- */
-export const proposeTransaction = async (req: Request, res: Response): Promise<void> => {
+export const proposeTransaction = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress, to, value, data, proposer } = req.body;
 
@@ -315,43 +299,38 @@ export const proposeTransaction = async (req: Request, res: Response): Promise<v
     res.json({
       success: true,
       data: result,
-      message: 'Transaction proposed successfully',
+      message: 'Transaction proposed successfully'
     });
   } catch (error) {
     logger.error('Propose transaction error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to propose transaction',
-    });
+    next(error);
   }
 };
 
-/**
- * Get pending transactions
- */
-export const getPendingTransactions = async (req: Request, res: Response): Promise<void> => {
+export const getPendingTransactions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress } = req.params;
 
-    const transactions = await multiSigService.getPendingTransactions(walletAddress);
+    const transactions = await multiSigService.getPendingTransactions(
+      walletAddress
+    );
 
-    res.json({
-      success: true,
-      data: transactions,
-    });
+    res.json({ success: true, data: transactions });
   } catch (error) {
     logger.error('Get pending transactions error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get pending transactions',
-    });
+    next(error);
   }
 };
 
-/**
- * Create session key
- */
-export const createSessionKey = async (req: Request, res: Response): Promise<void> => {
+export const createSessionKey = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress, permissions, validUntil } = req.body;
 
@@ -360,7 +339,7 @@ export const createSessionKey = async (req: Request, res: Response): Promise<voi
       {
         allowedContracts: permissions.allowedContracts || [],
         allowedMethods: permissions.allowedMethods || [],
-        spendingLimit: BigInt(permissions.spendingLimit || 0),
+        spendingLimit: BigInt(permissions.spendingLimit || 0)
       },
       new Date(validUntil)
     );
@@ -368,43 +347,36 @@ export const createSessionKey = async (req: Request, res: Response): Promise<voi
     res.status(201).json({
       success: true,
       data: result,
-      message: 'Session key created successfully',
+      message: 'Session key created successfully'
     });
   } catch (error) {
     logger.error('Create session key error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create session key',
-    });
+    next(error);
   }
 };
 
-/**
- * Get active session keys
- */
-export const getActiveSessionKeys = async (req: Request, res: Response): Promise<void> => {
+export const getActiveSessionKeys = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress } = req.params;
 
     const sessionKeys = await sessionKeyService.getActiveSessionKeys(walletAddress);
 
-    res.json({
-      success: true,
-      data: sessionKeys,
-    });
+    res.json({ success: true, data: sessionKeys });
   } catch (error) {
     logger.error('Get active session keys error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get active session keys',
-    });
+    next(error);
   }
 };
 
-/**
- * Get wallet activity
- */
-export const getWalletActivity = async (req: Request, res: Response): Promise<void> => {
+export const getWalletActivity = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress } = req.params;
     const { limit } = req.query;
@@ -414,23 +386,18 @@ export const getWalletActivity = async (req: Request, res: Response): Promise<vo
       limit ? parseInt(limit as string) : 100
     );
 
-    res.json({
-      success: true,
-      data: activity,
-    });
+    res.json({ success: true, data: activity });
   } catch (error) {
     logger.error('Get wallet activity error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get wallet activity',
-    });
+    next(error);
   }
 };
 
-/**
- * Get activity alerts
- */
-export const getActivityAlerts = async (req: Request, res: Response): Promise<void> => {
+export const getActivityAlerts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { walletAddress } = req.params;
     const { acknowledged } = req.query;
@@ -440,43 +407,33 @@ export const getActivityAlerts = async (req: Request, res: Response): Promise<vo
       acknowledged !== undefined ? acknowledged === 'true' : undefined
     );
 
-    res.json({
-      success: true,
-      data: alerts,
-    });
+    res.json({ success: true, data: alerts });
   } catch (error) {
     logger.error('Get activity alerts error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get activity alerts',
-    });
+    next(error);
   }
 };
 
-/**
- * Get credential renewal stats
- */
-export const getCredentialRenewalStats = async (req: Request, res: Response): Promise<void> => {
+export const getCredentialRenewalStats = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const stats = await credentialAutomationService.getRenewalStats();
 
-    res.json({
-      success: true,
-      data: stats,
-    });
+    res.json({ success: true, data: stats });
   } catch (error) {
     logger.error('Get credential renewal stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get renewal stats',
-    });
+    next(error);
   }
 };
 
-/**
- * Enable auto-renewal
- */
-export const enableAutoRenewal = async (req: Request, res: Response): Promise<void> => {
+export const enableAutoRenewal = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { credentialId, renewalThreshold } = req.body;
 
@@ -488,13 +445,10 @@ export const enableAutoRenewal = async (req: Request, res: Response): Promise<vo
     res.json({
       success: true,
       data: { callData },
-      message: 'Auto-renewal enabled',
+      message: 'Auto-renewal enabled'
     });
   } catch (error) {
     logger.error('Enable auto-renewal error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to enable auto-renewal',
-    });
+    next(error);
   }
 };

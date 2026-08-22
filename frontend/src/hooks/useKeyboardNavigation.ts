@@ -10,6 +10,8 @@ interface KeyboardNavOptions {
   onArrowLeft?: KeyHandler;
   onArrowRight?: KeyHandler;
   onSpace?: KeyHandler;
+  preventDefaultKeys?: string[];
+  allowInInputs?: boolean;
 }
 
 export const useKeyboardNavigation = (options: KeyboardNavOptions, isActive: boolean = true) => {
@@ -17,6 +19,22 @@ export const useKeyboardNavigation = (options: KeyboardNavOptions, isActive: boo
     if (!isActive) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTypingField =
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+
+      if (isTypingField && !options.allowInInputs) {
+        return;
+      }
+
+      if (options.preventDefaultKeys?.includes(e.key)) {
+        e.preventDefault();
+      }
+
       switch (e.key) {
         case 'Enter':
           options.onEnter?.(e);
@@ -37,6 +55,8 @@ export const useKeyboardNavigation = (options: KeyboardNavOptions, isActive: boo
           options.onArrowRight?.(e);
           break;
         case ' ':
+        case 'Spacebar':
+        case 'Space':
           options.onSpace?.(e);
           break;
       }

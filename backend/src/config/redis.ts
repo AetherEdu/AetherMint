@@ -1,6 +1,105 @@
 import Redis, { RedisOptions } from 'ioredis';
 import logger from '../utils/logger';
 
+const positiveInteger = (value: string | undefined, fallback: number): number => {
+  const parsed = Number.parseInt(value || '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+export interface RateLimitTierConfig {
+  windowMs: number;
+  max: number;
+  burstWindowMs: number;
+  burstMax: number;
+  message: string;
+}
+
+export interface RateLimitConfiguration {
+  enabled: boolean;
+  keyPrefix: string;
+  failOpen: boolean;
+  global: RateLimitTierConfig;
+  public: RateLimitTierConfig;
+  authenticated: RateLimitTierConfig;
+  admin: RateLimitTierConfig;
+  endpoints: {
+    auth: RateLimitTierConfig;
+    transactions: RateLimitTierConfig;
+    ipfs: RateLimitTierConfig;
+  };
+}
+
+const tier = (
+  prefix: string,
+  defaults: Omit<RateLimitTierConfig, 'message'> & { message: string }
+): RateLimitTierConfig => ({
+  windowMs: positiveInteger(process.env[`${prefix}_WINDOW_MS`], defaults.windowMs),
+  max: positiveInteger(process.env[`${prefix}_MAX`], defaults.max),
+  burstWindowMs: positiveInteger(
+    process.env[`${prefix}_BURST_WINDOW_MS`],
+    defaults.burstWindowMs
+  ),
+  burstMax: positiveInteger(process.env[`${prefix}_BURST_MAX`], defaults.burstMax),
+  message: process.env[`${prefix}_MESSAGE`] || defaults.message,
+});
+
+export const rateLimitConfig: RateLimitConfiguration = {
+  enabled: process.env.RATE_LIMIT_ENABLED !== 'false',
+  keyPrefix: process.env.RATE_LIMIT_KEY_PREFIX || 'aethermint:rate-limit:',
+  failOpen: process.env.RATE_LIMIT_FAIL_OPEN !== 'false',
+  global: tier('RATE_LIMIT_GLOBAL', {
+    windowMs: 60_000,
+    max: 600,
+    burstWindowMs: 10_000,
+    burstMax: 120,
+    message: 'Global request rate limit exceeded. Please try again shortly.',
+  }),
+  public: tier('RATE_LIMIT_PUBLIC', {
+    windowMs: 300_000,
+    max: 300,
+    burstWindowMs: 10_000,
+    burstMax: 40,
+    message: 'Public API rate limit exceeded. Please try again shortly.',
+  }),
+  authenticated: tier('RATE_LIMIT_AUTHENTICATED', {
+    windowMs: 300_000,
+    max: 600,
+    burstWindowMs: 10_000,
+    burstMax: 80,
+    message: 'Authenticated API rate limit exceeded. Please try again shortly.',
+  }),
+  admin: tier('RATE_LIMIT_ADMIN', {
+    windowMs: 300_000,
+    max: 120,
+    burstWindowMs: 10_000,
+    burstMax: 20,
+    message: 'Admin API rate limit exceeded. Please try again shortly.',
+  }),
+  endpoints: {
+    auth: tier('RATE_LIMIT_AUTH', {
+      windowMs: 3_600_000,
+      max: 10,
+      burstWindowMs: 60_000,
+      burstMax: 5,
+      message: 'Too many authentication attempts. Please try again later.',
+    }),
+    transactions: tier('RATE_LIMIT_TRANSACTIONS', {
+      windowMs: 60_000,
+      max: 20,
+      burstWindowMs: 10_000,
+      burstMax: 8,
+      message: 'Transaction rate limit exceeded. Please try again shortly.',
+    }),
+    ipfs: tier('RATE_LIMIT_IPFS', {
+      windowMs: 3_600_000,
+      max: 30,
+      burstWindowMs: 60_000,
+      burstMax: 10,
+      message: 'IPFS upload rate limit exceeded. Please try again later.',
+    }),
+  },
+};
+
 export interface RedisHealth {
   status: 'connected' | 'disconnected' | 'degraded' | 'error';
   latency?: number;
@@ -365,6 +464,7 @@ if (typeof module !== 'undefined') {
   module.exports = redisConfig;
   (module.exports as any).default = redisConfig;
   (module.exports as any).redisConfig = redisConfig;
+  (module.exports as any).rateLimitConfig = rateLimitConfig;
 }
 
 export default redisConfig;

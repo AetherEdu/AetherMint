@@ -6,6 +6,8 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
+  --focus-ring-color: #1d4ed8;
+  --focus-ring-shadow: rgba(29, 78, 216, 0.28);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -16,6 +18,18 @@
   }
 }
 
+/* ========================================
+   Mobile-First Responsive Base Styles
+   ======================================== */
+
+/* Prevent horizontal overflow at all breakpoints */
+html {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
@@ -24,9 +38,140 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
+  
+  /* Ensure minimum 16px body font size for readability on mobile */
+  font-size: 16px;
+  line-height: 1.625;
+  
+  /* Prevent horizontal overflow */
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
 }
 
-/* Custom animations */
+/* Ensure all content containers prevent overflow by default */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 3px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+  box-shadow: 0 0 0 4px var(--focus-ring-shadow);
+}
+
+main[tabindex='-1']:focus {
+  outline: none;
+}
+
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.skip-to-content {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 9999;
+  transform: translateY(-150%);
+  border-radius: 0.5rem;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  transition: transform 150ms ease;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.28);
+}
+
+.skip-to-content:focus,
+.skip-to-content:focus-visible {
+  transform: translateY(0);
+}
+
+.skip-to-content:hover {
+  color: #ffffff;
+}
+
+html:focus-within {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+}
+
+/* ========================================
+   Touch Target Styles (minimum 44x44px)
+   ======================================== */
+
+@layer components {
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
+  }
+
+  .touch-target-sm {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Full-screen modal on mobile */
+  .modal-mobile {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+  }
+
+  .modal-mobile-content {
+    @apply bg-white rounded-none sm:rounded-xl w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] overflow-y-auto;
+  }
+
+  /* Responsive container with max-width constraints */
+  .container-responsive {
+    @apply w-full max-w-7xl mx-auto px-4 xs:px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Card grid - 1 col on mobile, multi on desktop */
+  .grid-responsive {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8;
+  }
+
+  /* Form grid - single column mobile, multi-column desktop */
+  .form-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4;
+  }
+
+  /* Flex responsive - stack on mobile, row on desktop */
+  .flex-responsive {
+    @apply flex flex-col sm:flex-row gap-3 sm:gap-4;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ========================================
+   Custom animations
+   ======================================== */
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -40,7 +185,10 @@ body {
   animation: spin 1s linear infinite;
 }
 
-/* Custom scrollbar */
+/* ========================================
+   Custom scrollbar
+   ======================================== */
+
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -56,4 +204,51 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+/* ========================================
+   Keyboard shortcut kbd styling
+   ======================================== */
+
+kbd {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+
+@media (prefers-color-scheme: dark) {
+  kbd {
+    background: #374151;
+    border-color: #4b5563;
+    color: #d1d5db;
+  }
+}
+
+/* ========================================
+   Focus-visible for all interactive elements
+   ======================================== */
+
+a:not([tabindex='-1']):focus-visible,
+button:not([tabindex='-1']):focus-visible,
+input:not([tabindex='-1']):focus-visible,
+select:not([tabindex='-1']):focus-visible,
+textarea:not([tabindex='-1']):focus-visible,
+[tabindex]:not([tabindex='-1']):focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-ring-shadow);
+}
+
+/* High contrast focus ring for dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --focus-ring-color: #60a5fa;
+    --focus-ring-shadow: rgba(96, 165, 250, 0.35);
+  }
 }

@@ -1,3 +1,10 @@
+/**
+ * @openapi
+ * tags:
+ *   - name: Quantum
+ *     description: Quantum computing services including algorithms, optimization, ML, circuits, and error correction
+ */
+
 """
 Quantum Computing API Routes
 RESTful API endpoints for quantum computing services
@@ -32,7 +39,16 @@ const handleValidationErrors = (req, res, next) => {
 
 // ==================== Quantum Algorithm Integration ====================
 
-// Get available quantum providers
+/**
+ * @openapi
+ * /api/quantum/providers:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: Get available quantum providers
+ *     responses:
+ *       '200':
+ *         description: Providers retrieved
+ */
 router.get('/providers', async (req, res) => {
   try {
     const providers = quantum_service.get_available_providers();
@@ -58,7 +74,16 @@ router.get('/providers', async (req, res) => {
   }
 });
 
-// Connect to quantum provider
+/**
+ * @openapi
+ * /api/quantum/providers/connect:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Connect to quantum provider
+ *     responses:
+ *       '200':
+ *         description: Connected
+ */
 router.post('/providers/connect', [
   body('provider').notEmpty().isIn(['ibmq', 'google', 'azure', 'amazon']),
   body('config').notEmpty().isObject(),
@@ -210,7 +235,16 @@ router.post('/optimization/solve', [
   }
 });
 
-// Compare optimizers
+/**
+ * @openapi
+ * /api/quantum/optimization/compare:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Compare quantum optimizers
+ *     responses:
+ *       '200':
+ *         description: Comparison results
+ */
 router.post('/optimization/compare', [
   body('problem').notEmpty().isObject(),
   body('optimizer_names').isArray().notEmpty()
@@ -245,7 +279,16 @@ router.post('/optimization/compare', [
 
 // ==================== Quantum Machine Learning ====================
 
-// Get available ML algorithms
+/**
+ * @openapi
+ * /api/quantum/ml/algorithms:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: Get available quantum ML algorithms
+ *     responses:
+ *       '200':
+ *         description: Algorithms retrieved
+ */
 router.get('/ml/algorithms', async (req, res) => {
   try {
     const algorithms = quantum_ml_service.get_available_algorithms();
@@ -271,7 +314,16 @@ router.get('/ml/algorithms', async (req, res) => {
   }
 });
 
-// Create ML model
+/**
+ * @openapi
+ * /api/quantum/ml/models:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Create quantum ML model
+ *     responses:
+ *       '200':
+ *         description: Model created
+ */
 router.post('/ml/models', [
   body('model_id').notEmpty(),
   body('model_type').notEmpty().isIn(['classification', 'regression', 'clustering', 'kernel']),
@@ -300,7 +352,22 @@ router.post('/ml/models', [
   }
 });
 
-// Train ML model
+/**
+ * @openapi
+ * /api/quantum/ml/models/{modelId}/train:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Train quantum ML model
+ *     parameters:
+ *       - in: path
+ *         name: modelId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Model trained
+ */
 router.post('/ml/models/:modelId/train', [
   param('modelId').notEmpty(),
   body('algorithm_name').notEmpty(),
@@ -311,7 +378,6 @@ router.post('/ml/models/:modelId/train', [
     const { modelId } = req.params;
     const { algorithm_name, features, labels } = req.body;
     
-    // Convert to numpy-like arrays
     const X = new Float32Array(features.flat());
     const y = new Float32Array(labels);
     
@@ -330,7 +396,22 @@ router.post('/ml/models/:modelId/train', [
   }
 });
 
-// Make predictions
+/**
+ * @openapi
+ * /api/quantum/ml/models/{modelId}/predict:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Make predictions using quantum ML model
+ *     parameters:
+ *       - in: path
+ *         name: modelId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Predictions made
+ */
 router.post('/ml/models/:modelId/predict', [
   param('modelId').notEmpty(),
   body('features').isArray()
@@ -357,7 +438,16 @@ router.post('/ml/models/:modelId/predict', [
 
 // ==================== Quantum Circuit Design ====================
 
-// Get available circuit designers
+/**
+ * @openapi
+ * /api/quantum/circuits/designers:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: Get available circuit designers
+ *     responses:
+ *       '200':
+ *         description: Designers retrieved
+ */
 router.get('/circuits/designers', async (req, res) => {
   try {
     const designers = quantum_circuit_service.get_available_designers();
@@ -383,7 +473,16 @@ router.get('/circuits/designers', async (req, res) => {
   }
 });
 
-// Design quantum circuit
+/**
+ * @openapi
+ * /api/quantum/circuits/design:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Design quantum circuit
+ *     responses:
+ *       '200':
+ *         description: Circuit designed
+ */
 router.post('/circuits/design', [
   body('circuit_id').notEmpty(),
   body('circuit_type').notEmpty().isIn(['feature_map', 'ansatz', 'measurement', 'custom']),
@@ -423,7 +522,22 @@ router.post('/circuits/design', [
   }
 });
 
-// Optimize circuit
+/**
+ * @openapi
+ * /api/quantum/circuits/{circuitId}/optimize:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Optimize quantum circuit
+ *     parameters:
+ *       - in: path
+ *         name: circuitId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Circuit optimized
+ */
 router.post('/circuits/:circuitId/optimize', [
   param('circuitId').notEmpty(),
   body('optimization_level').optional().isInt({ min: 0, max: 3 })
@@ -447,7 +561,16 @@ router.post('/circuits/:circuitId/optimize', [
   }
 });
 
-// List circuits
+/**
+ * @openapi
+ * /api/quantum/circuits:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: List quantum circuits
+ *     responses:
+ *       '200':
+ *         description: Circuits listed
+ */
 router.get('/circuits', async (req, res) => {
   try {
     const circuits = quantum_circuit_service.list_circuits();
@@ -475,7 +598,16 @@ router.get('/circuits', async (req, res) => {
 
 // ==================== Quantum Resource Management ====================
 
-// List resources
+/**
+ * @openapi
+ * /api/quantum/resources:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: List quantum resources
+ *     responses:
+ *       '200':
+ *         description: Resources listed
+ */
 router.get('/resources', async (req, res) => {
   try {
     const { resource_type, status } = req.query;
@@ -497,7 +629,16 @@ router.get('/resources', async (req, res) => {
   }
 });
 
-// Get resource utilization
+/**
+ * @openapi
+ * /api/quantum/resources/utilization:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: Get resource utilization
+ *     responses:
+ *       '200':
+ *         description: Utilization retrieved
+ */
 router.get('/resources/utilization', async (req, res) => {
   try {
     const utilization = quantum_resource_manager.get_resource_utilization();
@@ -515,7 +656,16 @@ router.get('/resources/utilization', async (req, res) => {
   }
 });
 
-// Submit job
+/**
+ * @openapi
+ * /api/quantum/jobs:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Submit quantum job
+ *     responses:
+ *       '200':
+ *         description: Job submitted
+ */
 router.post('/jobs', [
   body('job_id').notEmpty(),
   body('user_id').notEmpty(),
@@ -557,7 +707,22 @@ router.post('/jobs', [
   }
 });
 
-// Schedule job
+/**
+ * @openapi
+ * /api/quantum/jobs/{jobId}/schedule:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Schedule quantum job
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Job scheduled
+ */
 router.post('/jobs/:jobId/schedule', [
   param('jobId').notEmpty(),
   body('scheduler_name').optional().isString()
@@ -583,7 +748,16 @@ router.post('/jobs/:jobId/schedule', [
 
 // ==================== Hybrid Computing ====================
 
-// Get available strategies
+/**
+ * @openapi
+ * /api/quantum/hybrid/strategies:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: Get available hybrid computing strategies
+ *     responses:
+ *       '200':
+ *         description: Strategies retrieved
+ */
 router.get('/hybrid/strategies', async (req, res) => {
   try {
     const strategies = hybrid_computing_service.get_available_strategies();
@@ -609,7 +783,16 @@ router.get('/hybrid/strategies', async (req, res) => {
   }
 });
 
-// Execute hybrid task
+/**
+ * @openapi
+ * /api/quantum/hybrid/execute:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Execute hybrid computing task
+ *     responses:
+ *       '200':
+ *         description: Task executed
+ */
 router.post('/hybrid/execute', [
   body('task_id').notEmpty(),
   body('task_type').notEmpty().isIn(['classification', 'regression', 'optimization', 'clustering']),
@@ -648,7 +831,16 @@ router.post('/hybrid/execute', [
 
 // ==================== Error Correction ====================
 
-// Get available error codes
+/**
+ * @openapi
+ * /api/quantum/error-correction/codes:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: Get available error correction codes
+ *     responses:
+ *       '200':
+ *         description: Codes retrieved
+ */
 router.get('/error-correction/codes', async (req, res) => {
   try {
     const codes = quantum_error_correction_service.get_available_codes();
@@ -674,7 +866,16 @@ router.get('/error-correction/codes', async (req, res) => {
   }
 });
 
-// Apply error correction
+/**
+ * @openapi
+ * /api/quantum/error-correction/apply:
+ *   post:
+ *     tags: [Quantum]
+ *     summary: Apply error correction to circuit
+ *     responses:
+ *       '200':
+ *         description: Error correction applied
+ */
 router.post('/error-correction/apply', [
   body('circuit').notEmpty(),
   body('code_name').notEmpty(),
@@ -700,7 +901,16 @@ router.post('/error-correction/apply', [
   }
 });
 
-// Get error correction performance
+/**
+ * @openapi
+ * /api/quantum/error-correction/performance:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: Get error correction performance
+ *     responses:
+ *       '200':
+ *         description: Performance retrieved
+ */
 router.get('/error-correction/performance', async (req, res) => {
   try {
     const performance = quantum_error_correction_service.analyze_performance();
@@ -720,6 +930,16 @@ router.get('/error-correction/performance', async (req, res) => {
 
 // ==================== Health Check ====================
 
+/**
+ * @openapi
+ * /api/quantum/health:
+ *   get:
+ *     tags: [Quantum]
+ *     summary: Health check
+ *     responses:
+ *       '200':
+ *         description: Health status
+ */
 router.get('/health', async (req, res) => {
   try {
     const health = {

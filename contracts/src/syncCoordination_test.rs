@@ -4,7 +4,7 @@ use crate::syncCoordination::{
     ConflictResolution, Device, DeviceType, SyncConflict, SyncCoordinationContract,
     SyncCoordinationKey, SyncEntry, SyncSession, SyncStatus,
 };
-use soroban_sdk::{vec, Address, Env, String, Vec};
+use soroban_sdk::{testutils::Address as _, vec, Address, Env, String, Vec};
 
 #[test]
 fn test_initialize() {

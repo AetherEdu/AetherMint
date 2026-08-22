@@ -3,11 +3,12 @@
  * Handles payment-related operations and business logic
  */
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { PaymentService } from '../services/PaymentService';
 import { StellarPaymentService } from '../services/StellarPaymentService';
 import { NotificationService } from '../services/NotificationService';
 import logger from '../utils/logger';
+import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors';
 import { 
   Payment, 
   PaymentIntent, 
@@ -39,7 +40,7 @@ export class PaymentController {
   /**
    * Create payment intent
    */
-  async createPaymentIntent(req: Request, res: Response) {
+  async createPaymentIntent(req: Request, res: Response, next: NextFunction) {
     try {
       const { enrollmentId, method, amount, currency, metadata } = req.body;
       const userId = req.user!.id;
@@ -68,19 +69,15 @@ export class PaymentController {
         data: paymentIntent
       });
     } catch (error) {
-      logger.error('Error creating payment intent:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create payment intent',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Create Stellar payment
    */
-  async createStellarPayment(req: Request, res: Response) {
+  async createStellarPayment(req: Request, res: Response, next: NextFunction) {
     try {
       const { enrollmentId, fromAddress, amount, assetCode, assetIssuer, memo } = req.body;
       const userId = req.user!.id;
@@ -116,19 +113,15 @@ export class PaymentController {
         data: paymentIntent
       });
     } catch (error) {
-      logger.error('Error creating Stellar payment:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create Stellar payment',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Submit Stellar payment
    */
-  async submitStellarPayment(req: Request, res: Response) {
+  async submitStellarPayment(req: Request, res: Response, next: NextFunction) {
     try {
       const { paymentIntentId, signedTransactionXDR } = req.body;
 
@@ -151,19 +144,15 @@ export class PaymentController {
         }
       });
     } catch (error) {
-      logger.error('Error submitting Stellar payment:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to process Stellar payment',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Get payment by ID
    */
-  async getPaymentById(req: Request, res: Response) {
+  async getPaymentById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
       const userId = req.user!.id;
@@ -171,18 +160,12 @@ export class PaymentController {
 
       const payment = await this.paymentService.getPaymentById(id);
       if (!payment) {
-        return res.status(404).json({
-          success: false,
-          message: 'Payment not found'
-        });
+        throw new NotFoundError('Payment not found');
       }
 
       // Check if user has permission to view this payment
       if (payment.userId !== userId && userRole !== UserRole.ADMIN) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied'
-        });
+        throw new ForbiddenError('Access denied');
       }
 
       res.json({
@@ -190,19 +173,15 @@ export class PaymentController {
         data: payment
       });
     } catch (error) {
-      logger.error('Error getting payment:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve payment',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Get enrollment payments
    */
-  async getEnrollmentPayments(req: Request, res: Response) {
+  async getEnrollmentPayments(req: Request, res: Response, next: NextFunction) {
     try {
       const { enrollmentId } = req.params;
       const userId = req.user!.id;
@@ -216,19 +195,15 @@ export class PaymentController {
         data: payments
       });
     } catch (error) {
-      logger.error('Error getting enrollment payments:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve enrollment payments',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Get user payment history
    */
-  async getUserPaymentHistory(req: Request, res: Response) {
+  async getUserPaymentHistory(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
       const { page = '1', limit = '20', status } = req.query;
@@ -258,19 +233,15 @@ export class PaymentController {
         }
       });
     } catch (error) {
-      logger.error('Error getting user payment history:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve payment history',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Process refund
    */
-  async processRefund(req: Request, res: Response) {
+  async processRefund(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
       const { amount, reason } = req.body;
@@ -289,19 +260,15 @@ export class PaymentController {
         message: 'Refund processed successfully'
       });
     } catch (error) {
-      logger.error('Error processing refund:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to process refund',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Generate receipt
    */
-  async generateReceipt(req: Request, res: Response) {
+  async generateReceipt(req: Request, res: Response, next: NextFunction) {
     try {
       const { paymentId } = req.params;
       const userId = req.user!.id;
@@ -309,18 +276,12 @@ export class PaymentController {
 
       const payment = await this.paymentService.getPaymentById(paymentId);
       if (!payment) {
-        return res.status(404).json({
-          success: false,
-          message: 'Payment not found'
-        });
+        throw new NotFoundError('Payment not found');
       }
 
       // Check permissions
       if (payment.userId !== userId && userRole !== UserRole.ADMIN) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied'
-        });
+        throw new ForbiddenError('Access denied');
       }
 
       const receipt = await this.paymentService.generatePaymentReceipt(paymentId);
@@ -330,19 +291,15 @@ export class PaymentController {
         data: receipt
       });
     } catch (error) {
-      logger.error('Error generating receipt:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to generate receipt',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Get payment settings
    */
-  async getPaymentSettings(req: Request, res: Response) {
+  async getPaymentSettings(req: Request, res: Response, next: NextFunction) {
     try {
       const settings = this.paymentService.getPaymentSettings();
 
@@ -351,19 +308,15 @@ export class PaymentController {
         data: settings
       });
     } catch (error) {
-      logger.error('Error getting payment settings:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve payment settings',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Update payment settings
    */
-  async updatePaymentSettings(req: Request, res: Response) {
+  async updatePaymentSettings(req: Request, res: Response, next: NextFunction) {
     try {
       const updates = req.body;
 
@@ -375,19 +328,15 @@ export class PaymentController {
         message: 'Payment settings updated successfully'
       });
     } catch (error) {
-      logger.error('Error updating payment settings:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update payment settings',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Get supported payment methods
    */
-  async getSupportedPaymentMethods(req: Request, res: Response) {
+  async getSupportedPaymentMethods(req: Request, res: Response, next: NextFunction) {
     try {
       const methods = this.paymentService.getSupportedPaymentMethods();
 
@@ -396,19 +345,15 @@ export class PaymentController {
         data: methods
       });
     } catch (error) {
-      logger.error('Error getting supported payment methods:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve supported payment methods',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Validate payment parameters
    */
-  async validatePaymentParameters(req: Request, res: Response) {
+  async validatePaymentParameters(req: Request, res: Response, next: NextFunction) {
     try {
       const { amount, currency, method, fromAddress } = req.body;
 
@@ -424,19 +369,15 @@ export class PaymentController {
         data: validation
       });
     } catch (error) {
-      logger.error('Error validating payment parameters:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to validate payment parameters',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Get payment analytics
    */
-  async getPaymentAnalytics(req: Request, res: Response) {
+  async getPaymentAnalytics(req: Request, res: Response, next: NextFunction) {
     try {
       const { startDate, endDate } = req.query;
       
@@ -455,19 +396,15 @@ export class PaymentController {
         data: analytics
       });
     } catch (error) {
-      logger.error('Error getting payment analytics:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve payment analytics',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Get exchange rates
    */
-  async getExchangeRates(req: Request, res: Response) {
+  async getExchangeRates(req: Request, res: Response, next: NextFunction) {
     try {
       const rates = await this.paymentService.getExchangeRates();
 
@@ -476,19 +413,15 @@ export class PaymentController {
         data: rates
       });
     } catch (error) {
-      logger.error('Error getting exchange rates:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve exchange rates',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Convert currency
    */
-  async convertCurrency(req: Request, res: Response) {
+  async convertCurrency(req: Request, res: Response, next: NextFunction) {
     try {
       const { amount, from, to } = req.body;
 
@@ -505,19 +438,15 @@ export class PaymentController {
         }
       });
     } catch (error) {
-      logger.error('Error converting currency:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to convert currency',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Get Stellar balance
    */
-  async getStellarBalance(req: Request, res: Response) {
+  async getStellarBalance(req: Request, res: Response, next: NextFunction) {
     try {
       const { address } = req.params;
 
@@ -528,19 +457,15 @@ export class PaymentController {
         data: balance
       });
     } catch (error) {
-      logger.error('Error getting Stellar balance:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve Stellar balance',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Get Stellar transaction history
    */
-  async getStellarTransactionHistory(req: Request, res: Response) {
+  async getStellarTransactionHistory(req: Request, res: Response, next: NextFunction) {
     try {
       const { address } = req.params;
       const { limit = '50', cursor } = req.query;
@@ -556,19 +481,15 @@ export class PaymentController {
         data: history
       });
     } catch (error) {
-      logger.error('Error getting Stellar transaction history:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve Stellar transaction history',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Handle Stellar webhook
    */
-  async handleStellarWebhook(req: Request, res: Response) {
+  async handleStellarWebhook(req: Request, res: Response, next: NextFunction) {
     try {
       const { transaction, type } = req.body;
 
@@ -591,19 +512,15 @@ export class PaymentController {
         message: 'Webhook processed successfully'
       });
     } catch (error) {
-      logger.error('Error processing Stellar webhook', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to process webhook',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 
   /**
    * Handle payment gateway webhook
    */
-  async handlePaymentGatewayWebhook(req: Request, res: Response) {
+  async handlePaymentGatewayWebhook(req: Request, res: Response, next: NextFunction) {
     try {
       const { gateway, event, data } = req.body;
 
@@ -624,12 +541,8 @@ export class PaymentController {
         message: 'Webhook processed successfully'
       });
     } catch (error) {
-      logger.error('Error processing payment gateway webhook', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to process webhook',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('', error);
+      next(error);
     }
   }
 

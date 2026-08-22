@@ -2,6 +2,19 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import logger from '../utils/logger';
 
+// Type definitions for WebRTC (these are browser types, not available in Node)
+interface RTCSessionDescriptionInit {
+  type?: 'offer' | 'answer' | 'pranswer' | 'rollback' | null;
+  sdp?: string | null;
+}
+
+interface RTCIceCandidateInit {
+  candidate?: string | null;
+  sdpMid?: string | null;
+  sdpMLineIndex?: number | null;
+  usernameFragment?: string | null;
+}
+
 interface Participant {
   id: string;
   userId: string;
@@ -19,11 +32,14 @@ interface Room {
   whiteboardState: any[];
   chatHistory: any[];
   createdAt: Date;
+  lastActivityAt: Date;
 }
 
 export class CollaborationService {
   private io: SocketIOServer;
   private rooms: Map<string, Room> = new Map();
+  private participantSessions: Map<string, { roomId: string; userId: string; lastSeenAt: Date }> = new Map();
+  private sessionRecoveryGracePeriod: number = 120000; // 2 minutes grace period for reconnection
 
   constructor(server: HTTPServer) {
     this.io = new SocketIOServer(server, {
@@ -65,6 +81,10 @@ export class CollaborationService {
     return (data: { roomId: string; userId: string; username: string; role: 'instructor' | 'student' }) => {
       const { roomId, userId, username, role } = data;
 
+      // Check if this is a reconnection (session recovery)
+      const existingSession = this.participantSessions.get(socket.id);
+      const isReconnection = existingSession?.userId === userId && existingSession?.roomId === roomId;
+
       if (!this.rooms.has(roomId)) {
         this.rooms.set(roomId, {
           id: roomId,
@@ -72,11 +92,14 @@ export class CollaborationService {
           participants: new Map(),
           whiteboardState: [],
           chatHistory: [],
-          createdAt: new Date()
+          createdAt: new Date(),
+          lastActivityAt: new Date()
         });
       }
 
       const room = this.rooms.get(roomId)!;
+      room.lastActivityAt = new Date();
+      
       const participant: Participant = {
         id: socket.id,
         userId,
@@ -90,17 +113,28 @@ export class CollaborationService {
       room.participants.set(socket.id, participant);
       socket.join(roomId);
 
-      // Send current room state to the new participant
+      // Track session for recovery
+      this.participantSessions.set(socket.id, {
+        roomId,
+        userId,
+        lastSeenAt: new Date()
+      });
+
+      // Send current room state to the participant
       socket.emit('room-state', {
         participants: Array.from(room.participants.values()),
         whiteboardState: room.whiteboardState,
-        chatHistory: room.chatHistory
+        chatHistory: room.chatHistory,
+        isReconnection
       });
 
-      // Notify others about the new participant
-      socket.to(roomId).emit('participant-joined', participant);
-
-      logger.info('User joined room', { username, roomId });
+      if (!isReconnection) {
+        // Notify others about the new participant only if not reconnecting
+        socket.to(roomId).emit('participant-joined', participant);
+        logger.info('User joined room', { username, roomId });
+      } else {
+        logger.info('User reconnected to room', { username, roomId, socketId: socket.id });
+      }
     };
   }
 
@@ -281,14 +315,36 @@ export class CollaborationService {
     return () => {
       logger.info('Client disconnected', { socketId: socket.id });
       
+      const session = this.participantSessions.get(socket.id);
+      
       this.rooms.forEach((room, roomId) => {
         if (room.participants.has(socket.id)) {
-          room.participants.delete(socket.id);
-          socket.to(roomId).emit('participant-left', { participantId: socket.id });
-          
-          if (room.participants.size === 0) {
-            this.rooms.delete(roomId);
+          // Mark participant as potentially reconnecting
+          if (session) {
+            session.lastSeenAt = new Date();
           }
+          
+          // Don't immediately remove - wait for grace period
+          setTimeout(() => {
+            const currentSession = this.participantSessions.get(socket.id);
+            const now = new Date();
+            const gracePeriodExpired = !currentSession || 
+              (now.getTime() - currentSession.lastSeenAt.getTime()) > this.sessionRecoveryGracePeriod;
+            
+            if (gracePeriodExpired) {
+              const currentRoom = this.rooms.get(roomId);
+              if (currentRoom && currentRoom.participants.has(socket.id)) {
+                currentRoom.participants.delete(socket.id);
+                this.io.to(roomId).emit('participant-left', { participantId: socket.id });
+                
+                if (currentRoom.participants.size === 0) {
+                  this.rooms.delete(roomId);
+                }
+              }
+              this.participantSessions.delete(socket.id);
+              logger.info('Participant session expired', { socketId: socket.id, roomId });
+            }
+          }, this.sessionRecoveryGracePeriod);
         }
       });
     };
@@ -303,7 +359,52 @@ export class CollaborationService {
       name: room.name,
       participantCount: room.participants.size,
       participants: Array.from(room.participants.values()),
-      createdAt: room.createdAt
+      createdAt: room.createdAt,
+      lastActivityAt: room.lastActivityAt
     };
+  }
+
+  public recoverSession(socketId: string): { roomId?: string; userId?: string; recovered: boolean } {
+    const session = this.participantSessions.get(socketId);
+    if (!session) {
+      return { recovered: false };
+    }
+
+    const now = new Date();
+    const withinGracePeriod = (now.getTime() - session.lastSeenAt.getTime()) <= this.sessionRecoveryGracePeriod;
+
+    if (withinGracePeriod) {
+      const room = this.rooms.get(session.roomId);
+      if (room) {
+        return {
+          roomId: session.roomId,
+          userId: session.userId,
+          recovered: true
+        };
+      }
+    }
+
+    // Clean up expired session
+    this.participantSessions.delete(socketId);
+    return { recovered: false };
+  }
+
+  public cleanupExpiredSessions(): void {
+    const now = new Date();
+    const expiredSessions: string[] = [];
+
+    this.participantSessions.forEach((session, socketId) => {
+      if ((now.getTime() - session.lastSeenAt.getTime()) > this.sessionRecoveryGracePeriod) {
+        expiredSessions.push(socketId);
+      }
+    });
+
+    expiredSessions.forEach(socketId => {
+      this.participantSessions.delete(socketId);
+    });
+
+    if (expiredSessions.length > 0) {
+      logger.info('Cleaned up expired sessions', { count: expiredSessions.length });
+    }
   }
 }

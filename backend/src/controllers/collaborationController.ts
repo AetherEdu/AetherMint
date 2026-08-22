@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import { NotFoundError, ValidationError } from '../utils/errors';
 const collaborationService = require('../services/collaborationService').default || require('../services/collaborationService');
 
 /**
@@ -6,14 +7,14 @@ const collaborationService = require('../services/collaborationService').default
  * HTTP orchestration for virtual classrooms, workspaces, peer review, and study groups.
  */
 class CollaborationController {
-  async listClassrooms(req: Request, res: Response): Promise<void> {
+  async listClassrooms(req: Request, res: Response, next: NextFunction): Promise<void> {
     res.status(200).json({
       success: true,
       data: collaborationService.listClassrooms()
     });
   }
 
-  async createClassroom(req: Request, res: Response): Promise<void> {
+  async createClassroom(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { title, courseId, hostId, description, providerKind } = req.body;
 
@@ -32,11 +33,11 @@ class CollaborationController {
 
       res.status(201).json({ success: true, data: classroom });
     } catch (error) {
-      res.status(500).json({ success: false, message: (error as Error).message });
+      next(error);
     }
   }
 
-  async getClassroom(req: Request, res: Response): Promise<void> {
+  async getClassroom(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const classroom = collaborationService.getClassroom(req.params.classroomId);
       const workspace = collaborationService.getDefaultWorkspaceForClassroom(req.params.classroomId);
@@ -51,11 +52,11 @@ class CollaborationController {
         }
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async joinClassroom(req: Request, res: Response): Promise<void> {
+  async joinClassroom(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, name, role, currentRoomId, audioEnabled, videoEnabled } = req.body;
 
@@ -75,11 +76,11 @@ class CollaborationController {
 
       res.status(200).json({ success: true, data: classroom });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async leaveClassroom(req: Request, res: Response): Promise<void> {
+  async leaveClassroom(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = req.body;
 
@@ -93,11 +94,11 @@ class CollaborationController {
         data: collaborationService.leaveClassroom(req.params.classroomId, userId)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async updateAttendance(req: Request, res: Response): Promise<void> {
+  async updateAttendance(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, status } = req.body;
 
@@ -111,11 +112,11 @@ class CollaborationController {
         data: collaborationService.recordAttendance(req.params.classroomId, userId, status)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async updateHandRaise(req: Request, res: Response): Promise<void> {
+  async updateHandRaise(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, raised } = req.body;
 
@@ -129,22 +130,22 @@ class CollaborationController {
         data: collaborationService.setHandRaise(req.params.classroomId, userId, raised)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async advanceQueue(req: Request, res: Response): Promise<void> {
+  async advanceQueue(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       res.status(200).json({
         success: true,
         data: collaborationService.advanceQueue(req.params.classroomId)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async setSessionState(req: Request, res: Response): Promise<void> {
+  async setSessionState(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { isRecording, playbackUrl, isLive, streamUrl, screenShareUserId, screenLabel, controls } = req.body;
       let classroom = collaborationService.getClassroom(req.params.classroomId);
@@ -171,11 +172,11 @@ class CollaborationController {
 
       res.status(200).json({ success: true, data: classroom });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async updateParticipantMediaState(req: Request, res: Response): Promise<void> {
+  async updateParticipantMediaState(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, audioEnabled, videoEnabled, screenShareEnabled, connectionQuality, lastNetworkEvent } = req.body;
 
@@ -195,11 +196,11 @@ class CollaborationController {
         })
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async enqueueSignal(req: Request, res: Response): Promise<void> {
+  async enqueueSignal(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { type, fromUserId, toUserId, payload } = req.body;
 
@@ -218,11 +219,11 @@ class CollaborationController {
         })
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async pullSignals(req: Request, res: Response): Promise<void> {
+  async pullSignals(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.query.userId as string;
 
@@ -236,11 +237,11 @@ class CollaborationController {
         data: collaborationService.pullSignals(req.params.classroomId, userId)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async reportMediaQuality(req: Request, res: Response): Promise<void> {
+  async reportMediaQuality(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = req.body;
 
@@ -254,11 +255,11 @@ class CollaborationController {
         data: collaborationService.reportMediaQuality(req.params.classroomId, req.body)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async reportInterruption(req: Request, res: Response): Promise<void> {
+  async reportInterruption(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, reason } = req.body;
 
@@ -272,22 +273,22 @@ class CollaborationController {
         data: collaborationService.reportInterruption(req.params.classroomId, req.body)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async getMediaHealth(req: Request, res: Response): Promise<void> {
+  async getMediaHealth(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       res.status(200).json({
         success: true,
         data: collaborationService.getMediaHealth(req.params.classroomId)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async addMessage(req: Request, res: Response): Promise<void> {
+  async addMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, userName, body, emojis = [], files = [] } = req.body;
 
@@ -307,11 +308,11 @@ class CollaborationController {
         })
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async shareFile(req: Request, res: Response): Promise<void> {
+  async shareFile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { name, url, size, type, uploadedBy } = req.body;
 
@@ -331,11 +332,11 @@ class CollaborationController {
         })
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async addWhiteboardStroke(req: Request, res: Response): Promise<void> {
+  async addWhiteboardStroke(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, color, width, points } = req.body;
 
@@ -354,11 +355,11 @@ class CollaborationController {
         })
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async createPoll(req: Request, res: Response): Promise<void> {
+  async createPoll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { question, options, createdBy, closesAt } = req.body;
 
@@ -378,11 +379,11 @@ class CollaborationController {
         )
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async respondToPoll(req: Request, res: Response): Promise<void> {
+  async respondToPoll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { optionId, userId } = req.body;
 
@@ -396,11 +397,11 @@ class CollaborationController {
         data: collaborationService.respondToPoll(req.params.classroomId, req.params.pollId, optionId, userId)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async createBreakoutRoom(req: Request, res: Response): Promise<void> {
+  async createBreakoutRoom(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { title, participantIds } = req.body;
 
@@ -414,26 +415,26 @@ class CollaborationController {
         data: collaborationService.createBreakoutRoom(req.params.classroomId, title, participantIds)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async listWorkspaces(req: Request, res: Response): Promise<void> {
+  async listWorkspaces(req: Request, res: Response, next: NextFunction): Promise<void> {
     res.status(200).json({ success: true, data: collaborationService.listWorkspaces() });
   }
 
-  async getWorkspace(req: Request, res: Response): Promise<void> {
+  async getWorkspace(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       res.status(200).json({
         success: true,
         data: collaborationService.getWorkspace(req.params.workspaceId)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async createWorkspace(req: Request, res: Response): Promise<void> {
+  async createWorkspace(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { title, projectBrief, members, classroomId } = req.body;
 
@@ -447,11 +448,11 @@ class CollaborationController {
         data: collaborationService.createWorkspace({ title, projectBrief, members, classroomId })
       });
     } catch (error) {
-      res.status(500).json({ success: false, message: (error as Error).message });
+      next(error);
     }
   }
 
-  async syncDocument(req: Request, res: Response): Promise<void> {
+  async syncDocument(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { title, userId, version, updatedAt, content, strategy } = req.body;
 
@@ -474,11 +475,11 @@ class CollaborationController {
         })
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async addWorkspaceNote(req: Request, res: Response): Promise<void> {
+  async addWorkspaceNote(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, userName, body } = req.body;
 
@@ -492,11 +493,11 @@ class CollaborationController {
         data: collaborationService.addWorkspaceNote(req.params.workspaceId, userId, userName, body)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async addDiscussionPost(req: Request, res: Response): Promise<void> {
+  async addDiscussionPost(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, authorName, body } = req.body;
 
@@ -510,15 +511,15 @@ class CollaborationController {
         data: collaborationService.addDiscussionPost(req.params.workspaceId, userId, authorName, body)
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async listPeerReviews(req: Request, res: Response): Promise<void> {
+  async listPeerReviews(req: Request, res: Response, next: NextFunction): Promise<void> {
     res.status(200).json({ success: true, data: collaborationService.listPeerReviews() });
   }
 
-  async createPeerReview(req: Request, res: Response): Promise<void> {
+  async createPeerReview(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { workspaceId, submissionId, authorId, reviewerIds, rubric, dueAt } = req.body;
 
@@ -539,11 +540,11 @@ class CollaborationController {
         )
       });
     } catch (error) {
-      res.status(500).json({ success: false, message: (error as Error).message });
+      next(error);
     }
   }
 
-  async submitPeerReview(req: Request, res: Response): Promise<void> {
+  async submitPeerReview(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { reviewerId, score, summary, strengths = [], improvements = [] } = req.body;
 
@@ -564,15 +565,15 @@ class CollaborationController {
         )
       });
     } catch (error) {
-      res.status(404).json({ success: false, message: (error as Error).message });
+      next(new NotFoundError((error as Error).message));
     }
   }
 
-  async listStudyGroups(req: Request, res: Response): Promise<void> {
+  async listStudyGroups(req: Request, res: Response, next: NextFunction): Promise<void> {
     res.status(200).json({ success: true, data: collaborationService.listStudyGroups() });
   }
 
-  async createStudyGroup(req: Request, res: Response): Promise<void> {
+  async createStudyGroup(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { topic, focusArea, members, recommendedSchedule, workspaceId } = req.body;
 
@@ -586,7 +587,7 @@ class CollaborationController {
         data: collaborationService.createStudyGroup(topic, focusArea, members, recommendedSchedule, workspaceId)
       });
     } catch (error) {
-      res.status(500).json({ success: false, message: (error as Error).message });
+      next(error);
     }
   }
 }

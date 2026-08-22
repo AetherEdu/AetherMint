@@ -31,7 +31,8 @@ pub enum EventKey {
     EventCount,
 }
 
-#[contract]
+// Contract attribute disabled - this is a module used by main contract in lib.rs
+// #[contract]
 pub struct EventLoggerContract;
 
 #[contractimpl]

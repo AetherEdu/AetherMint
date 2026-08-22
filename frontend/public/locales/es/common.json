@@ -4,6 +4,44 @@
     "tagline": "Plataforma de Aprendizaje Descentralizada",
     "description": "Aprende desarrollo de blockchain con cursos impulsados por Stellar"
   },
+  "language": {
+    "selectTitle": "Selecciona tu Idioma",
+    "selectSubtitle": "Elige tu idioma preferido para la mejor experiencia",
+    "switcherAria": "Seleccionar idioma",
+    "searchPlaceholder": "Buscar idiomas...",
+    "detected": "Detectado desde tu navegador: {{locale}}",
+    "changed": "Idioma cambiado a {{locale}}"
+  },
+  "header": {
+    "brand": "AetherMint",
+    "menuToggle": "Alternar menú de navegación",
+    "skipToContent": "Saltar al contenido principal",
+    "openSearch": "Abrir búsqueda",
+    "closeSearch": "Cerrar búsqueda"
+  },
+  "footer": {
+    "copyright": "© {{year}} AetherMint Educación. Todos los derechos reservados.",
+    "madeWith": "Hecho con ❤️ en Stellar",
+    "language": "Idioma",
+    "switchTip": "Añade ?lang=es (o tu código preferido) para compartir enlaces localizados."
+  },
+  "index": {
+    "title": "Estudio de Aprendizaje Temporal",
+    "description": "Un prototipo frontend para la aceleración adaptativa del aprendizaje con ritmo temporal, personalización y medidas de seguridad.",
+    "eyebrow": "Prototipo de Funcionalidad Frontend",
+    "h1": "Estudio de Aprendizaje Temporal",
+    "subtitle": "Una interpretación segura en frontend del aprendizaje por dilatación temporal: ritmo adaptativo, ventanas de enfoque intensificadas y medidas reversibles que comprimen cómo se siente un bloque de estudio sin pretender alterar el tiempo real.",
+    "accelerate": "Desbloquear Proyección 2x+",
+    "normalize": "Normalizar Sesión",
+    "viewDemo": "Ver demo existente",
+    "safetyNote": "Nota de seguridad:",
+    "safetyNoteBody": "esta interfaz modela el ritmo cognitivo y la heurística de retroalimentación. No afirma eficacia médica, tratamiento de neurofeedback ni manipulación literal de la percepción del tiempo.",
+    "recommendedScale": "Escala recomendada",
+    "speedGain": "Ganancia de velocidad proyectada",
+    "perceivedSpan": "Duración percibida del estudio",
+    "masteryConfidence": "Confianza de dominio",
+    "safetyState": "Estado de seguridad"
+  },
   "navigation": {
     "home": "Inicio",
     "courses": "Cursos",

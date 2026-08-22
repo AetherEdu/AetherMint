@@ -217,38 +217,38 @@ export function EnrollmentFlow({
     courseCapacity.currentEnrollments >= courseCapacity.maxStudents;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto px-3 xs:px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Progress Indicator */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-center">Enrollment Process</CardTitle>
+        <CardHeader className="px-4 sm:px-6">
+          <CardTitle className="text-center text-lg sm:text-xl">Enrollment Process</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between mb-6">
+        <CardContent className="px-3 sm:px-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-6 overflow-x-auto hide-scrollbar">
             {steps.map((step, index) => {
               const status = getStepStatus(step.id as EnrollmentStepId);
               return (
-                <div key={step.id} className="flex items-center flex-1">
+                <div key={step.id} className="flex items-center flex-shrink-0">
                   <div className="flex flex-col items-center">
                     <div className={`
-                      w-10 h-10 rounded-full flex items-center justify-center
+                      w-8 h-8 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center
                       ${status === 'completed' ? 'bg-green-500 text-white' : ''}
                       ${status === 'current' ? 'bg-blue-500 text-white' : ''}
                       ${status === 'upcoming' ? 'bg-gray-200 text-gray-500' : ''}
                     `}>
                       {status === 'completed' ? (
-                        <CheckCircle className="w-5 h-5" />
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                       ) : (
-                        <span className="text-sm font-medium">{index + 1}</span>
+                        <span className="text-xs sm:text-sm font-medium">{index + 1}</span>
                       )}
                     </div>
-                    <span className="text-xs mt-2 text-center hidden sm:block">
+                    <span className="text-[10px] xs:text-xs mt-1 sm:mt-2 text-center">
                       {step.title}
                     </span>
                   </div>
                   {index < steps.length - 1 && (
                     <div className={`
-                      flex-1 h-1 mx-2
+                      w-6 sm:w-12 md:w-16 h-1 mx-1 sm:mx-2
                       ${status === 'completed' ? 'bg-green-500' : 'bg-gray-200'}
                     `} />
                   )}
@@ -305,12 +305,12 @@ export function EnrollmentFlow({
       </Card>
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between">
+      <div className="flex flex-col xs:flex-row justify-between gap-3">
         <Button
           variant="outline"
           onClick={handleBack}
           disabled={!canGoBack || isLoading}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 min-h-[44px] w-full xs:w-auto touch-target"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
@@ -319,7 +319,7 @@ export function EnrollmentFlow({
         <Button
           onClick={handleNext}
           disabled={!canProceed || isLoading}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 min-h-[44px] w-full xs:w-auto touch-target"
         >
           {currentStep === 'confirmation' ? (
             <>
@@ -359,12 +359,15 @@ function OverviewStep({
 }) {
   return (
     <div className="space-y-6">
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         <div>
           <img 
             src={course.thumbnail} 
+            srcSet={`${course.thumbnail}?w=400 400w, ${course.thumbnail}?w=800 800w`}
+            sizes="(max-width: 768px) 100vw, 400px"
             alt={course.title}
-            className="w-full h-48 object-cover rounded-lg"
+            className="w-full h-40 sm:h-48 object-cover rounded-lg"
+            loading="lazy"
           />
         </div>
         <div className="space-y-4">
@@ -571,22 +574,26 @@ function PaymentStep({
     <div className="space-y-6">
       <div>
         <h4 className="font-semibold mb-4">Select Payment Method</h4>
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4">
           <div 
-            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+            className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors min-h-[44px] flex items-center ${
               selectedMethod === 'stellar' 
                 ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200 hover:border-gray-300'
+                : 'border-gray-200 hover:border-gray-300 active:bg-gray-50'
             }`}
             onClick={() => handlePaymentMethodSelect('stellar')}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selectedMethod === 'stellar'}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handlePaymentMethodSelect('stellar')}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 min-w-[44px] min-h-[44px] bg-blue-100 rounded-full flex items-center justify-center">
                 <CreditCard className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <div className="font-medium">Stellar (XLM)</div>
-                <div className="text-sm text-muted-foreground">
+                <div className="font-medium text-sm sm:text-base">Stellar (XLM)</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">
                   Fast, low-cost blockchain payments
                 </div>
               </div>
@@ -594,20 +601,24 @@ function PaymentStep({
           </div>
 
           <div 
-            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+            className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors min-h-[44px] flex items-center ${
               selectedMethod === 'credit_card' 
                 ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200 hover:border-gray-300'
+                : 'border-gray-200 hover:border-gray-300 active:bg-gray-50'
             }`}
             onClick={() => handlePaymentMethodSelect('credit_card')}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selectedMethod === 'credit_card'}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handlePaymentMethodSelect('credit_card')}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 min-w-[44px] min-h-[44px] bg-green-100 rounded-full flex items-center justify-center">
                 <CreditCard className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <div className="font-medium">Credit Card</div>
-                <div className="text-sm text-muted-foreground">
+                <div className="font-medium text-sm sm:text-base">Credit Card</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">
                   Visa, Mastercard, American Express
                 </div>
               </div>
@@ -682,10 +693,10 @@ function ConfirmationStep({
       <div className="space-y-4">
         <h4 className="font-semibold">Enrollment Summary</h4>
         
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div className="space-y-3">
             <h5 className="font-medium">Course Information</h5>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-xs sm:text-sm">
               <div className="flex justify-between">
                 <span>Course:</span>
                 <span>{course.title}</span>
@@ -747,22 +758,21 @@ function CompleteStep({
   course: Course; 
   enrollmentData: any; 
 }) {
-  return (
-    <div className="text-center space-y-6">
-      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-        <CheckCircle className="w-8 h-8 text-green-600" />
+  return (      <div className="text-center space-y-4 sm:space-y-6 px-2">
+      <div className="w-14 h-14 sm:w-16 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+        <CheckCircle className="w-7 h-7 sm:w-8 sm:h-8 text-green-600" />
       </div>
       
       <div>
-        <h3 className="text-2xl font-bold text-green-800 mb-2">
+        <h3 className="text-xl sm:text-2xl font-bold text-green-800 mb-2">
           Enrollment Successful!
         </h3>
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground px-2">
           You have successfully enrolled in {course.title}
         </p>
       </div>
 
-      <div className="space-y-4 p-6 bg-gray-50 rounded-lg text-left max-w-md mx-auto">
+      <div className="space-y-3 sm:space-y-4 p-4 sm:p-6 bg-gray-50 rounded-lg text-left max-w-md mx-auto">
         <h5 className="font-semibold">Enrollment Details</h5>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
@@ -783,15 +793,15 @@ function CompleteStep({
       </div>
 
       <div className="space-y-3">
-        <Button className="w-full">
+        <Button className="w-full min-h-[44px] touch-target">
           Go to Course
         </Button>
-        <Button variant="outline" className="w-full">
+        <Button variant="outline" className="w-full min-h-[44px] touch-target">
           View My Enrollments
         </Button>
       </div>
 
-      <p className="text-sm text-muted-foreground">
+      <p className="text-xs sm:text-sm text-muted-foreground px-2">
         You will receive a confirmation email shortly with your enrollment details.
       </p>
     </div>

@@ -1,3 +1,4 @@
+use crate::course_events::{publish_course_event, CourseLifecycleEvent};
 use crate::utils::storage::{PackedRating, PackedTimestamps};
 use soroban_sdk::{
     contract, contractimpl, contracttype, Address, Env, String, Vec,
@@ -131,10 +132,13 @@ pub struct UpdateCourseParams {
     pub status: Option<CourseStatus>,
 }
 
-#[contract]
-pub struct CourseMetadataContract;
+// Temporarily disabled to avoid symbol conflicts with main contract
+// #[contract]
+// pub struct CourseMetadataContract;
 
 #[contractimpl]
+pub struct CourseMetadataContract;
+
 impl CourseMetadataContract {
     /// Initialize the contract with optimized storage
     pub fn initialize(env: Env, admin: Address) {
@@ -157,7 +161,7 @@ impl CourseMetadataContract {
     }
 
     /// Create and store course metadata with optimized storage
-    pub fn create_course(
+    pub fn create_course_metadata(
         env: Env,
         instructor: Address,
         title: String,
@@ -169,6 +173,11 @@ impl CourseMetadataContract {
         tags: Vec<String>,
         params: CreateCourseParams,
     ) -> String {
+        instructor.require_auth();
+
+        // RBAC: require Instructor role
+        crate::access_control::require_role(&env, &instructor, crate::access_control::Role::Instructor);
+
         // Check if instructor exists, create if not
         if !env
             .storage()
@@ -263,8 +272,17 @@ impl CourseMetadataContract {
         let mut instructor_profile = Self::get_instructor_profile(env.clone(), instructor.clone());
         instructor_profile.course_count += 1;
         env.storage().instance().set(
-            &CourseMetadataKey::Instructor(instructor),
+            &CourseMetadataKey::Instructor(instructor.clone()),
             &instructor_profile,
+        );
+
+        // Emit standardized course lifecycle event. Use the numeric course id (course_count + 1)
+        // as the entity_id so indexers can correlate the on-chain event with storage.
+        publish_course_event(
+            &env,
+            CourseLifecycleEvent::Created,
+            course_count + 1,
+            instructor,
         );
 
         course_id_str
@@ -332,7 +350,20 @@ impl CourseMetadataContract {
 
         env.storage()
             .instance()
-            .set(&CourseMetadataKey::Course(course_id), &course_metadata);
+            .set(&CourseMetadataKey::Course(course_id.clone()), &course_metadata);
+
+        // Emit standardized course updated event. The course_id is a String in courseMetadata
+        // but course_events uses u64 entity_id. We use the course count as a proxy — for the
+        // update flow we use 0 as entity_id to signal an update without a numeric id lookup,
+        // which keeps the course_events module free of string dependencies.
+        // A dedicated string-keyed lookup is available via get_course().
+        publish_course_event(
+            &env,
+            CourseLifecycleEvent::Updated,
+            0u64,
+            instructor,
+        );
+
         true
     }
 
@@ -467,6 +498,15 @@ impl CourseMetadataContract {
             .instance()
             .set(&CourseMetadataKey::CompletionCount, &(completion_count + 1));
 
+        // Emit standardized course completion event. Use the numeric completion id as
+        // the entity_id, with the student as the actor.
+        publish_course_event(
+            &env,
+            CourseLifecycleEvent::Completed,
+            completion_count + 1,
+            student,
+        );
+
         completion_id_str
     }
 
@@ -500,7 +540,7 @@ impl CourseMetadataContract {
     }
 
     /// Get total course count
-    pub fn get_course_count(env: Env) -> u64 {
+    pub fn get_course_metadata_count(env: Env) -> u64 {
         env.storage()
             .instance()
             .get(&CourseMetadataKey::CourseCount)

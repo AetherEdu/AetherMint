@@ -34,7 +34,8 @@ pub struct ConsciousnessMarketplaceItem {
     pub verification_required: bool,
 }
 
-#[contract]
+// Contract attribute disabled - this is a module used by main contract in lib.rs
+// #[contract]
 pub struct ConsciousnessContract;
 
 #[contractimpl]
@@ -58,7 +59,7 @@ impl ConsciousnessContract {
         let consciousness_id = Bytes::from_slice(&env, &consciousness_id_hash.to_array());
 
         // Create neural hash for verification
-        let neural_hash = env.crypto().sha256(&neural_data);
+        let neural_hash = env.crypto().sha256(&neural_data).into();
 
         // Create consciousness data structure
         let consciousness_data = ConsciousnessData {
@@ -117,7 +118,8 @@ impl ConsciousnessContract {
 
         if let Some(consciousness_data) = consciousness_map.get(consciousness_id) {
             // Verify neural hash matches
-            consciousness_data.neural_hash == verification_hash
+            let verification_hash_bytes: BytesN<32> = verification_hash.into();
+            consciousness_data.neural_hash == verification_hash_bytes
         } else {
             false
         }
@@ -141,12 +143,12 @@ impl ConsciousnessContract {
             let old_owner = consciousness_data.owner.clone();
 
             // Verify transfer proof (simplified)
-            let proof_hash = env.crypto().sha256(&transfer_proof);
+            let proof_hash: BytesN<32> = env.crypto().sha256(&transfer_proof).into();
             
             let mut expected_data = Bytes::new(&env);
             expected_data.append(&consciousness_id);
             expected_data.append(&Bytes::from_slice(&env, b"transfer"));
-            let expected_hash = env.crypto().sha256(&expected_data);
+            let expected_hash: BytesN<32> = env.crypto().sha256(&expected_data).into();
 
             if proof_hash != expected_hash {
                 return false;
@@ -204,7 +206,7 @@ impl ConsciousnessContract {
         let mut combined_hash = Bytes::new(&env);
         combined_hash.append(&current_consciousness_id);
         combined_hash.append(&knowledge_transfer_data);
-        let lifetime_transition_hash = env.crypto().sha256(&combined_hash);
+        let lifetime_transition_hash: BytesN<32> = env.crypto().sha256(&combined_hash).into();
 
         // Calculate knowledge transfer ratio
         let knowledge_transfer_ratio = if knowledge_transfer_data.is_empty() {
@@ -289,13 +291,13 @@ impl ConsciousnessContract {
 
         if let Some(marketplace_item) = marketplace_map.get(consciousness_id.clone()) {
             // Verify payment (simplified)
-            let payment_hash = env.crypto().sha256(&payment_proof);
+            let payment_hash: BytesN<32> = env.crypto().sha256(&payment_proof).into();
             let buyer_str: soroban_sdk::String = buyer.to_string();
             let buyer_bytes: soroban_sdk::Bytes = crate::string_to_bytes(&env, &buyer_str);
             let mut expected_data = Bytes::new(&env);
             expected_data.append(&Bytes::from_slice(&env, b"payment"));
             expected_data.append(&buyer_bytes);
-            let expected_hash = env.crypto().sha256(&expected_data);
+            let expected_hash: BytesN<32> = env.crypto().sha256(&expected_data).into();
 
             if payment_hash != expected_hash {
                 return false;
@@ -340,7 +342,7 @@ impl ConsciousnessContract {
 
             // Recalculate neural hash
             consciousness_data.neural_hash =
-                env.crypto().sha256(&consciousness_data.knowledge_vector);
+                env.crypto().sha256(&consciousness_data.knowledge_vector).into();
 
             consciousness_map.set(consciousness_id, consciousness_data);
             env.storage()

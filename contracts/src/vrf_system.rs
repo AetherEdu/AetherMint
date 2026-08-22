@@ -2,6 +2,7 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, Address, Bytes, Env, String, Vec,
     Map, BytesN, Symbol,
 };
+use crate::utils::pause::PauseUtils;
 
 /// Verifiable Random Function (VRF) implementation for Stellar blockchain
 /// Provides fair, transparent, and tamper-proof randomization for:
@@ -71,7 +72,8 @@ pub struct CommitmentData {
     pub created_at: u64,
 }
 
-#[contract]
+// Contract attributes disabled - see lib.rs for main contract
+// #[contract]
 pub struct VRFSystem;
 
 #[contractimpl]
@@ -100,6 +102,7 @@ impl VRFSystem {
         provider: Address,
         weight: u32,
     ) -> u64 {
+        PauseUtils::require_not_paused(&env);
         provider.require_auth();
 
         if weight > 10000 {
@@ -133,6 +136,7 @@ impl VRFSystem {
         purpose: String,
         context: String,
     ) -> u64 {
+        PauseUtils::require_not_paused(&env);
         requester.require_auth();
 
         let request_id: u64 = env.storage().persistent()
@@ -190,6 +194,7 @@ impl VRFSystem {
         request_id: u64,
         entropy: BytesN<32>,
     ) {
+        PauseUtils::require_not_paused(&env);
         let source: EntropySource = env.storage().persistent()
             .get(&StorageKey::EntropySource(source_id))
             .unwrap_or_else(|| panic!("Entropy source not found"));
@@ -231,6 +236,7 @@ impl VRFSystem {
         random_value: u128,
         proof: BytesN<64>,
     ) {
+        PauseUtils::require_not_paused(&env);
         let mut request: VRFRequest = env.storage().persistent()
             .get(&StorageKey::VRFRequest(request_id))
             .unwrap_or_else(|| panic!("VRF request not found"));
@@ -258,6 +264,7 @@ impl VRFSystem {
         entropy_hash: BytesN<32>,
         contributors: Vec<Address>,
     ) -> u64 {
+        PauseUtils::require_not_paused(&env);
         let beacon_id: u64 = env.storage().persistent()
             .get(&StorageKey::NextBeaconId)
             .unwrap_or(0u64);
@@ -285,6 +292,7 @@ impl VRFSystem {
         commitment_hash: BytesN<32>,
         valid_until: u64,
     ) {
+        PauseUtils::require_not_paused(&env);
         committer.require_auth();
 
         let key = StorageKey::Commitment(committer.clone(), env.ledger().sequence() as u64);
@@ -302,6 +310,7 @@ impl VRFSystem {
         committer: Address,
         revealed_value: String,
     ) -> String {
+        PauseUtils::require_not_paused(&env);
         let key = StorageKey::Commitment(committer.clone(), env.ledger().sequence() as u64);
         
         let commitment: CommitmentData = env.storage().temporary()
@@ -457,7 +466,7 @@ impl VRFSystem {
         combined.append(&Bytes::from_slice(env, &entropy1.to_array()));
         combined.append(&Bytes::from_slice(env, &entropy2.to_array()));
         
-        env.crypto().sha256(&combined)
+        env.crypto().sha256(&combined).into()
     }
 
     fn combine_seeds(env: &Env, seed1: &BytesN<32>, seed2: &BytesN<32>) -> [u8; 32] {
@@ -480,6 +489,6 @@ impl VRFSystem {
 
     fn hash_reveal(env: &Env, value: &String) -> BytesN<32> {
         let bytes = crate::string_to_bytes(env, value);
-        env.crypto().sha256(&bytes)
+        env.crypto().sha256(&bytes).into()
     }
 }

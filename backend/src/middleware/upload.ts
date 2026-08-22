@@ -11,6 +11,7 @@ import { Request, RequestHandler } from 'express';
 const storage = multer.memoryStorage();
 
 // File filter for security
+// @ts-ignore - multer type compatibility
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   // Allowed file types
   const allowedTypes = [
@@ -107,7 +108,8 @@ export const uploadWithValidation = (options: {
 }) => {
   return multer({
     storage: multer.memoryStorage(),
-    fileFilter: (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    // @ts-ignore - multer type compatibility
+      fileFilter: (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
       const allowedTypes = options.allowedTypes || [
         'application/pdf',
         'application/msword',

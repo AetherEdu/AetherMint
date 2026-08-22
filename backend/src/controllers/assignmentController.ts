@@ -3,12 +3,12 @@
  * Handles all assignment-related operations
  */
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { 
-  Assignment, 
-  AssignmentType, 
-  SubmissionType, 
+import {
+  Assignment,
+  AssignmentType,
+  SubmissionType,
   LatePolicy,
   AssignmentStats,
   StudentAssignmentProgress
@@ -21,6 +21,12 @@ import { PlagiarismService } from '../services/plagiarismService';
 import { NotificationService } from '../services/NotificationService';
 import { validateAssignment, validateSubmission } from '../utils/validation';
 import logger from '../utils/logger';
+import {
+  AuthError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError
+} from '../utils/errors';
 
 export class AssignmentController {
   constructor(
@@ -31,33 +37,39 @@ export class AssignmentController {
     private notificationService: NotificationService
   ) {}
 
-  private getAuthenticatedUser(req: AuthenticatedRequest, res: Response): { id: string; role: UserRole } | undefined {
-    if (!req.user) {
-      res.status(401).json({ error: 'Authentication required' });
-      return undefined;
-    }
+  private getAuthenticatedUser(
+    req: AuthenticatedRequest
+  ): { id: string; role: UserRole } {
+    if (!req.user) throw new AuthError('Authentication required');
     return { id: req.user.id, role: req.user.role };
   }
 
-  // Assignment Management
-  async createAssignment(req: AuthenticatedRequest, res: Response) {
+  // ── Assignment Management ─────────────────────────────────────────────────
+
+  async createAssignment(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { courseId } = req.params;
       const assignmentData = req.body;
-      
-      // Validate user is instructor for the course
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+
+      const user = this.getAuthenticatedUser(req);
 
       if (user.role !== UserRole.EDUCATOR && user.role !== UserRole.ADMIN) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
+        throw new ForbiddenError('Insufficient permissions');
       }
 
-      // Validate assignment data
       const validation = validateAssignment(assignmentData);
-      const validationError = Array.isArray(validation.errors) && validation.errors.length > 0 ? (validation.errors[0] as any).message : undefined;
       if (!validation.isValid) {
-        return res.status(400).json({ error: (validation as any).error || validationError || 'Validation failed' });
+        const validationError =
+          Array.isArray(validation.errors) && validation.errors.length > 0
+            ? (validation.errors[0] as any).message
+            : undefined;
+        throw new ValidationError(
+          (validation as any).error || validationError || 'Validation failed'
+        );
       }
 
       const assignment = await this.assignmentService.createAssignment({
@@ -66,24 +78,25 @@ export class AssignmentController {
         createdBy: user.id
       });
 
-      // Notify enrolled students
       await (this.notificationService as any).notifyAssignmentCreated(assignment);
 
       logger.info(`Assignment created: ${assignment.id} by ${user.id}`);
       res.status(201).json(assignment);
-    } catch (error: unknown) {
-      logger.error('Error creating assignment:', error);
-      res.status(500).json({ error: 'Failed to create assignment' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getAssignments(req: AuthenticatedRequest, res: Response) {
+  async getAssignments(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { courseId } = req.params;
       const { page = 1, limit = 10, status, type } = req.query;
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
       const assignments = await this.assignmentService.getAssignments({
         courseId,
@@ -96,18 +109,20 @@ export class AssignmentController {
       });
 
       res.json(assignments);
-    } catch (error: unknown) {
-      logger.error('Error fetching assignments:', error);
-      res.status(500).json({ error: 'Failed to fetch assignments' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getAssignment(req: AuthenticatedRequest, res: Response) {
+  async getAssignment(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { assignmentId } = req.params;
-      
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+
+      const user = this.getAuthenticatedUser(req);
 
       const assignment = await this.assignmentService.getAssignment(
         assignmentId,
@@ -115,33 +130,30 @@ export class AssignmentController {
         user.role
       );
 
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
+      if (!assignment) throw new NotFoundError('Assignment not found');
 
       res.json(assignment);
-    } catch (error: unknown) {
-      logger.error('Error fetching assignment:', error);
-      res.status(500).json({ error: 'Failed to fetch assignment' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async updateAssignment(req: AuthenticatedRequest, res: Response) {
+  async updateAssignment(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { assignmentId } = req.params;
       const updateData = req.body;
 
-      // Check permissions
       const assignment = await this.assignmentService.getAssignment(assignmentId);
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
+      if (!assignment) throw new NotFoundError('Assignment not found');
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
       if (assignment.createdBy !== user.id && user.role !== UserRole.ADMIN) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
+        throw new ForbiddenError('Insufficient permissions');
       }
 
       const updatedAssignment = await this.assignmentService.updateAssignment(
@@ -151,64 +163,61 @@ export class AssignmentController {
 
       logger.info(`Assignment updated: ${assignmentId} by ${user.id}`);
       res.json(updatedAssignment);
-    } catch (error: unknown) {
-      logger.error('Error updating assignment:', error);
-      res.status(500).json({ error: 'Failed to update assignment' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async deleteAssignment(req: AuthenticatedRequest, res: Response) {
+  async deleteAssignment(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { assignmentId } = req.params;
 
-      // Check permissions
       const assignment = await this.assignmentService.getAssignment(assignmentId);
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
+      if (!assignment) throw new NotFoundError('Assignment not found');
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
       if (assignment.createdBy !== user.id && user.role !== UserRole.ADMIN) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
+        throw new ForbiddenError('Insufficient permissions');
       }
 
       await this.assignmentService.deleteAssignment(assignmentId);
 
       logger.info(`Assignment deleted: ${assignmentId} by ${user.id}`);
       res.status(204).send();
-    } catch (error: unknown) {
-      logger.error('Error deleting assignment:', error);
-      res.status(500).json({ error: 'Failed to delete assignment' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  // Submission Management
-  async createSubmission(req: AuthenticatedRequest, res: Response) {
+  // ── Submission Management ─────────────────────────────────────────────────
+
+  async createSubmission(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { assignmentId } = req.params;
-      
-      // Validate assignment exists and is accessible
-      const assignment = await this.assignmentService.getAssignment(assignmentId);
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
 
-      // Check if submission is still allowed
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const assignment = await this.assignmentService.getAssignment(assignmentId);
+      if (!assignment) throw new NotFoundError('Assignment not found');
+
+      const user = this.getAuthenticatedUser(req);
 
       if (!await this.assignmentService.canSubmit(assignmentId, user.id)) {
-        return res.status(403).json({ error: 'Submission not allowed' });
+        throw new ForbiddenError('Submission not allowed');
       }
 
       const submissionData = req.body;
-      
-      // Handle file uploads if present
-      if (req.files && Array.isArray(req.files)) {
+
+      if ((req as any).files && Array.isArray((req as any).files)) {
         const uploadedFiles = await this.fileUploadService.uploadFiles(
-          req.files,
+          (req as any).files,
           `assignments/${assignmentId}/submissions/${user.id}`
         );
         submissionData.files = uploadedFiles;
@@ -217,45 +226,45 @@ export class AssignmentController {
       const submission = await this.assignmentService.createSubmission({
         ...submissionData,
         assignmentId,
-        studentId: user.id,
+        studentId: user.id
       });
 
       if (assignment.plagiarismCheck) {
-        this.plagiarismService.checkPlagiarism(submission.id).catch((error: unknown) => {
-          logger.error('Plagiarism check failed:', error);
+        this.plagiarismService.checkPlagiarism(submission.id).catch((err: unknown) => {
+          logger.error('Plagiarism check failed:', err);
         });
       }
 
-      // Auto-grade if enabled and applicable
       if (assignment.autoGrade) {
-        this.gradingService.autoGrade(submission.id).catch((error: unknown) => {
-          logger.error('Auto-grading failed:', error);
+        this.gradingService.autoGrade(submission.id).catch((err: unknown) => {
+          logger.error('Auto-grading failed:', err);
         });
       }
 
-      logger.info(`Submission created: ${submission.id} for assignment: ${assignmentId}`);
+      logger.info(
+        `Submission created: ${submission.id} for assignment: ${assignmentId}`
+      );
       res.status(201).json(submission);
-    } catch (error: unknown) {
-      logger.error('Error creating submission:', error);
-      res.status(500).json({ error: 'Failed to create submission' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getSubmissions(req: AuthenticatedRequest, res: Response) {
+  async getSubmissions(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { assignmentId } = req.params;
       const { page = 1, limit = 10, status, graded } = req.query;
 
-      // Check permissions - instructors can see all submissions, students only their own
       const assignment = await this.assignmentService.getAssignment(assignmentId);
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
+      if (!assignment) throw new NotFoundError('Assignment not found');
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
-
-      const isInstructor = assignment.createdBy === user.id || user.role === UserRole.ADMIN;
+      const user = this.getAuthenticatedUser(req);
+      const isInstructor =
+        assignment.createdBy === user.id || user.role === UserRole.ADMIN;
 
       const submissions = await this.assignmentService.getSubmissions({
         assignmentId,
@@ -268,18 +277,20 @@ export class AssignmentController {
       });
 
       res.json(submissions);
-    } catch (error: unknown) {
-      logger.error('Error fetching submissions:', error);
-      res.status(500).json({ error: 'Failed to fetch submissions' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getSubmission(req: AuthenticatedRequest, res: Response) {
+  async getSubmission(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { submissionId } = req.params;
-      
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+
+      const user = this.getAuthenticatedUser(req);
 
       const submission = await this.assignmentService.getSubmission(
         submissionId,
@@ -287,39 +298,35 @@ export class AssignmentController {
         user.role
       );
 
-      if (!submission) {
-        return res.status(404).json({ error: 'Submission not found' });
-      }
+      if (!submission) throw new NotFoundError('Submission not found');
 
       res.json(submission);
-    } catch (error: unknown) {
-      logger.error('Error fetching submission:', error);
-      res.status(500).json({ error: 'Failed to fetch submission' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async updateSubmission(req: AuthenticatedRequest, res: Response) {
+  async updateSubmission(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { submissionId } = req.params;
       const updateData = req.body;
 
       const submission = await this.assignmentService.getSubmission(submissionId);
-      if (!submission) {
-        return res.status(404).json({ error: 'Submission not found' });
-      }
+      if (!submission) throw new NotFoundError('Submission not found');
 
-      // Students can only update their own draft submissions
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
       if (submission.studentId !== user.id || submission.status !== 'draft') {
-        return res.status(403).json({ error: 'Cannot update submission' });
+        throw new ForbiddenError('Cannot update submission');
       }
 
-      // Handle file uploads if present
-      if (req.files && Array.isArray(req.files)) {
+      if ((req as any).files && Array.isArray((req as any).files)) {
         const uploadedFiles = await this.fileUploadService.uploadFiles(
-          req.files,
+          (req as any).files,
           `assignments/${submission.assignmentId}/submissions/${user.id}`
         );
         updateData.files = [...(submission.files || []), ...uploadedFiles];
@@ -332,75 +339,78 @@ export class AssignmentController {
 
       logger.info(`Submission updated: ${submissionId} by ${user.id}`);
       res.json(updatedSubmission);
-    } catch (error: unknown) {
-      logger.error('Error updating submission:', error);
-      res.status(500).json({ error: 'Failed to update submission' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async submitAssignment(req: AuthenticatedRequest, res: Response) {
+  async submitAssignment(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { submissionId } = req.params;
 
       const submission = await this.assignmentService.getSubmission(submissionId);
-      if (!submission) {
-        return res.status(404).json({ error: 'Submission not found' });
-      }
+      if (!submission) throw new NotFoundError('Submission not found');
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
       if (submission.studentId !== user.id) {
-        return res.status(403).json({ error: 'Cannot submit assignment' });
+        throw new ForbiddenError('Cannot submit assignment');
       }
 
-      const submittedSubmission = await this.assignmentService.submitSubmission(submissionId);
+      const submittedSubmission = await this.assignmentService.submitSubmission(
+        submissionId
+      );
 
-      // Trigger plagiarism check if enabled
-      const assignment = await this.assignmentService.getAssignment(submission.assignmentId);
+      const assignment = await this.assignmentService.getAssignment(
+        submission.assignmentId
+      );
+
       if (assignment?.plagiarismCheck) {
-        this.plagiarismService.checkPlagiarism(submissionId).catch((error: unknown) => {
-          logger.error('Plagiarism check failed:', error);
+        this.plagiarismService.checkPlagiarism(submissionId).catch((err: unknown) => {
+          logger.error('Plagiarism check failed:', err);
         });
       }
 
-      // Auto-grade if enabled
       if (assignment?.autoGrade) {
-        this.gradingService.autoGrade(submissionId).catch((error: unknown) => {
-          logger.error('Auto-grading failed:', error);
+        this.gradingService.autoGrade(submissionId).catch((err: unknown) => {
+          logger.error('Auto-grading failed:', err);
         });
       }
 
       logger.info(`Assignment submitted: ${submissionId} by ${user.id}`);
       res.json(submittedSubmission);
-    } catch (error: unknown) {
-      logger.error('Error submitting assignment:', error);
-      res.status(500).json({ error: 'Failed to submit assignment' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  // Grading Management
-  async gradeSubmission(req: AuthenticatedRequest, res: Response) {
+  // ── Grading Management ────────────────────────────────────────────────────
+
+  async gradeSubmission(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { submissionId } = req.params;
       const gradingData = req.body;
 
-      // Check permissions
       const submission = await this.assignmentService.getSubmission(submissionId);
-      if (!submission) {
-        return res.status(404).json({ error: 'Submission not found' });
-      }
+      if (!submission) throw new NotFoundError('Submission not found');
 
-      const assignment = await this.assignmentService.getAssignment(submission.assignmentId);
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
+      const assignment = await this.assignmentService.getAssignment(
+        submission.assignmentId
+      );
+      if (!assignment) throw new NotFoundError('Assignment not found');
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
       if (assignment.createdBy !== user.id && user.role !== UserRole.ADMIN) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
+        throw new ForbiddenError('Insufficient permissions');
       }
 
       const grade = await this.gradingService.gradeSubmission({
@@ -409,33 +419,31 @@ export class AssignmentController {
         gradedBy: user.id
       });
 
-      // Notify student
       await (this.notificationService as any).notifyGradeCreated(grade);
 
       logger.info(`Submission graded: ${submissionId} by ${user.id}`);
       res.status(201).json(grade);
-    } catch (error: unknown) {
-      logger.error('Error grading submission:', error);
-      res.status(500).json({ error: 'Failed to grade submission' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getGrades(req: AuthenticatedRequest, res: Response) {
+  async getGrades(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { assignmentId } = req.params;
       const { page = 1, limit = 10, status } = req.query;
 
-      // Check permissions
       const assignment = await this.assignmentService.getAssignment(assignmentId);
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
+      if (!assignment) throw new NotFoundError('Assignment not found');
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
       if (assignment.createdBy !== user.id && user.role !== UserRole.ADMIN) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
+        throw new ForbiddenError('Insufficient permissions');
       }
 
       const grades = await this.gradingService.getGrades({
@@ -446,72 +454,77 @@ export class AssignmentController {
       });
 
       res.json(grades);
-    } catch (error: unknown) {
-      logger.error('Error fetching grades:', error);
-      res.status(500).json({ error: 'Failed to fetch grades' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  // Statistics and Analytics
-  async getAssignmentStats(req: AuthenticatedRequest, res: Response) {
+  // ── Statistics & Analytics ────────────────────────────────────────────────
+
+  async getAssignmentStats(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { assignmentId } = req.params;
 
-      // Check permissions
       const assignment = await this.assignmentService.getAssignment(assignmentId);
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
+      if (!assignment) throw new NotFoundError('Assignment not found');
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
       if (assignment.createdBy !== user.id && user.role !== UserRole.ADMIN) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
+        throw new ForbiddenError('Insufficient permissions');
       }
 
-      const stats: AssignmentStats = await this.assignmentService.getAssignmentStats(assignmentId);
+      const stats: AssignmentStats = await this.assignmentService.getAssignmentStats(
+        assignmentId
+      );
 
       res.json(stats);
-    } catch (error: unknown) {
-      logger.error('Error fetching assignment stats:', error);
-      res.status(500).json({ error: 'Failed to fetch assignment stats' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getStudentProgress(req: AuthenticatedRequest, res: Response) {
+  async getStudentProgress(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { courseId } = req.params;
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
-      const progress: StudentAssignmentProgress[] = await this.assignmentService.getStudentProgress(courseId, user.id);
+      const progress: StudentAssignmentProgress[] =
+        await this.assignmentService.getStudentProgress(courseId, user.id);
 
       res.json(progress);
-    } catch (error: unknown) {
-      logger.error('Error fetching student progress:', error);
-      res.status(500).json({ error: 'Failed to fetch student progress' });
+    } catch (error) {
+      next(error);
     }
   }
 
-  // Bulk Operations
-  async bulkGrade(req: AuthenticatedRequest, res: Response) {
+  // ── Bulk Operations ───────────────────────────────────────────────────────
+
+  async bulkGrade(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { assignmentId } = req.params;
       const { operation, criteria, gradingData } = req.body;
 
-      // Check permissions
       const assignment = await this.assignmentService.getAssignment(assignmentId);
-      if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
-      }
+      if (!assignment) throw new NotFoundError('Assignment not found');
 
-      const user = this.getAuthenticatedUser(req, res);
-      if (!user) return;
+      const user = this.getAuthenticatedUser(req);
 
       if (assignment.createdBy !== user.id && user.role !== UserRole.ADMIN) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
+        throw new ForbiddenError('Insufficient permissions');
       }
 
       const operationId = await this.gradingService.startBulkGrading({
@@ -522,11 +535,12 @@ export class AssignmentController {
         instructorId: user.id
       });
 
-      logger.info(`Bulk grading started: ${operationId} for assignment: ${assignmentId}`);
+      logger.info(
+        `Bulk grading started: ${operationId} for assignment: ${assignmentId}`
+      );
       res.status(202).json({ operationId });
-    } catch (error: unknown) {
-      logger.error('Error starting bulk grading:', error);
-      res.status(500).json({ error: 'Failed to start bulk grading' });
+    } catch (error) {
+      next(error);
     }
   }
 }

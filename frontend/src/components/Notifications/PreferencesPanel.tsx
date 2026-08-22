@@ -56,10 +56,10 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
   };
 
   return (
-    <div className="p-6 bg-white">
+    <div id="notification-preferences-panel" className="p-6 bg-white" aria-labelledby="notification-preferences-title">
       <div className="flex items-center gap-2 mb-6">
         <Settings size={20} className="text-gray-700" />
-        <h3 className="text-lg font-semibold text-gray-900">Notification Preferences</h3>
+        <h3 id="notification-preferences-title" className="text-lg font-semibold text-gray-900">Notification Preferences</h3>
       </div>
 
       {/* Category Settings */}
@@ -79,7 +79,9 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
                 <div className="flex flex-wrap gap-3">
                   {/* Enable/Disable */}
                   <button
+                    type="button"
                     onClick={() => handleCategoryToggle(category, 'enabled')}
+                    aria-pressed={preferences.categories[category].enabled}
                     className={`
                       flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors
                       ${preferences.categories[category].enabled
@@ -98,8 +100,10 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
 
                   {/* Sound */}
                   <button
+                    type="button"
                     onClick={() => handleCategoryToggle(category, 'sound')}
                     disabled={!preferences.categories[category].enabled}
+                    aria-pressed={preferences.categories[category].sound && preferences.categories[category].enabled}
                     className={`
                       flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors
                       ${preferences.categories[category].sound && preferences.categories[category].enabled
@@ -114,8 +118,10 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
 
                   {/* Desktop */}
                   <button
+                    type="button"
                     onClick={() => handleCategoryToggle(category, 'desktop')}
                     disabled={!preferences.categories[category].enabled}
+                    aria-pressed={preferences.categories[category].desktop && preferences.categories[category].enabled}
                     className={`
                       flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors
                       ${preferences.categories[category].desktop && preferences.categories[category].enabled
@@ -143,7 +149,11 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
               </p>
             </div>
             <button
+              type="button"
               onClick={handleQuietHoursToggle}
+              role="switch"
+              aria-checked={preferences.quietHours.enabled}
+              aria-label="Toggle quiet hours"
               className={`
                 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
                 ${preferences.quietHours.enabled ? 'bg-blue-600' : 'bg-gray-200'}
@@ -164,6 +174,7 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
               <div className="flex items-center gap-3">
                 <label className="text-sm text-gray-700">From:</label>
                 <input
+                  aria-label="Quiet hours start time"
                   type="time"
                   value={preferences.quietHours.start}
                   onChange={(e) => handleQuietHoursChange('start', e.target.value)}
@@ -171,6 +182,7 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
                 />
                 <label className="text-sm text-gray-700">To:</label>
                 <input
+                  aria-label="Quiet hours end time"
                   type="time"
                   value={preferences.quietHours.end}
                   onChange={(e) => handleQuietHoursChange('end', e.target.value)}

@@ -1,0 +1,39 @@
+{
+  "title": "Mensajes de Validación",
+  "description": "Mensajes de validación de formularios y manejo de errores",
+  "required": {
+    "field": "Este campo es obligatorio",
+    "name": "Se requiere nombre",
+    "email": "Se requiere correo electrónico",
+    "password": "Se requiere contraseña",
+    "username": "Se requiere nombre de usuario"
+  },
+  "format": {
+    "invalid": "Formato inválido",
+    "email": "Dirección de correo inválida",
+    "url": "Formato de URL inválido",
+    "phone": "Número de teléfono inválido"
+  },
+  "length": {
+    "tooShort": "El valor es demasiado corto",
+    "tooLong": "El valor es demasiado largo",
+    "minLength": "Debe tener al menos {{min}} caracteres",
+    "maxLength": "No debe tener más de {{max}} caracteres"
+  },
+  "range": {
+    "min": "Debe ser al menos {{min}}",
+    "max": "No debe ser más de {{max}}",
+    "range": "Debe estar entre {{min}} y {{max}}"
+  },
+  "file": {
+    "required": "Se requiere un archivo",
+    "invalid": "Archivo inválido",
+    "tooLarge": "Archivo demasiado grande (máx {{maxSize}})",
+    "invalidType": "Tipo de archivo inválido"
+  },
+  "datetime": {
+    "invalid": "Fecha/hora inválida",
+    "past": "La fecha debe estar en el pasado",
+    "future": "La fecha debe estar en el futuro"
+  }
+}

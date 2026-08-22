@@ -1,9 +1,136 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import securityConfig from '../config/security';
 import logger from '../utils/logger';
 import redisConfig from '../config/redis';
-import * as securityService from '../services/securityService';
+import securityService from '../services/securityService';
 import { sanitizeInput } from './sanitizer';
+import { RateLimitError, ForbiddenError } from '../utils/errors';
+
+/**
+ * Generate a random nonce for CSP
+ */
+export const generateNonce = (): string => {
+  return crypto.randomBytes(16).toString('base64');
+};
+
+/**
+ * Extend the Express Request type to include nonce
+ */
+declare global {
+  namespace Express {
+    interface Request {
+      cspNonce?: string;
+    }
+  }
+}
+
+/**
+ * CSP Configuration
+ * Strict directives with NO unsafe-inline or unsafe-eval
+ * Uses nonce-based script execution
+ * Report-only mode for initial rollout
+ */
+const CSP_DIRECTIVES = {
+  'default-src': ["'self'"],
+  'script-src': ["'self'"], // Nonce will be added dynamically
+  'style-src': ["'self'"], // Strict: no unsafe-inline
+  'img-src': ["'self'", 'data:', 'https:', 'blob:'],
+  'font-src': ["'self'", 'data:'],
+  'connect-src': ["'self'", 'wss:', 'ws:', 'https:'],
+  'object-src': ["'none'"],
+  'frame-ancestors': ["'none'"],
+  'base-uri': ["'self'"],
+  'form-action': ["'self'"],
+  'frame-src': ["'none'"],
+  'manifest-src': ["'self'"],
+  'media-src': ["'self'"],
+  'worker-src': ["'self'", 'blob:'],
+};
+
+/**
+ * Build a CSP header string from directives
+ */
+const buildCSPString = (directives: Record<string, string[]>, nonce?: string): string => {
+  return Object.entries(directives)
+    .map(([key, values]) => {
+      let resolvedValues = [...values];
+      // Add nonce to script-src if provided
+      if (key === 'script-src' && nonce) {
+        resolvedValues.push(`'nonce-${nonce}'`);
+      }
+      return `${key} ${resolvedValues.join(' ')}`;
+    })
+    .join('; ');
+};
+
+/**
+ * Determine if report-only mode is enabled
+ * Controlled by CSP_REPORT_ONLY env var (defaults to true for safe rollout)
+ */
+const isReportOnly = (): boolean => {
+  return process.env.CSP_REPORT_ONLY !== 'false';
+};
+
+/**
+ * Get the CSP report URI
+ */
+const getReportUri = (): string => {
+  return process.env.CSP_REPORT_URI || '/api/csp-violation';
+};
+
+/**
+ * Content Security Policy (CSP) Middleware
+ * 
+ * Features:
+ * - Strict directives with NO unsafe-inline or unsafe-eval for scripts
+ * - Nonce-based script execution for inline scripts
+ * - frame-ancestors 'none' to prevent clickjacking
+ * - Report-only mode for initial rollout (controlled by CSP_REPORT_ONLY env var)
+ * - CSP violation reporting via report-uri/report-to
+ */
+export const cspMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  // Generate a unique nonce for this request
+  const nonce = generateNonce();
+  req.cspNonce = nonce;
+
+  const reportOnly = isReportOnly();
+  const reportUri = getReportUri();
+
+  const cspValue = buildCSPString(CSP_DIRECTIVES, nonce);
+
+  // Add report-uri for violation reporting
+  const cspWithReporting = `${cspValue}; report-uri ${reportUri}`;
+
+  if (reportOnly) {
+    // Report-only mode: log violations but don't enforce
+    res.setHeader('Content-Security-Policy-Report-Only', cspWithReporting);
+    logger.info(`CSP report-only header set for ${req.method} ${req.path}`, {
+      nonce: nonce.substring(0, 8) + '...',
+      reportUri,
+    });
+  } else {
+    // Enforce mode
+    res.setHeader('Content-Security-Policy', cspWithReporting);
+  }
+
+  // Expose nonce to templates via res.locals
+  res.locals.cspNonce = nonce;
+
+  next();
+};
+
+/**
+ * Additional Security Headers Middleware
+ */
+export const securityHeadersMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+};
 
 /**
  * DDoS Protection Middleware
@@ -35,10 +162,7 @@ export const ddosProtection = async (req: Request, res: Response, next: NextFunc
           await (securityService as any).logSecurityEvent(ip, 'ddos_attempt', { count });
       }
 
-      return res.status(429).json({
-        success: false,
-        message: 'Too many requests, please slow down.',
-      });
+      return next(new RateLimitError('Too many requests, please slow down.'));
     }
 
     const duration = process.hrtime(start);
@@ -67,10 +191,7 @@ export const botDetection = (req: Request, res: Response, next: NextFunction) =>
     if (!isAllowed) {
       logger.info(`Bot detected and blocked: ${userAgent} from IP: ${req.ip}`);
       (securityService as any).logSecurityEvent(req.ip, 'bot_detected', { userAgent });
-      return res.status(403).json({
-        success: false,
-        message: 'Bots are not allowed to access this resource.',
-      });
+      return next(new ForbiddenError('Bots are not allowed to access this resource.'));
     }
   }
 
@@ -99,10 +220,8 @@ export const checkBlacklist = async (req: Request, res: Response, next: NextFunc
     const blockReason = await (securityService as any).isIPBlocked(ip);
     if (blockReason) {
       logger.warn(`Blocked request from blacklisted IP: ${ip} Reason: ${blockReason}`);
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied from this IP.',
-      });
+      const err = new ForbiddenError('Access denied from this IP.', { reason: blockReason });
+      return next(err);
     }
 
     const duration = process.hrtime(start);
@@ -126,13 +245,13 @@ export const advancedRestrictions = async (req: Request, res: Response, next: Ne
     // Check Geo
     const isGeoRestricted = await (securityService as any).checkGeoRestriction(ip);
     if (isGeoRestricted) {
-        return res.status(403).json({ success: false, message: 'Access denied from your location.' });
+        return next(new ForbiddenError('Access denied from your location.'));
     }
 
     // Check Time
     const isTimeRestricted = await (securityService as any).checkTimeRestriction();
     if (isTimeRestricted) {
-        return res.status(403).json({ success: false, message: 'Platform is currently in maintenance window.' });
+        return next(new ForbiddenError('Platform is currently in maintenance window.'));
     }
 
     next();

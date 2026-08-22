@@ -263,13 +263,14 @@ const SettingToggle: React.FC<SettingToggleProps> = ({
       <button
         onClick={onChange}
         className={`
-          relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent
+          relative inline-flex h-7 w-12 flex-shrink-0 rounded-full border-2 border-transparent
           cursor-pointer transition-colors duration-200 ease-in-out
           focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2
           ${checked ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"}
         `}
         role="switch"
         aria-checked={checked}
+        style={{ minHeight: '44px', minWidth: '44px', padding: '8px' }}
       >
         <span
           aria-hidden="true"
@@ -277,6 +278,7 @@ const SettingToggle: React.FC<SettingToggleProps> = ({
             pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow
             transform transition duration-200 ease-in-out
             ${checked ? "translate-x-4" : "translate-x-0"}
+            my-auto
           `}
         />
       </button>

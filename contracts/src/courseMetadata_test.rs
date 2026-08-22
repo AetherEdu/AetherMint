@@ -4,7 +4,7 @@ use crate::courseMetadata::{
     CourseCompletion, CourseMetadata, CourseMetadataContract, CourseMetadataKey, CourseStatus,
     InstructorProfile,
 };
-use soroban_sdk::{vec, Address, Env, String, Vec};
+use soroban_sdk::{testutils::Address as _, vec, Address, Env, String, Vec};
 
 #[test]
 fn test_initialize() {
@@ -516,4 +516,451 @@ fn test_invalid_rating() {
 
     // Try to rate with invalid rating (should panic)
     CourseMetadataContract::rate_course(env, course_id, rater, 150); // Invalid rating > 100
+}
+
+#[test]
+fn test_create_course_with_empty_strings() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor = Address::generate(&env);
+
+    // Initialize contract
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    // Create a course with empty strings
+    let course_id = CourseMetadataContract::create_course(
+        env.clone(),
+        instructor.clone(),
+        String::from_str(&env, ""),
+        String::from_str(&env, ""),
+        String::from_str(&env, ""),
+        String::from_str(&env, ""),
+        40,
+        1000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, ""),
+        String::from_str(&env, ""),
+        vec![&env],
+        String::from_str(&env, ""),
+        true,
+        100,
+    );
+
+    let course = CourseMetadataContract::get_course(env, course_id);
+    assert_eq!(course.title.len(), 0);
+    assert_eq!(course.description.len(), 0);
+}
+
+#[test]
+fn test_create_course_with_zero_duration() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    let course_id = CourseMetadataContract::create_course(
+        env.clone(),
+        instructor,
+        String::from_str(&env, "Test"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Programming"),
+        String::from_str(&env, "beginner"),
+        0,
+        1000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        100,
+    );
+
+    let course = CourseMetadataContract::get_course(env, course_id);
+    assert_eq!(course.duration, 0);
+}
+
+#[test]
+fn test_create_course_with_zero_price() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    let course_id = CourseMetadataContract::create_course(
+        env.clone(),
+        instructor,
+        String::from_str(&env, "Test"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Programming"),
+        String::from_str(&env, "beginner"),
+        40,
+        0,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        100,
+    );
+
+    let course = CourseMetadataContract::get_course(env, course_id);
+    assert_eq!(course.price, 0);
+}
+
+#[test]
+fn test_create_course_with_zero_max_students() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    let course_id = CourseMetadataContract::create_course(
+        env.clone(),
+        instructor,
+        String::from_str(&env, "Test"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Programming"),
+        String::from_str(&env, "beginner"),
+        40,
+        1000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        0,
+    );
+
+    let course = CourseMetadataContract::get_course(env, course_id);
+    assert_eq!(course.max_students, 0);
+}
+
+#[test]
+fn test_update_nonexistent_course() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        CourseMetadataContract::update_course(
+            env.clone(),
+            999,
+            instructor,
+            Some(String::from_str(&env, "Updated")),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_get_nonexistent_course() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        CourseMetadataContract::get_course(env, 999);
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_get_nonexistent_completion() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        CourseMetadataContract::get_completion(env, 999);
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_get_nonexistent_instructor_profile() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        CourseMetadataContract::get_instructor_profile(env, instructor);
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_rate_nonexistent_course() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let rater = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        CourseMetadataContract::rate_course(env, 999, rater, 80);
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_record_completion_nonexistent_course() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let student = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        CourseMetadataContract::record_completion(
+            env,
+            999,
+            student,
+            85,
+            String::from_str(&env, "QmCert"),
+            vec![&env],
+        );
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_verify_completion_nonexistent() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env);
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        CourseMetadataContract::verify_completion(env, 999);
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_rate_course_negative_rating() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor = Address::generate(&env);
+    let rater = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    let course_id = CourseMetadataContract::create_course(
+        env.clone(),
+        instructor,
+        String::from_str(&env, "Test"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Programming"),
+        String::from_str(&env, "beginner"),
+        40,
+        1000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        100,
+    );
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        CourseMetadataContract::rate_course(env, course_id, rater, -10);
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_multiple_instructors() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor1 = Address::generate(&env);
+    let instructor2 = Address::generate(&env);
+    let instructor3 = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    let course1 = CourseMetadataContract::create_course(
+        env.clone(),
+        instructor1.clone(),
+        String::from_str(&env, "Course 1"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Programming"),
+        String::from_str(&env, "beginner"),
+        40,
+        1000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash1"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        100,
+    );
+
+    let course2 = CourseMetadataContract::create_course(
+        env.clone(),
+        instructor2.clone(),
+        String::from_str(&env, "Course 2"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Design"),
+        String::from_str(&env, "intermediate"),
+        60,
+        2000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash2"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        50,
+    );
+
+    let course3 = CourseMetadataContract::create_course(
+        env.clone(),
+        instructor3.clone(),
+        String::from_str(&env, "Course 3"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Business"),
+        String::from_str(&env, "advanced"),
+        80,
+        3000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash3"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        75,
+    );
+
+    let profile1 = CourseMetadataContract::get_instructor_profile(env.clone(), instructor1);
+    let profile2 = CourseMetadataContract::get_instructor_profile(env.clone(), instructor2);
+    let profile3 = CourseMetadataContract::get_instructor_profile(env, instructor3);
+
+    assert_eq!(profile1.course_count, 1);
+    assert_eq!(profile2.course_count, 1);
+    assert_eq!(profile3.course_count, 1);
+}
+
+#[test]
+fn test_same_instructor_multiple_courses() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    CourseMetadataContract::create_course(
+        env.clone(),
+        instructor.clone(),
+        String::from_str(&env, "Course 1"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Programming"),
+        String::from_str(&env, "beginner"),
+        40,
+        1000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash1"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        100,
+    );
+
+    CourseMetadataContract::create_course(
+        env.clone(),
+        instructor.clone(),
+        String::from_str(&env, "Course 2"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Design"),
+        String::from_str(&env, "intermediate"),
+        60,
+        2000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash2"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        50,
+    );
+
+    let profile = CourseMetadataContract::get_instructor_profile(env, instructor);
+    assert_eq!(profile.course_count, 2);
+}
+
+#[test]
+fn test_completion_with_empty_skills() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let instructor = Address::generate(&env);
+    let student = Address::generate(&env);
+
+    CourseMetadataContract::initialize(env.clone(), admin);
+
+    let course_id = CourseMetadataContract::create_course(
+        env.clone(),
+        instructor,
+        String::from_str(&env, "Test"),
+        String::from_str(&env, "Desc"),
+        String::from_str(&env, "Programming"),
+        String::from_str(&env, "beginner"),
+        40,
+        1000000,
+        vec![&env],
+        vec![&env],
+        String::from_str(&env, "QmHash"),
+        String::from_str(&env, "https://example.com"),
+        vec![&env],
+        String::from_str(&env, "English"),
+        true,
+        100,
+    );
+
+    let completion_id = CourseMetadataContract::record_completion(
+        env.clone(),
+        course_id,
+        student,
+        85,
+        String::from_str(&env, "QmCert"),
+        vec![&env], // Empty skills
+    );
+
+    let completion = CourseMetadataContract::get_completion(env, completion_id);
+    assert_eq!(completion.skills_acquired.len(), 0);
 }

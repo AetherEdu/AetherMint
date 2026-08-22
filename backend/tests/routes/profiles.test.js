@@ -41,7 +41,9 @@ describe('Profile API Tests', () => {
         .get('/api/users/profile/GD5DJ3B7MHLRWGS7QKXYYEJZRGFQMVJ7T7S6DLPNHP5TGB7FZ7NBHJVP');
 
       expect(response.status).toBe(404);
-      expect(response.body.error).toBe('Profile not found');
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.message).toBe('Profile not found');
+      expect(response.body.error.code).toBe('NOT_FOUND');
     });
 
     it('should return 500 for server errors', async () => {
@@ -51,7 +53,8 @@ describe('Profile API Tests', () => {
         .get('/api/users/profile/GD5DJ3B7MHLRWGS7QKXYYEJZRGFQMVJ7T7S6DLPNHP5TGB7FZ7NBHJVP');
 
       expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Internal server error');
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('INTERNAL_ERROR');
     });
 
     it('should validate address parameter', async () => {
@@ -154,7 +157,8 @@ describe('Profile API Tests', () => {
         .send({ username: 'testuser' });
 
       expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Internal server error');
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('INTERNAL_ERROR');
     });
   });
 
@@ -193,7 +197,8 @@ describe('Profile API Tests', () => {
         .get('/api/users/settings/user-123');
 
       expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Internal server error');
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('INTERNAL_ERROR');
     });
   });
 

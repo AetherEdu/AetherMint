@@ -1,271 +1,114 @@
 /**
  * Export Button Component
- * Handles data export functionality for analytics dashboard
+ *
+ * Reusable export button with format selector dropdown (CSV / JSON).
+ * Uses the generic data export utility from `@/utils/dataExport`.
  */
 
+'use client';
+
 import React, { useState } from 'react';
-import { Download, FileText, Table, Calendar } from 'lucide-react';
+import { Download, FileJson, FileSpreadsheet } from 'lucide-react';
+import { exportData, ExportFormat } from '@/utils/dataExport';
 
 interface ExportButtonProps {
-  userId: string;
-  data: any;
-  timeRange: string;
-  onExport?: (format: 'csv' | 'pdf' | 'excel', data: any) => void;
+  /** The data to export (array of records) */
+  data: Record<string, unknown>[];
+  /** Descriptive base name for the export file (e.g., "credentials", "analytics") */
+  filename: string;
+  /** Optional custom column order */
+  columns?: string[];
+  /** Optional human-readable column labels */
+  columnLabels?: Record<string, string>;
+  /** Callback invoked after a successful export */
+  onExport?: (format: ExportFormat) => void;
+  /** Additional CSS classes */
+  className?: string;
+  /** Button variant */
+  variant?: 'primary' | 'outline' | 'ghost';
 }
 
-export const ExportButton: React.FC<ExportButtonProps> = ({
-  userId,
+const variantStyles: Record<string, string> = {
+  primary:
+    'bg-blue-600 text-white hover:bg-blue-700 border border-blue-600',
+  outline:
+    'bg-white text-blue-600 hover:bg-blue-50 border border-blue-300 dark:bg-slate-800 dark:text-blue-400 dark:border-slate-600 dark:hover:bg-slate-700',
+  ghost:
+    'bg-transparent text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700',
+};
+
+export function ExportButton({
   data,
-  timeRange,
-  onExport
-}) => {
-  const [isExporting, setIsExporting] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+  filename,
+  columns,
+  columnLabels,
+  onExport,
+  className = '',
+  variant = 'primary',
+}: ExportButtonProps) {
+  const [isOpen, setIsOpen] = useState(false);
 
-  const handleExport = async (format: 'csv' | 'pdf' | 'excel') => {
-    try {
-      setIsExporting(true);
-      setShowMenu(false);
+  const handleExport = (format: ExportFormat) => {
+    setIsOpen(false);
 
-      let exportData;
-      let filename;
-      let mimeType;
-
-      switch (format) {
-        case 'csv':
-          exportData = generateCSV(data);
-          filename = `analytics_${userId}_${timeRange}_${Date.now()}.csv`;
-          mimeType = 'text/csv';
-          break;
-        case 'excel':
-          exportData = generateExcel(data);
-          filename = `analytics_${userId}_${timeRange}_${Date.now()}.xlsx`;
-          mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-          break;
-        case 'pdf':
-          // PDF handled via print window
-          await generatePDF(data);
-          return;
-        default:
-          throw new Error('Unsupported export format');
-      }
-
-      // Create download link
-      const blob = new Blob([exportData], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      if (onExport) {
-        onExport(format, data);
-      }
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const generateCSV = (data: any): string => {
-    if (!data || Object.keys(data).length === 0) {
-      return 'No data available';
-    }
-
-    let csv = '';
-    
-    // Add metadata
-    csv += 'Analytics Export\n';
-    csv += `User ID,${userId}\n`;
-    csv += `Time Range,${timeRange}\n`;
-    csv += `Export Date,${new Date().toISOString()}\n\n`;
-
-    // Add progress data if available
-    if (data.progressData && data.progressData.length > 0) {
-      csv += 'Progress Data\n';
-      csv += 'Date,Completed Lessons,Total Time (min),Quiz Scores,Streak\n';
-      data.progressData.forEach((row: any) => {
-        csv += `${row.date},${row.completedLessons},${row.totalTime},${row.quizScores},${row.streak}\n`;
-      });
-      csv += '\n';
-    }
-
-    // Add completion stats if available
-    if (data.completionStats && data.completionStats.length > 0) {
-      csv += 'Course Completion Stats\n';
-      csv += 'Course Title,Completed Lessons,Total Lessons,Completion %,Time Spent (min),Status\n';
-      data.completionStats.forEach((course: any) => {
-        csv += `"${course.title}",${course.completedLessons},${course.totalLessons},${course.completionPercentage},${course.timeSpent},${course.status}\n`;
-      });
-      csv += '\n';
-    }
-
-    // Add time analysis if available
-    if (data.timeData) {
-      csv += 'Time Analysis - Daily Activity\n';
-      csv += 'Day,Minutes\n';
-      if (Array.isArray(data.timeData.timeByDay)) {
-        data.timeData.timeByDay.forEach((row: any) => {
-          csv += `${row.day},${row.minutes}\n`;
-        });
-      }
-      
-      csv += '\nTime Analysis - By Course\n';
-      csv += 'Course,Minutes\n';
-      if (Array.isArray(data.timeData.timeByCourse)) {
-        data.timeData.timeByCourse.forEach((row: any) => {
-          csv += `${row.name},${row.value}\n`;
-        });
-      }
-      csv += '\n';
-    }
-
-    return csv;
-  };
-
-  const generateExcel = (data: any): ArrayBuffer => {
-    // This would typically use a library like xlsx or exceljs
-    // For now, return CSV data as placeholder
-    const csvData = generateCSV(data);
-    const encoder = new TextEncoder();
-    return encoder.encode(csvData).buffer as ArrayBuffer;
-  };
-
-  const generatePDF = async (data: any): Promise<void> => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Please allow popups to export PDF');
+    if (data.length === 0) {
       return;
     }
 
-    const generateHTMLTables = (data: any) => {
-      let html = '';
-      
-      if (data.completionStats) {
-        html += '<h2>Course Completion</h2><table><thead><tr><th>Course</th><th>Progress</th><th>Status</th></tr></thead><tbody>';
-        data.completionStats.forEach((c: any) => {
-          html += `<tr><td>${c.title}</td><td>${c.completionPercentage}%</td><td>${c.status}</td></tr>`;
-        });
-        html += '</tbody></table>';
-      }
-
-      if (data.progressData) {
-        html += '<h2>Recent Progress</h2><table><thead><tr><th>Date</th><th>Lessons</th><th>Time (min)</th></tr></thead><tbody>';
-        data.progressData.forEach((p: any) => {
-          html += `<tr><td>${p.date}</td><td>${p.completedLessons}</td><td>${p.totalTime}</td></tr>`;
-        });
-        html += '</tbody></table>';
-      }
-
-      if (data.timeData) {
-        html += '<h2>Time Analysis</h2>';
-        if (data.timeData.timeByDay) {
-          html += '<h3>Daily Activity</h3><table><thead><tr><th>Day</th><th>Minutes</th></tr></thead><tbody>';
-          data.timeData.timeByDay.forEach((d: any) => {
-            html += `<tr><td>${d.day}</td><td>${d.minutes}</td></tr>`;
-          });
-          html += '</tbody></table>';
-        }
-        if (data.timeData.timeByCourse) {
-          html += '<h3>Time by Course</h3><table><thead><tr><th>Course</th><th>Minutes</th></tr></thead><tbody>';
-          data.timeData.timeByCourse.forEach((c: any) => {
-            html += `<tr><td>${c.name}</td><td>${c.value}</td></tr>`;
-          });
-          html += '</tbody></table>';
-        }
-      }
-
-      return html;
-    };
-
-    const html = `
-      <html>
-        <head>
-          <title>Analytics Report - ${userId}</title>
-          <style>
-            body { font-family: system-ui, sans-serif; padding: 40px; color: #333; }
-            h1 { color: #2563eb; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
-            h2 { margin-top: 30px; color: #4b5563; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border: 1px solid #e5e7eb; padding: 12px; text-align: left; }
-            th { background-color: #f9fafb; font-weight: 600; }
-            tr:nth-child(even) { background-color: #f9fafb; }
-          </style>
-        </head>
-        <body>
-          <h1>Learning Analytics Report</h1>
-          <p><strong>User ID:</strong> ${userId}</p>
-          <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-          ${generateHTMLTables(data)}
-          <script>window.onload = () => window.print();</script>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(html);
-    printWindow.document.close();
+    exportData({ data, format, filename, columns, columnLabels });
+    onExport?.(format);
   };
 
   return (
-    <div className="relative">
+    <div className={`relative inline-block ${className}`}>
       <button
-        onClick={() => setShowMenu(!showMenu)}
-        disabled={isExporting}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${variantStyles[variant]}`}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
       >
-        {isExporting ? (
-          <>
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            Exporting...
-          </>
-        ) : (
-          <>
-            <Download className="w-4 h-4" />
-            Export
-          </>
-        )}
+        <Download className="w-4 h-4" />
+        Export
       </button>
 
-      {showMenu && (
-        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-          <div className="py-1">
+      {isOpen && (
+        <>
+          {/* Backdrop to close on outside click */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsOpen(false)}
+            aria-hidden="true"
+          />
+
+          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50 py-1">
             <button
               onClick={() => handleExport('csv')}
-              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
             >
-              <Table className="w-4 h-4" />
-              Export as CSV
+              <FileSpreadsheet className="w-4 h-4 text-green-600" />
+              <div className="text-left">
+                <div className="font-medium">Export CSV</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Opens in Excel / Sheets
+                </div>
+              </div>
             </button>
+
             <button
-              onClick={() => handleExport('excel')}
-              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              onClick={() => handleExport('json')}
+              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
             >
-              <FileText className="w-4 h-4" />
-              Export as Excel
-            </button>
-            <button
-              onClick={() => handleExport('pdf')}
-              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              Export as PDF
+              <FileJson className="w-4 h-4 text-orange-600" />
+              <div className="text-left">
+                <div className="font-medium">Export JSON</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Pretty-printed JSON
+                </div>
+              </div>
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Close menu when clicking outside */}
-      {showMenu && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowMenu(false)}
-        />
+        </>
       )}
     </div>
   );
-};
+}

@@ -46,6 +46,26 @@ export interface SyncStatusInfo {
   payload?: Record<string, unknown>;
 }
 
+export interface ReconnectSyncRequest {
+  userId: string;
+  deviceId: string;
+  lastSyncedSequence?: number;
+  lastSyncedAt?: Date;
+}
+
+export interface ReconnectSyncResponse {
+  success: boolean;
+  missedEvents: Array<{
+    entityType: SyncEntityType;
+    entityId: string;
+    version: number;
+    payload: Record<string, unknown>;
+    timestamp: Date;
+  }>;
+  currentSequence: number;
+  message?: string;
+}
+
 let websocketEmit: ((userId: string, event: string, data: unknown) => void) | null = null;
 
 export function setSyncWebsocketEmitter(emit: (userId: string, event: string, data: unknown) => void): void {
@@ -289,3 +309,106 @@ export function getQueueStatus(): { pendingCount: number; isProcessing: boolean 
 }
 
 setupQueueHandler();
+
+// --- Reconnection State Sync ---
+
+export async function syncOnReconnect(request: ReconnectSyncRequest): Promise<ReconnectSyncResponse> {
+  const { userId, deviceId, lastSyncedSequence, lastSyncedAt } = request;
+  
+  try {
+    // Get all sync statuses for the user
+    const allStatuses = await SyncStatus.find({ userId }).lean();
+    
+    const missedEvents: Array<{
+      entityType: SyncEntityType;
+      entityId: string;
+      version: number;
+      payload: Record<string, unknown>;
+      timestamp: Date;
+    }> = [];
+    
+    let currentSequence = lastSyncedSequence ?? 0;
+    
+    for (const status of allStatuses) {
+      const statusModifiedAt = new Date(status.lastModifiedAt);
+      const lastSync = lastSyncedAt ? new Date(lastSyncedAt) : new Date(0);
+      
+      // If this entity was modified after the last sync
+      if (statusModifiedAt > lastSync) {
+        missedEvents.push({
+          entityType: status.entityType,
+          entityId: status.entityId,
+          version: status.version,
+          payload: (status.metadata?.currentPayload as Record<string, unknown>) ?? {},
+          timestamp: statusModifiedAt
+        });
+        
+        currentSequence = Math.max(currentSequence, status.version);
+      }
+    }
+    
+    // Update device status
+    await Device.findOneAndUpdate(
+      { deviceId },
+      { $set: { status: 'online', lastSeenAt: new Date(), lastSyncAt: new Date() } },
+      { upsert: true }
+    );
+    
+    logger.info(`Reconnect sync completed for user ${userId}`, {
+      deviceId,
+      missedEventsCount: missedEvents.length,
+      currentSequence
+    });
+    
+    return {
+      success: true,
+      missedEvents,
+      currentSequence,
+      message: `Synced ${missedEvents.length} missed events`
+    };
+  } catch (error) {
+    logger.error('Reconnect sync failed', { userId, deviceId, error });
+    return {
+      success: false,
+      missedEvents: [],
+      currentSequence: lastSyncedSequence ?? 0,
+      message: error instanceof Error ? error.message : 'Sync failed'
+    };
+  }
+}
+
+export async function getFullSyncState(userId: string): Promise<SyncStatusInfo[]> {
+  return getSyncStatus(userId);
+}
+
+export async function reconcileState(
+  userId: string,
+  deviceId: string,
+  clientState: Array<{ entityType: SyncEntityType; entityId: string; version: number; payload: Record<string, unknown> }>
+): Promise<SyncEntityResult[]> {
+  const results: SyncEntityResult[] = [];
+  
+  for (const clientEntity of clientState) {
+    try {
+      const result = await syncEntity({
+        userId,
+        deviceId,
+        entityType: clientEntity.entityType,
+        entityId: clientEntity.entityId,
+        version: clientEntity.version,
+        updatedAt: new Date(),
+        payload: clientEntity.payload
+      });
+      results.push(result);
+    } catch (error) {
+      logger.error('State reconciliation failed for entity', {
+        userId,
+        entityType: clientEntity.entityType,
+        entityId: clientEntity.entityId,
+        error
+      });
+    }
+  }
+  
+  return results;
+}

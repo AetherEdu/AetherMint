@@ -49,7 +49,8 @@ const TimeLockedCredentialSchema = new Schema<ITimeLockedCredential>({
   },
   credentialHash: { 
     type: String, 
-    required: true 
+    required: true,
+    index: true
   },
   metadata: { 
     type: String, 
@@ -96,6 +97,15 @@ TimeLockedCredentialSchema.index({ releaseTime: 1, isReleased: 1, isRevoked: 1 }
 // Index for batch queries
 TimeLockedCredentialSchema.index({ issuer: 1, createdAt: -1 });
 TimeLockedCredentialSchema.index({ recipient: 1, createdAt: -1 });
+
+// Composite: credential hash lookups with release status
+TimeLockedCredentialSchema.index({ credentialHash: 1, isReleased: 1 });
+
+// Composite: recipient + release status for user-facing queries
+TimeLockedCredentialSchema.index({ recipient: 1, isReleased: 1, isRevoked: 1 });
+
+// Text index for metadata search
+TimeLockedCredentialSchema.index({ metadata: 'text', revokeReason: 'text' });
 
 // Method to add audit entry
 TimeLockedCredentialSchema.methods.addAuditEntry = function(

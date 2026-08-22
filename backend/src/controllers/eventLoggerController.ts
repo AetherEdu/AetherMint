@@ -1,6 +1,7 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { eventLoggerService } from '../services/eventLoggerService';
 import logger from '../utils/logger';
+import { NotFoundError, ValidationError } from '../utils/errors';
 
 interface EventQuery {
   userId?: string;
@@ -16,23 +17,24 @@ interface EventQuery {
  * Controller for event logging and audit trail functionality
  */
 class EventLoggerController {
-  /**
-   * Log a course completion event
-   */
-  public async logCourseCompletion(req: Request, res: Response): Promise<void> {
+  public async logCourseCompletion(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { user, courseId, metadata } = req.body;
-      
+
       if (!user || !courseId) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required fields: user and courseId'
-        });
-        return;
+        throw new ValidationError('Missing required fields: user and courseId');
       }
 
-      const eventId = await eventLoggerService.logCourseCompletion(user, courseId, metadata || {});
-      
+      const eventId = await eventLoggerService.logCourseCompletion(
+        user,
+        courseId,
+        metadata || {}
+      );
+
       res.status(201).json({
         success: true,
         eventId,
@@ -40,35 +42,31 @@ class EventLoggerController {
       });
     } catch (error) {
       logger.error('Error in logCourseCompletion controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to log course completion event'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Log a credential issuance event
-   */
-  public async logCredentialIssuance(req: Request, res: Response): Promise<void> {
+  public async logCredentialIssuance(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { user, credentialId, courseId, metadata } = req.body;
-      
+
       if (!user || !credentialId || !courseId) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required fields: user, credentialId, and courseId'
-        });
-        return;
+        throw new ValidationError(
+          'Missing required fields: user, credentialId, and courseId'
+        );
       }
 
       const eventId = await eventLoggerService.logCredentialIssuance(
-        user, 
-        credentialId, 
-        courseId, 
+        user,
+        credentialId,
+        courseId,
         metadata || {}
       );
-      
+
       res.status(201).json({
         success: true,
         eventId,
@@ -76,30 +74,30 @@ class EventLoggerController {
       });
     } catch (error) {
       logger.error('Error in logCredentialIssuance controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to log credential issuance event'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Log a user achievement event
-   */
-  public async logUserAchievement(req: Request, res: Response): Promise<void> {
+  public async logUserAchievement(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { user, achievementType, metadata } = req.body;
-      
+
       if (!user || !achievementType) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required fields: user and achievementType'
-        });
-        return;
+        throw new ValidationError(
+          'Missing required fields: user and achievementType'
+        );
       }
 
-      const eventId = await eventLoggerService.logUserAchievement(user, achievementType, metadata || {});
-      
+      const eventId = await eventLoggerService.logUserAchievement(
+        user,
+        achievementType,
+        metadata || {}
+      );
+
       res.status(201).json({
         success: true,
         eventId,
@@ -107,30 +105,27 @@ class EventLoggerController {
       });
     } catch (error) {
       logger.error('Error in logUserAchievement controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to log user achievement event'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Log a profile update event
-   */
-  public async logProfileUpdate(req: Request, res: Response): Promise<void> {
+  public async logProfileUpdate(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { user, metadata } = req.body;
-      
+
       if (!user) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required field: user'
-        });
-        return;
+        throw new ValidationError('Missing required field: user');
       }
 
-      const eventId = await eventLoggerService.logProfileUpdate(user, metadata || {});
-      
+      const eventId = await eventLoggerService.logProfileUpdate(
+        user,
+        metadata || {}
+      );
+
       res.status(201).json({
         success: true,
         eventId,
@@ -138,30 +133,28 @@ class EventLoggerController {
       });
     } catch (error) {
       logger.error('Error in logProfileUpdate controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to log profile update event'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Log a course enrollment event
-   */
-  public async logCourseEnrollment(req: Request, res: Response): Promise<void> {
+  public async logCourseEnrollment(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { user, courseId, metadata } = req.body;
-      
+
       if (!user || !courseId) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required fields: user and courseId'
-        });
-        return;
+        throw new ValidationError('Missing required fields: user and courseId');
       }
 
-      const eventId = await eventLoggerService.logCourseEnrollment(user, courseId, metadata || {});
-      
+      const eventId = await eventLoggerService.logCourseEnrollment(
+        user,
+        courseId,
+        metadata || {}
+      );
+
       res.status(201).json({
         success: true,
         eventId,
@@ -169,60 +162,43 @@ class EventLoggerController {
       });
     } catch (error) {
       logger.error('Error in logCourseEnrollment controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to log course enrollment event'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Get event by ID
-   */
-  public async getEventById(req: Request, res: Response): Promise<void> {
+  public async getEventById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { eventId } = req.params;
       const eventIdNum = parseInt(eventId, 10);
-      
+
       if (isNaN(eventIdNum)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid event ID'
-        });
-        return;
+        throw new ValidationError('Invalid event ID');
       }
 
       const event = await eventLoggerService.getEvent(eventIdNum);
-      
-      if (!event) {
-        res.status(404).json({
-          success: false,
-          error: 'Event not found'
-        });
-        return;
-      }
 
-      res.status(200).json({
-        success: true,
-        event
-      });
+      if (!event) throw new NotFoundError('Event not found');
+
+      res.status(200).json({ success: true, event });
     } catch (error) {
       logger.error('Error in getEventById controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve event'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Get events for a user
-   */
-  public async getUserEvents(req: Request, res: Response): Promise<void> {
+  public async getUserEvents(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { userId } = req.params;
       const query = req.query as EventQuery;
-      
+
       const filter = {
         userId,
         eventType: query.eventType,
@@ -234,29 +210,23 @@ class EventLoggerController {
       };
 
       const events = await eventLoggerService.getUserEvents(userId, filter);
-      
-      res.status(200).json({
-        success: true,
-        events,
-        count: events.length
-      });
+
+      res.status(200).json({ success: true, events, count: events.length });
     } catch (error) {
       logger.error('Error in getUserEvents controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve user events'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Get events by type
-   */
-  public async getEventsByType(req: Request, res: Response): Promise<void> {
+  public async getEventsByType(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { eventType } = req.params;
       const query = req.query as EventQuery;
-      
+
       const filter = {
         eventType,
         userId: query.userId,
@@ -268,75 +238,57 @@ class EventLoggerController {
       };
 
       const events = await eventLoggerService.getEventsByType(eventType, filter);
-      
-      res.status(200).json({
-        success: true,
-        events,
-        count: events.length
-      });
+
+      res.status(200).json({ success: true, events, count: events.length });
     } catch (error) {
       logger.error('Error in getEventsByType controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve events by type'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Get recent events
-   */
-  public async getRecentEvents(req: Request, res: Response): Promise<void> {
+  public async getRecentEvents(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const query = req.query as { limit?: string; offset?: string };
       const limit = query.limit ? parseInt(query.limit, 10) : 50;
       const offset = query.offset ? parseInt(query.offset, 10) : 0;
-      
+
       const events = await eventLoggerService.getRecentEvents(limit, offset);
-      
-      res.status(200).json({
-        success: true,
-        events,
-        count: events.length,
-        limit,
-        offset
-      });
+
+      res
+        .status(200)
+        .json({ success: true, events, count: events.length, limit, offset });
     } catch (error) {
       logger.error('Error in getRecentEvents controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve recent events'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Get total event count
-   */
-  public async getEventCount(req: Request, res: Response): Promise<void> {
+  public async getEventCount(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const count = await eventLoggerService.getEventCount();
-      
-      res.status(200).json({
-        success: true,
-        count
-      });
+      res.status(200).json({ success: true, count });
     } catch (error) {
       logger.error('Error in getEventCount controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve event count'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Search events with complex filters
-   */
-  public async searchEvents(req: Request, res: Response): Promise<void> {
+  public async searchEvents(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const query = req.query as EventQuery;
-      
+
       const filter = {
         userId: query.userId,
         eventType: query.eventType,
@@ -348,7 +300,7 @@ class EventLoggerController {
       };
 
       const { events, totalCount } = await eventLoggerService.searchEvents(filter);
-      
+
       res.status(200).json({
         success: true,
         events,
@@ -357,31 +309,25 @@ class EventLoggerController {
       });
     } catch (error) {
       logger.error('Error in searchEvents controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to search events'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Verify event authenticity
-   */
-  public async verifyEvent(req: Request, res: Response): Promise<void> {
+  public async verifyEvent(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { eventId } = req.params;
       const eventIdNum = parseInt(eventId, 10);
-      
+
       if (isNaN(eventIdNum)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid event ID'
-        });
-        return;
+        throw new ValidationError('Invalid event ID');
       }
 
       const isValid = await eventLoggerService.verifyEvent(eventIdNum);
-      
+
       res.status(200).json({
         success: true,
         eventId: eventIdNum,
@@ -390,32 +336,24 @@ class EventLoggerController {
       });
     } catch (error) {
       logger.error('Error in verifyEvent controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to verify event'
-      });
+      next(error);
     }
   }
 
-  /**
-   * Generate audit report for a user
-   */
-  public async generateUserAuditReport(req: Request, res: Response): Promise<void> {
+  public async generateUserAuditReport(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { userId } = req.params;
-      
+
       const report = await eventLoggerService.generateUserAuditReport(userId);
-      
-      res.status(200).json({
-        success: true,
-        report
-      });
+
+      res.status(200).json({ success: true, report });
     } catch (error) {
       logger.error('Error in generateUserAuditReport controller:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to generate audit report'
-      });
+      next(error);
     }
   }
 }

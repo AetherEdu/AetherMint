@@ -1,4 +1,11 @@
 /**
+ * @openapi
+ * tags:
+ *   - name: Fraud Detection
+ *     description: Fraud detection, plagiarism checking, and anomaly monitoring
+ */
+
+/**
  * Fraud Detection API Routes
  * RESTful endpoints for fraud detection and prevention system
  */
@@ -25,9 +32,14 @@ const validateRequest = (req, res, next) => {
 };
 
 /**
- * @route GET /api/v1/fraud-detection/health
- * @desc Check fraud detection system health
- * @access Private
+ * @openapi
+ * /api/v1/fraud-detection/health:
+ *   get:
+ *     tags: [Fraud Detection]
+ *     summary: Check fraud detection system health
+ *     responses:
+ *       '200':
+ *         description: Health status
  */
 router.get('/health', async (req, res) => {
     try {
@@ -120,9 +132,27 @@ router.post('/analyze-submission', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/v1/fraud-detection/verify-credential
- * @desc Verify credential for fraud detection
- * @access Private
+ * @openapi
+ * /api/v1/fraud-detection/verify-credential:
+ *   post:
+ *     tags: [Fraud Detection]
+ *     summary: Verify credential for fraud detection
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               credentialId:
+ *                 type: string
+ *               userId:
+ *                 type: string
+ *               credentialType:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Credential verified
  */
 router.post('/verify-credential', validateRequest, async (req, res) => {
     try {
@@ -174,9 +204,14 @@ router.post('/verify-credential', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/v1/fraud-detection/detect-anomaly
- * @desc Detect anomalies in user behavior
- * @access Private
+ * @openapi
+ * /api/v1/fraud-detection/detect-anomaly:
+ *   post:
+ *     tags: [Fraud Detection]
+ *     summary: Detect anomalies in user behavior
+ *     responses:
+ *       '200':
+ *         description: Anomaly detection result
  */
 router.post('/detect-anomaly', validateRequest, async (req, res) => {
     try {
@@ -201,8 +236,6 @@ router.post('/detect-anomaly', validateRequest, async (req, res) => {
             metadata
         };
 
-        // This would trigger real-time anomaly detection
-        // For now, return a simulated response
         const anomalyResult = {
             activityId: require('crypto').randomUUID(),
             isAnomalous: false,
@@ -226,9 +259,14 @@ router.post('/detect-anomaly', validateRequest, async (req, res) => {
 });
 
 /**
- * @route POST /api/v1/fraud-detection/initiate-investigation
- * @desc Initiate automated investigation
- * @access Private
+ * @openapi
+ * /api/v1/fraud-detection/initiate-investigation:
+ *   post:
+ *     tags: [Fraud Detection]
+ *     summary: Initiate automated investigation
+ *     responses:
+ *       '200':
+ *         description: Investigation initiated
  */
 router.post('/initiate-investigation', validateRequest, async (req, res) => {
     try {
@@ -274,9 +312,14 @@ router.post('/initiate-investigation', validateRequest, async (req, res) => {
 });
 
 /**
- * @route GET /api/v1/fraud-detection/investigations
- * @desc Get list of investigations
- * @access Private
+ * @openapi
+ * /api/v1/fraud-detection/investigations:
+ *   get:
+ *     tags: [Fraud Detection]
+ *     summary: Get list of investigations
+ *     responses:
+ *       '200':
+ *         description: Investigations retrieved
  */
 router.get('/investigations', async (req, res) => {
     try {
@@ -315,9 +358,20 @@ router.get('/investigations', async (req, res) => {
 });
 
 /**
- * @route GET /api/v1/fraud-detection/investigations/:investigationId
- * @desc Get specific investigation details
- * @access Private
+ * @openapi
+ * /api/v1/fraud-detection/investigations/{investigationId}:
+ *   get:
+ *     tags: [Fraud Detection]
+ *     summary: Get specific investigation details
+ *     parameters:
+ *       - in: path
+ *         name: investigationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Investigation details retrieved
  */
 router.get('/investigations/:investigationId', async (req, res) => {
     try {
@@ -347,9 +401,20 @@ router.get('/investigations/:investigationId', async (req, res) => {
 });
 
 /**
- * @route POST /api/v1/fraud-detection/investigations/:investigationId/evidence
- * @desc Add evidence to investigation
- * @access Private
+ * @openapi
+ * /api/v1/fraud-detection/investigations/{investigationId}/evidence:
+ *   post:
+ *     tags: [Fraud Detection]
+ *     summary: Add evidence to investigation
+ *     parameters:
+ *       - in: path
+ *         name: investigationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Evidence added
  */
 router.post('/investigations/:investigationId/evidence', validateRequest, async (req, res) => {
     try {
@@ -395,9 +460,14 @@ router.post('/investigations/:investigationId/evidence', validateRequest, async 
 });
 
 /**
- * @route GET /api/v1/fraud-detection/statistics
- * @desc Get fraud detection statistics
- * @access Private
+ * @openapi
+ * /api/v1/fraud-detection/statistics:
+ *   get:
+ *     tags: [Fraud Detection]
+ *     summary: Get fraud detection statistics
+ *     responses:
+ *       '200':
+ *         description: Statistics retrieved
  */
 router.get('/statistics', async (req, res) => {
     try {

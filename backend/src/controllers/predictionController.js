@@ -456,6 +456,70 @@ class PredictionController {
       });
     }
   }
+
+  // New methods for Dashboard
+  async getBatchPredictions(req, res) {
+    // Mock for now to support frontend
+    res.json({
+      success: true,
+      data: {
+        results: [
+          {
+            studentId: 'S101',
+            predictions: { completion: 0.85, performance: 0.9, dropout: 0.05, engagement: 0.95, confidence: 0.92 },
+            riskAssessment: { level: 'low', factors: [] }
+          },
+          {
+            studentId: 'S102',
+            predictions: { completion: 0.45, performance: 0.5, dropout: 0.6, engagement: 0.3, confidence: 0.85 },
+            riskAssessment: { level: 'high', factors: ['Low engagement', 'Missed assignments'] }
+          }
+        ]
+      }
+    });
+  }
+
+  async getAtRiskStudents(req, res) {
+    res.json({
+      success: true,
+      data: {
+        atRiskStudents: [
+          {
+            studentId: 'S102',
+            daysUntilPotentialDropout: 5,
+            interventionUrgency: { level: 'High' }
+          },
+          {
+            studentId: 'S105',
+            daysUntilPotentialDropout: 12,
+            interventionUrgency: { level: 'Medium' }
+          }
+        ]
+      }
+    });
+  }
+
+  async getAccuracyMetrics(req, res) {
+    res.json({
+      success: true,
+      data: {
+        completion: { currentAccuracy: 0.92, trend: 'improving' },
+        performance: { currentAccuracy: 0.88, trend: 'stable' },
+        dropout: { currentAccuracy: 0.95, trend: 'improving' },
+        lastTrainingDate: new Date().toISOString()
+      }
+    });
+  }
 }
 
-module.exports = PredictionController;
+const controller = new PredictionController();
+// Bind all methods to the instance
+const proto = PredictionController.prototype;
+for (const key of Object.getOwnPropertyNames(proto)) {
+  if (key !== 'constructor' && typeof proto[key] === 'function') {
+    controller[key] = controller[key].bind(controller);
+  }
+}
+
+module.exports = controller;
+

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Course, WalletInfo, EnrollmentData } from '@/types/enrollment';
+import Skeleton from '@/components/Skeleton';
 
 const TestEnrollmentPage: React.FC = () => {
   const router = useRouter();
@@ -173,89 +174,133 @@ const TestEnrollmentPage: React.FC = () => {
     router.push(`/enroll/${mockCourse.id}`);
   };
 
+  const testInProgress = isRunning && testResults.length === 0;
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Enrollment Flow Test</h1>
-          <p className="text-gray-600 mb-8">
+    <div className="min-h-screen bg-gray-50 py-6 sm:py-8 md:py-12">
+      <div className="max-w-4xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Enrollment Flow Test</h1>
+          <p className="text-sm sm:text-base text-gray-600 mb-6 sm:mb-8">
             Test the complete enrollment functionality including API endpoints, components, and utilities.
           </p>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <div className="bg-blue-50 rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-blue-900 mb-4">Test Data</h2>
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="font-medium">Course ID:</span> {mockCourse.id}
+          {/* Show skeleton while tests are initializing */}
+          {testInProgress ? (
+            <div className="mb-8" role="region" aria-label="Test execution in progress" aria-busy="true">
+              <div className="bg-blue-50 rounded-lg p-6 mb-6">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse" aria-hidden="true" />
+                  <h2 className="text-lg font-semibold text-blue-900">Running Tests</h2>
                 </div>
-                <div>
-                  <span className="font-medium">Course Title:</span> {mockCourse.title}
-                </div>
-                <div>
-                  <span className="font-medium">Price:</span> {mockCourse.price} {mockCourse.currency}
-                </div>
-                <div>
-                  <span className="font-medium">Wallet Address:</span> {mockWallet.publicKey.slice(0, 20)}...
-                </div>
-                <div>
-                  <span className="font-medium">Network:</span> {mockWallet.network}
+                <div className="space-y-3">
+                  <Skeleton variant="list-item" lines={1} hasAvatar={false} aria-label="Test step loading" />
+                  <Skeleton variant="list-item" lines={1} hasAvatar={false} aria-label="Test step loading" />
+                  <Skeleton variant="list-item" lines={1} hasAvatar={false} aria-label="Test step loading" />
+                  <Skeleton variant="text" lines={2} aria-label="Test results loading" />
                 </div>
               </div>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              <div className="bg-blue-50 rounded-lg p-6">
+                <h2 className="text-lg font-semibold text-blue-900 mb-4">Test Data</h2>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium">Course ID:</span> {mockCourse.id}
+                  </div>
+                  <div>
+                    <span className="font-medium">Course Title:</span> {mockCourse.title}
+                  </div>
+                  <div>
+                    <span className="font-medium">Price:</span> {mockCourse.price} {mockCourse.currency}
+                  </div>
+                  <div>
+                    <span className="font-medium">Wallet Address:</span> {mockWallet.publicKey.slice(0, 20)}...
+                  </div>
+                  <div>
+                    <span className="font-medium">Network:</span> {mockWallet.network}
+                  </div>
+                </div>
+              </div>
 
-            <div className="bg-green-50 rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-green-900 mb-4">Test Coverage</h2>
-              <ul className="space-y-1 text-sm text-green-800">
-                <li>• Course data validation</li>
-                <li>• Wallet connection validation</li>
-                <li>• API POST endpoint</li>
-                <li>• API GET endpoint</li>
-                <li>• Component imports</li>
-                <li>• Stellar utilities</li>
-              </ul>
+              <div className="bg-green-50 rounded-lg p-6">
+                <h2 className="text-lg font-semibold text-green-900 mb-4">Test Coverage</h2>
+                <ul className="space-y-1 text-sm text-green-800">
+                  <li>• Course data validation</li>
+                  <li>• Wallet connection validation</li>
+                  <li>• API POST endpoint</li>
+                  <li>• API GET endpoint</li>
+                  <li>• Component imports</li>
+                  <li>• Stellar utilities</li>
+                </ul>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="flex space-x-4 mb-8">
+          <div className="flex flex-col xs:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
             <button
               onClick={testEnrollmentFlow}
               disabled={isRunning}
-              className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+              className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center space-x-2"
+              aria-label={isRunning ? 'Tests are running' : 'Run enrollment tests'}
             >
-              {isRunning ? 'Running Tests...' : 'Run Tests'}
+              {isRunning ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                  <span>Running Tests...</span>
+                </>
+              ) : (
+                'Run Tests'
+              )}
             </button>
             <button
               onClick={navigateToEnrollment}
-              className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+              className="w-full xs:flex-1 min-h-[44px] bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-colors font-medium text-sm sm:text-base active:scale-[0.98]"
             >
               Test Live Enrollment
             </button>
           </div>
 
           {testResults.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Test Results</h2>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div className="bg-gray-50 rounded-lg p-6" role="region" aria-label="Test results">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Test Results
+                {isRunning && (
+                  <span className="ml-2 text-sm font-normal text-blue-600">
+                    <span className="inline-block w-3 h-3 bg-blue-500 rounded-full animate-pulse mr-1" aria-hidden="true" />
+                    In progress...
+                  </span>
+                )}
+              </h2>
+              <div className="space-y-2 max-h-96 overflow-y-auto" role="log" aria-label="Test result log" aria-live="polite">
                 {testResults.map((result, index) => (
                   <div
                     key={index}
-                    className={`text-sm font-mono p-2 rounded ${
+                    className={`text-sm font-mono p-2 rounded transition-opacity ${
                       result.includes('✅') ? 'bg-green-100 text-green-800' :
                       result.includes('❌') ? 'bg-red-100 text-red-800' :
                       'bg-gray-100 text-gray-800'
                     }`}
+                    role="status"
+                    aria-label={result.replace(/[✅❌🎉]/g, '').trim()}
                   >
                     {result}
                   </div>
                 ))}
+                {isRunning && (
+                  <div className="text-sm font-mono p-2 rounded bg-blue-100 text-blue-800 animate-pulse" role="status" aria-label="Test in progress">
+                    <span className="inline-block w-3 h-3 bg-blue-500 rounded-full animate-pulse mr-2" aria-hidden="true" />
+                    Running next test...
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <h3 className="font-semibold text-yellow-900 mb-2">Important Notes</h3>
-            <ul className="text-sm text-yellow-800 space-y-1">
+          <div className="mt-6 sm:mt-8 bg-yellow-50 border border-yellow-200 rounded-xl sm:rounded-lg p-4 sm:p-5">
+            <h3 className="font-semibold text-yellow-900 mb-2 text-sm sm:text-base">Important Notes</h3>
+            <ul className="text-xs sm:text-sm text-yellow-800 space-y-1.5">
               <li>• Tests use mock data and may not reflect real blockchain interactions</li>
               <li>• Stellar transaction validation requires a valid transaction hash</li>
               <li>• Live enrollment requires a connected wallet with sufficient balance</li>

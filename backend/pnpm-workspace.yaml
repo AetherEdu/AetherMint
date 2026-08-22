@@ -1,0 +1,9 @@
+allowBuilds:
+  '@firebase/util': set this to true or false
+  '@scarf/scarf': set this to true or false
+  aws-sdk: set this to true or false
+  ffmpeg-static: set this to true or false
+  gl: set this to true or false
+  mongodb-memory-server: set this to true or false
+  protobufjs: set this to true or false
+  sharp: set this to true or false

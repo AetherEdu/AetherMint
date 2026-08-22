@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Beaker, Clipboard, Download, FlaskConical, Play, RefreshCcw, Users } from 'lucide-react';
+import { LoadingFallback } from '@/components/LoadingFallback';
 import { useLabExperiment } from '../../hooks/useLabExperiment';
 import { useLabCollaboration } from '../../hooks/useLabCollaboration';
 import type { LabChemical, LabHazard } from '../../types/lab';
@@ -13,14 +14,25 @@ import { LabHazardBanner } from './components/LabHazardBanner';
 import { LabToolbar } from './components/LabToolbar';
 import { LabCollaborationPanel } from './components/LabCollaborationPanel';
 
+// Issue #141: pull the 3D scene (Three.js / R3F) and the physics
+// simulator into separately-fetched chunks. LoadingFallback matches
+// the rest of the app for consistent CLS-friendly placeholders.
 const LabScene3D = dynamic(() => import('./scenes/LabScene3D').then((m) => ({ default: m.LabScene3D })), {
   ssr: false,
-  loading: () => <div className="flex h-full items-center justify-center rounded-3xl border border-slate-200 bg-white/70 text-sm text-slate-500">Loading 3D lab…</div>
+  loading: () => (
+    <div className="flex h-full items-center justify-center rounded-3xl border border-slate-200 bg-white/70">
+      <LoadingFallback message="Loading 3D lab…" size="md" />
+    </div>
+  ),
 });
 
 const LabReactionSim = dynamic(() => import('./sim/LabReactionSim').then((m) => ({ default: m.LabReactionSim })), {
   ssr: false,
-  loading: () => <div className="flex h-full items-center justify-center rounded-3xl border border-slate-200 bg-white/70 text-sm text-slate-500">Loading physics simulation…</div>
+  loading: () => (
+    <div className="flex h-full items-center justify-center rounded-3xl border border-slate-200 bg-white/70">
+      <LoadingFallback message="Loading physics simulation…" size="md" />
+    </div>
+  ),
 });
 
 function exportCsv(rows: Array<Record<string, unknown>>) {

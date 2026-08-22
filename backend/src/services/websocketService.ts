@@ -1,7 +1,11 @@
 import { Server, Socket } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { Redis } from 'ioredis';
 import { createServer } from 'http';
 import { INotification } from '../models/Notification';
 import logger from '../utils/logger';
+import presenceService from './presence';
+import { PresenceEvent, PresenceStatus } from '../events/presenceEvents';
 const collaborationService = require('./collaborationService').default || require('./collaborationService');
 
 // Define the shape of the notification data that will be sent to the client
@@ -21,19 +25,57 @@ interface UserSockets {
   [userId: string]: Socket[];
 }
 
+interface ClientConnectionState {
+  socketId: string;
+  userId?: string;
+  lastSeenSequence: number;
+  lastSeenAt: Date;
+  isReconnecting: boolean;
+}
+
+interface EventBuffer {
+  sequence: number;
+  event: string;
+  data: any;
+  timestamp: Date;
+}
+
 class WebsocketService {
   private io: Server;
   private userSockets: UserSockets = {};
   private socketUsers: Record<string, string> = {};
+  private connectionStates: Map<string, ClientConnectionState> = new Map();
+  private eventBuffers: Map<string, EventBuffer[]> = new Map();
+  private sequenceCounter: number = 0;
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
+  private readonly MAX_BUFFER_SIZE = 1000; // Max events to buffer per client
+  // Closes Issue #266: dedicated pub/sub clients for the Redis adapter.
+  // Kept on the instance so they share the lifecycle with the service and
+  // can be closed on graceful shutdown.
+  private pubClient: Redis | null = null;
+  private subClient: Redis | null = null;
+  // Socket-level presence memberships so a disconnect can leave every space
+  // and mark the user offline once their last socket is gone. (Issue #405)
+  private presenceBySocket = new Map<string, { userId: string; spaceIds: Set<string> }>();
 
   constructor(server?: any) {
+    // Allow callers (notably the test suite) to inject a pre-built Server
+    // instance. Otherwise build a Socket.IO server that supports both
+    // websocket and long-polling so front-end clients can gracefully fall
+    // back when sticky-session routing isn't available.
     if (server) {
       this.io = new Server(server, {
         cors: {
           origin: process.env.FRONTEND_URL || '*',
           methods: ['GET', 'POST'],
           credentials: true
-        }
+        },
+        transports: ['websocket', 'polling'],
+        // Allow up to ~50k sockets per node before upstream load balancing
+        // becomes the bottleneck. The actual ceiling is OS file-descriptor
+        // based.
+        maxHttpBufferSize: 1e6,
       });
     } else {
       // For testing purposes
@@ -43,20 +85,89 @@ class WebsocketService {
           origin: process.env.FRONTEND_URL || '*',
           methods: ['GET', 'POST'],
           credentials: true
-        }
+        },
+        transports: ['websocket', 'polling'],
       });
     }
 
+    // Configure horizontal scaling (Issue #266). Fails open if Redis is
+    // unreachable: single-node deployments keep working without an adapter,
+    // and a misconfigured cluster just falls back to in-process emit. The
+    // container orchestrator decides whether scaling is actually required.
+    this.setupHorizontalScaling();
+
     this.setupConnectionHandlers();
+    this.setupPresenceForwarding();
+    this.startHeartbeat();
+  }
+
+  /**
+   * Attach the @socket.io/redis-adapter so emits broadcast across every
+   * node in the cluster. Two dedicated Redis connections are used because
+   * ioredis enters "subscriber mode" once it issues SUBSCRIBE, which would
+   * starve the publisher. The clients are reused for the lifetime of the
+   * service; process shutdown closes them via the existing shutdown
+   * coordinator.
+   */
+  private setupHorizontalScaling(): void {
+    const host = process.env.REDIS_HOST || 'localhost';
+    const port = Number.parseInt(process.env.REDIS_PORT || '6379', 10);
+    const password = process.env.REDIS_PASSWORD || undefined;
+
+    // Disable explicit opt-out. The default is to opt in so the deployment
+    // topology stays uniform across environments.
+    if (process.env.WS_REDIS_ADAPTER_ENABLED === 'false') {
+      logger.info('WebSocket Redis adapter disabled by config (WS_REDIS_ADAPTER_ENABLED=false)');
+      return;
+    }
+
+    try {
+      this.pubClient = new Redis({ host, port, password, lazyConnect: false });
+      this.subClient = this.pubClient.duplicate();
+
+      this.pubClient.on('error', (err) => {
+        logger.warn('WebSocket Redis pub client error', { error: err.message });
+      });
+      this.subClient.on('error', (err) => {
+        logger.warn('WebSocket Redis sub client error', { error: err.message });
+      });
+
+      this.io.adapter(createAdapter(this.pubClient, this.subClient));
+      logger.info('WebSocket horizontal scaling enabled (Redis adapter attached)', {
+        host,
+        port,
+      });
+    } catch (err) {
+      logger.error('Failed to attach WebSocket Redis adapter', err as Error);
+    }
   }
 
   private setupConnectionHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
       logger.info('User connected', { socketId: socket.id });
 
+      // Initialize connection state
+      this.connectionStates.set(socket.id, {
+        socketId: socket.id,
+        lastSeenSequence: 0,
+        lastSeenAt: new Date(),
+        isReconnecting: false
+      });
+
+      // Initialize event buffer for this socket
+      this.eventBuffers.set(socket.id, []);
+
       socket.on('register-user', (userId: string) => {
         this.socketUsers[socket.id] = userId;
         this.addUserSocket(userId, socket);
+        
+        // Update connection state with userId
+        const state = this.connectionStates.get(socket.id);
+        if (state) {
+          state.userId = userId;
+          state.lastSeenAt = new Date();
+        }
+        
         logger.info('User registered with socket', { userId, socketId: socket.id });
       });
 
@@ -111,10 +222,100 @@ class WebsocketService {
         this.io.emit(`workspace-document-${payload.workspaceId}`, document);
       });
 
-      socket.on('disconnect', () => {
+      // ── Presence & availability (Issue #405) ─────────────────────────────
+      socket.on('presence:join', (payload: { spaceId: string; userId: string; displayName?: string; role?: string }) => {
+        presenceService.joinSpace(payload.spaceId, {
+          userId: payload.userId,
+          displayName: payload.displayName ?? payload.userId,
+          role: payload.role,
+        });
+        socket.join(this.getPresenceRoom(payload.spaceId));
+
+        let entry = this.presenceBySocket.get(socket.id);
+        if (!entry) {
+          entry = { userId: payload.userId, spaceIds: new Set<string>() };
+          this.presenceBySocket.set(socket.id, entry);
+        }
+        entry.spaceIds.add(payload.spaceId);
+
+        socket.emit('presence:updated', presenceService.getPresence(payload.spaceId));
+      });
+
+      socket.on('presence:leave', (payload: { spaceId: string; userId: string }) => {
+        presenceService.leaveSpace(payload.spaceId, payload.userId);
+        socket.leave(this.getPresenceRoom(payload.spaceId));
+
+        const entry = this.presenceBySocket.get(socket.id);
+        if (entry) {
+          entry.spaceIds.delete(payload.spaceId);
+          if (entry.spaceIds.size === 0) {
+            this.presenceBySocket.delete(socket.id);
+          }
+        }
+      });
+
+      socket.on('presence:set-status', (payload: { userId: string; status: PresenceStatus }) => {
+        presenceService.setStatus(payload.userId, payload.status);
+      });
+
+      socket.on('presence:set-privacy', (payload: { spaceId: string; userId: string; hidden: boolean }) => {
+        presenceService.setHidden(payload.spaceId, payload.userId, payload.hidden);
+      });
+
+      socket.on('presence:typing', (payload: { spaceId: string; userId: string; isTyping: boolean }) => {
+        presenceService.setTyping(payload.spaceId, payload.userId, payload.isTyping);
+      });
+
+      socket.on('presence:heartbeat', (payload: { userId: string; spaceId?: string }) => {
+        presenceService.heartbeat(payload.userId, payload.spaceId);
+      });
+
+      socket.on('disconnect', (reason) => {
+        const state = this.connectionStates.get(socket.id);
+        if (state) {
+          state.isReconnecting = String(reason) !== 'io client disconnect';
+          logger.info('User disconnected', { socketId: socket.id, reason, isReconnecting: state.isReconnecting });
+        }
+        
+        this.cleanupPresenceForSocket(socket.id);
         delete this.socketUsers[socket.id];
         this.removeSocket(socket);
-        logger.info('User disconnected', { socketId: socket.id });
+      });
+
+      // Handle reconnection request
+      socket.on('request-state-sync', (data: { lastSeenSequence?: number }) => {
+        const state = this.connectionStates.get(socket.id);
+        if (!state) return;
+
+        const lastSeq = data.lastSeenSequence ?? state.lastSeenSequence;
+        const missedEvents = this.getMissedEvents(socket.id, lastSeq);
+        
+        socket.emit('state-sync', {
+          missedEvents,
+          currentSequence: this.sequenceCounter,
+          timestamp: new Date()
+        });
+        
+        logger.info('State sync requested', { socketId: socket.id, lastSeenSequence: lastSeq, missedEventsCount: missedEvents.length });
+      });
+
+      // Handle sequence acknowledgment
+      socket.on('ack-sequence', (data: { sequence: number }) => {
+        const state = this.connectionStates.get(socket.id);
+        if (state) {
+          state.lastSeenSequence = data.sequence;
+          state.lastSeenAt = new Date();
+          // Clean up old events from buffer
+          this.cleanupEventBuffer(socket.id, data.sequence);
+        }
+      });
+
+      // Ping/pong heartbeat
+      socket.on('pong', () => {
+        const state = this.connectionStates.get(socket.id);
+        if (state) {
+          state.lastSeenAt = new Date();
+        }
       });
     });
   }
@@ -156,6 +357,15 @@ class WebsocketService {
     });
 
     delete this.socketUsers[socket.id];
+    
+    // Clean up connection state and event buffer after delay (for reconnection)
+    setTimeout(() => {
+      const state = this.connectionStates.get(socket.id);
+      if (state && !state.isReconnecting) {
+        this.connectionStates.delete(socket.id);
+        this.eventBuffers.delete(socket.id);
+      }
+    }, 60000); // 1 minute grace period for reconnection
   }
 
   public sendNotification(userId: string, notification: INotification): void {
@@ -200,6 +410,14 @@ class WebsocketService {
     sockets.filter((socket) => socket.connected).forEach((socket) => socket.emit(event, data));
   }
 
+  public broadcastAnalyticsUpdate(data: { count: number }): void {
+    this.io.emit('active-users-update', data);
+  }
+
+  public broadcastNewTransaction(transaction: any): void {
+    this.io.emit('new-transaction', transaction);
+  }
+
   public emitToRoom(classroomId: string, event: string, data: unknown): void {
     this.io.to(this.getRoomName(classroomId)).emit(event, data);
   }
@@ -216,8 +434,173 @@ class WebsocketService {
     return this.io;
   }
 
+  /**
+   * Gracefully tears down the WebSocket layer during shutdown. Every connected
+   * client is told the server is going away and then force-disconnected, which
+   * releases the underlying sockets so the shared HTTP server can finish
+   * draining. The Socket.IO engine itself is closed when the HTTP server closes.
+   */
+  public close(): void {
+    this.io.emit('server:shutdown', { message: 'Server is shutting down' });
+    this.io.disconnectSockets(true);
+    // Issue #266: release the Redis adapter connections so the graceful
+    // shutdown coordinator can complete cleanly.
+    void Promise.all([
+      this.pubClient?.quit().catch(() => undefined),
+      this.subClient?.quit().catch(() => undefined),
+    ]).finally(() => {
+      this.pubClient = null;
+      this.subClient = null;
+    });
+  }
+
   private getRoomName(classroomId: string): string {
     return `classroom:${classroomId}`;
+  }
+
+  private getPresenceRoom(spaceId: string): string {
+    return `presence:${spaceId}`;
+  }
+
+  /**
+   * Forward presence events to connected clients. Space-scoped events go to
+   * the space's room; user-level status changes broadcast globally because a
+   * single user can be present in several spaces at once.
+   */
+  private setupPresenceForwarding(): void {
+    presenceService.on('*', (event: PresenceEvent) => {
+      switch (event.type) {
+        case 'USER_STATUS_CHANGED':
+        case 'USER_ONLINE':
+        case 'USER_OFFLINE':
+          this.io.emit('presence:status', event);
+          break;
+        case 'SPACE_JOINED':
+        case 'SPACE_LEFT':
+        case 'PRESENCE_HIDDEN':
+        case 'PRESENCE_SHOWN':
+          if (event.spaceId) {
+            this.io.to(this.getPresenceRoom(event.spaceId)).emit(
+              'presence:updated',
+              presenceService.getPresence(event.spaceId)
+            );
+          }
+          break;
+        case 'TYPING_STARTED':
+        case 'TYPING_STOPPED':
+          if (event.spaceId) {
+            this.io.to(this.getPresenceRoom(event.spaceId)).emit('presence:typing', event);
+          }
+          break;
+      }
+    });
+  }
+
+  /** Leave every space a socket joined and mark its user offline when no other socket remains. */
+  private cleanupPresenceForSocket(socketId: string): void {
+    const entry = this.presenceBySocket.get(socketId);
+    if (!entry) {
+      return;
+    }
+
+    for (const spaceId of entry.spaceIds) {
+      presenceService.leaveSpace(spaceId, entry.userId);
+    }
+    this.presenceBySocket.delete(socketId);
+
+    let stillConnected = false;
+    for (const other of this.presenceBySocket.values()) {
+      if (other.userId === entry.userId) {
+        stillConnected = true;
+        break;
+      }
+    }
+    if (!stillConnected) {
+      presenceService.setOffline(entry.userId);
+    }
+  }
+
+  // --- Reconnection and State Sync Methods ---
+
+  private startHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+
+    this.heartbeatInterval = setInterval(() => {
+      this.io.emit('ping', { timestamp: new Date() });
+      
+      // Check for stale connections
+      const now = new Date();
+      this.connectionStates.forEach((state, socketId) => {
+        const staleThreshold = new Date(now.getTime() - this.HEARTBEAT_INTERVAL * 2);
+        if (state.lastSeenAt < staleThreshold) {
+          const socket = this.io.sockets.sockets.get(socketId);
+          if (socket && socket.connected) {
+            socket.disconnect(true);
+            logger.warn('Disconnected stale connection', { socketId });
+          }
+        }
+      });
+    }, this.HEARTBEAT_INTERVAL);
+  }
+
+  private bufferEvent(socketId: string, event: string, data: any): void {
+    const buffer = this.eventBuffers.get(socketId);
+    if (!buffer) return;
+
+    this.sequenceCounter++;
+    const eventBuffer: EventBuffer = {
+      sequence: this.sequenceCounter,
+      event,
+      data,
+      timestamp: new Date()
+    };
+
+    buffer.push(eventBuffer);
+
+    // Maintain buffer size limit
+    if (buffer.length > this.MAX_BUFFER_SIZE) {
+      buffer.shift(); // Remove oldest event
+    }
+  }
+
+  private getMissedEvents(socketId: string, fromSequence: number): EventBuffer[] {
+    const buffer = this.eventBuffers.get(socketId);
+    if (!buffer) return [];
+
+    return buffer.filter(e => e.sequence > fromSequence);
+  }
+
+  private cleanupEventBuffer(socketId: string, upToSequence: number): void {
+    const buffer = this.eventBuffers.get(socketId);
+    if (!buffer) return;
+
+    const index = buffer.findIndex(e => e.sequence > upToSequence);
+    if (index > 0) {
+      buffer.splice(0, index);
+    }
+  }
+
+  public emitWithBuffer(socketId: string, event: string, data: any): void {
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (socket && socket.connected) {
+      socket.emit(event, data);
+      this.bufferEvent(socketId, event, data);
+    }
+  }
+
+  public getConnectionState(socketId: string): ClientConnectionState | undefined {
+    return this.connectionStates.get(socketId);
+  }
+
+  public cleanup(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    this.connectionStates.clear();
+    this.eventBuffers.clear();
   }
 }
 

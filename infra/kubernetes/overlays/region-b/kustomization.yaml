@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: aethermint-region-b
+resources:
+  - ../../base
+nameSuffix: -region-b
+patches:
+  - target:
+      kind: ConfigMap
+      name: aethermint-region
+    patch: |
+      - op: replace
+        path: /data/AETHERMINT_REGION
+        value: region-b
+  - target:
+      kind: Deployment
+      name: aethermint-backend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 3
+  - target:
+      kind: Deployment
+      name: aethermint-frontend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 2
+labels:
+  - includeSelectors: true
+    pairs:
+      topology.aethermint.io/region: region-b
+      topology.aethermint.io/role: standby

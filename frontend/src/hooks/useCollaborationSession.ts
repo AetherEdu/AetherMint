@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
+import { env } from '@/lib/env';
 
 export interface CollaborationParticipant {
   userId: string;
@@ -236,8 +238,99 @@ export function useCollaborationSession() {
   const [mediaHealth, setMediaHealth] = useState<MediaHealthState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
+  
+  const socketRef = useRef<Socket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectDelay = 30000;
+  const localStateRef = useRef<Map<string, any>>(new Map());
 
   const activeDocument = useMemo(() => workspace?.documents?.[0] ?? null, [workspace]);
+
+  // WebSocket connection for real-time collaboration
+  const connectWebSocket = useCallback(() => {
+    if (socketRef.current?.connected) return;
+
+    const wsUrl = env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001';
+    const socket = io(wsUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: false
+    });
+
+    socket.on('connect', () => {
+      console.log('Collaboration WebSocket connected');
+      setConnectionStatus('connected');
+      reconnectAttemptsRef.current = 0;
+      
+      // Rejoin classroom if previously joined
+      if (classroom?.id) {
+        socket.emit('join-classroom', {
+          classroomId: classroom.id,
+          userId: 'current-user',
+          name: 'User',
+          role: 'student'
+        });
+      }
+    });
+
+    socket.on('disconnect', (reason: string) => {
+      console.log('Collaboration WebSocket disconnected:', reason);
+      setConnectionStatus('disconnected');
+      
+      if (reason !== 'io client disconnect') {
+        setConnectionStatus('reconnecting');
+        reconnectAttemptsRef.current++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), maxReconnectDelay);
+        
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectWebSocket();
+        }, delay);
+      }
+    });
+
+    socket.on('classroom-state', (state: ClassroomState) => {
+      setClassroom(state);
+      // Store state for reconciliation
+      localStateRef.current.set('classroom', state);
+    });
+
+    socket.on('classroom-message-created', (message: ClassroomMessage) => {
+      setClassroom((prev: ClassroomState | null) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...prev.messages, message]
+        };
+      });
+    });
+
+    socket.on('whiteboard-updated', (stroke: WhiteboardStroke) => {
+      setClassroom((prev: ClassroomState | null) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          whiteboard: [...prev.whiteboard, stroke]
+        };
+      });
+    });
+
+    socket.on('classroom-presence-updated', (participants: CollaborationParticipant[]) => {
+      setClassroom((prev: ClassroomState | null) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          participants
+        };
+      });
+    });
+
+    socket.on('ping', () => {
+      socket.emit('pong');
+    });
+
+    socketRef.current = socket;
+  }, [classroom?.id]);
 
   const loadReferenceData = useCallback(async () => {
     const [groupData, reviewData] = await Promise.all([
@@ -281,7 +374,17 @@ export function useCollaborationSession() {
 
   useEffect(() => {
     loadClassroom();
-  }, [loadClassroom]);
+    connectWebSocket();
+
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, [loadClassroom, connectWebSocket]);
 
   useEffect(() => {
     if (!classroom?.id) {
@@ -476,11 +579,11 @@ export function useCollaborationSession() {
       body: JSON.stringify(payload)
     });
 
-    setWorkspace((current) => {
+    setWorkspace((current: WorkspaceState | null) => {
       if (!current) return current;
 
-      const documents = current.documents.some((entry) => entry.id === payload.documentId)
-        ? current.documents.map((entry) => entry.id === payload.documentId ? document : entry)
+      const documents = current.documents.some((entry: any) => entry.id === payload.documentId)
+        ? current.documents.map((entry: any) => entry.id === payload.documentId ? document : entry)
         : [...current.documents, document];
 
       return {
@@ -499,7 +602,7 @@ export function useCollaborationSession() {
       body: JSON.stringify(payload)
     });
 
-    setWorkspace((current) => current ? { ...current, notes: [...current.notes, note] } : current);
+    setWorkspace((current: WorkspaceState | null) => current ? { ...current, notes: [...current.notes, note] } : current);
   }, [workspace?.id]);
 
   const addDiscussionPost = useCallback(async (payload: { userId: string; authorName: string; body: string }) => {
@@ -511,7 +614,7 @@ export function useCollaborationSession() {
       body: JSON.stringify(payload)
     });
 
-    setWorkspace((current) => current ? { ...current, discussionPosts: [...current.discussionPosts, post] } : current);
+    setWorkspace((current: WorkspaceState | null) => current ? { ...current, discussionPosts: [...current.discussionPosts, post] } : current);
   }, [workspace?.id]);
 
   const createStudyGroup = useCallback(async (payload: { topic: string; focusArea: string; members: string[]; recommendedSchedule: string; workspaceId?: string }) => {
@@ -521,7 +624,7 @@ export function useCollaborationSession() {
       body: JSON.stringify(payload)
     });
 
-    setStudyGroups((current) => [group, ...current]);
+    setStudyGroups((current: StudyGroup[]) => [group, ...current]);
   }, []);
 
   const createPeerReview = useCallback(async (payload: { workspaceId: string; submissionId: string; authorId: string; reviewerIds: string[]; rubric: string[]; dueAt: string }) => {
@@ -531,8 +634,19 @@ export function useCollaborationSession() {
       body: JSON.stringify(payload)
     });
 
-    setPeerReviews((current) => [assignment, ...current]);
+    setPeerReviews((current: PeerReviewAssignment[]) => [assignment, ...current]);
   }, []);
+
+  const reconnectWebSocket = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
+    reconnectAttemptsRef.current = 0;
+    setTimeout(() => connectWebSocket(), 100);
+  }, [connectWebSocket]);
 
   return {
     classrooms,
@@ -545,6 +659,7 @@ export function useCollaborationSession() {
     activeDocument,
     isLoading,
     error,
+    connectionStatus,
     loadClassroom,
     refresh,
     joinClassroom,
@@ -565,6 +680,7 @@ export function useCollaborationSession() {
     addWorkspaceNote,
     addDiscussionPost,
     createStudyGroup,
-    createPeerReview
+    createPeerReview,
+    reconnectWebSocket
   };
 }

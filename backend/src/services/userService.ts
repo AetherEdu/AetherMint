@@ -1,10 +1,11 @@
-import { UserProfile, Achievement, PrivacyLevel, UserStats } from '../models/User';
+import { UserProfile, Achievement, PrivacyLevel, UserStats, UserRole } from '../models/User';
 import { UserSettings, DEFAULT_SETTINGS } from '../models/Settings';
 import logger from '../utils/logger';
 
 class UserService {
   // In-memory storage for settings (replace with DB in production)
   private settingsStore: Map<string, UserSettings> = new Map();
+  private userRoles: Map<string, { role: UserRole; previousRole?: UserRole }> = new Map();
 
   /**
    * Get user profile from smart contract
@@ -125,6 +126,18 @@ class UserService {
       totalAchievements: profile.achievements.length, 
       reputation: profile.reputation 
     };
+  }
+
+  async updateRole(userId: string, newRole: UserRole): Promise<{ previousRole?: UserRole; role: UserRole }> {
+    const current = this.userRoles.get(userId) || { role: UserRole.STUDENT };
+    const previousRole = current.role;
+    this.userRoles.set(userId, { role: newRole, previousRole });
+    return { previousRole, role: newRole };
+  }
+
+  async updatePermissions(userId: string, permissions: string[]): Promise<{ userId: string; permissions: string[] }> {
+    // Mock implementation
+    return { userId, permissions };
   }
 }
 

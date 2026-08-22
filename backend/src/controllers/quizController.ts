@@ -1,6 +1,8 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import quizService from '../services/quizService';
 import gradingService from '../services/gradingService';
+import logger from '../utils/logger';
+import { ValidationError, NotFoundError } from '../utils/errors';
 import {
   CreateQuizRequest,
   UpdateQuizRequest,
@@ -22,27 +24,19 @@ class QuizController {
    * Create a new quiz
    * POST /api/quizzes
    */
-  async createQuiz(req: Request, res: Response): Promise<void> {
+  async createQuiz(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const instructorId = (req as any).user?.id || 'default-instructor'; // Get from auth middleware
       const createRequest: CreateQuizRequest = req.body;
 
       // Validate required fields
       if (!createRequest.title || !createRequest.courseId || !createRequest.questions) {
-        res.status(400).json({
-          success: false,
-          message: 'Missing required fields: title, courseId, questions'
-        });
-        return;
+        throw new ValidationError('Missing required fields: title, courseId, questions');
       }
 
       // Validate questions
       if (createRequest.questions.length === 0) {
-        res.status(400).json({
-          success: false,
-          message: 'Quiz must have at least one question'
-        });
-        return;
+        throw new ValidationError('Quiz must have at least one question');
       }
 
       const response = await quizService.createQuiz(createRequest, instructorId);
@@ -53,10 +47,8 @@ class QuizController {
         res.status(400).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -64,7 +56,7 @@ class QuizController {
    * Get quiz by ID
    * GET /api/quizzes/:id
    */
-  async getQuizById(req: Request, res: Response): Promise<void> {
+  async getQuizById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const response = await quizService.getQuizById(id);
@@ -75,10 +67,8 @@ class QuizController {
         res.status(404).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -86,7 +76,7 @@ class QuizController {
    * Get quizzes with filtering
    * GET /api/quizzes
    */
-  async getQuizzes(req: Request, res: Response): Promise<void> {
+  async getQuizzes(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const filter: QuizFilter = {
         courseId: req.query.courseId as string,
@@ -107,10 +97,8 @@ class QuizController {
         res.status(400).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -118,7 +106,7 @@ class QuizController {
    * Update quiz
    * PUT /api/quizzes/:id
    */
-  async updateQuiz(req: Request, res: Response): Promise<void> {
+  async updateQuiz(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const updateRequest: UpdateQuizRequest = req.body;
@@ -131,10 +119,8 @@ class QuizController {
         res.status(404).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -142,7 +128,7 @@ class QuizController {
    * Delete quiz
    * DELETE /api/quizzes/:id
    */
-  async deleteQuiz(req: Request, res: Response): Promise<void> {
+  async deleteQuiz(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const response = await quizService.deleteQuiz(id);
@@ -153,10 +139,8 @@ class QuizController {
         res.status(404).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -164,7 +148,7 @@ class QuizController {
    * Publish/Unpublish quiz
    * POST /api/quizzes/:id/publish
    */
-  async toggleQuizPublish(req: Request, res: Response): Promise<void> {
+  async toggleQuizPublish(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const response = await quizService.toggleQuizPublish(id);
@@ -175,10 +159,8 @@ class QuizController {
         res.status(404).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -186,7 +168,7 @@ class QuizController {
    * Submit quiz answers
    * POST /api/quizzes/:id/submit
    */
-  async submitQuiz(req: Request, res: Response): Promise<void> {
+  async submitQuiz(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id: quizId } = req.params;
       const userId = (req as any).user?.id || 'default-user'; // Get from auth middleware
@@ -198,19 +180,11 @@ class QuizController {
 
       // Validate request
       if (!submitRequest.answers || !Array.isArray(submitRequest.answers)) {
-        res.status(400).json({
-          success: false,
-          message: 'Answers array is required'
-        });
-        return;
+        throw new ValidationError('Answers array is required');
       }
 
       if (typeof submitRequest.timeSpent !== 'number' || submitRequest.timeSpent < 0) {
-        res.status(400).json({
-          success: false,
-          message: 'Valid timeSpent is required'
-        });
-        return;
+        throw new ValidationError('Valid timeSpent is required');
       }
 
       const response = await quizService.submitQuiz(submitRequest, userId);
@@ -238,10 +212,8 @@ class QuizController {
         res.status(400).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -249,7 +221,7 @@ class QuizController {
    * Get quiz submission by ID
    * GET /api/quizzes/submissions/:id
    */
-  async getSubmissionById(req: Request, res: Response): Promise<void> {
+  async getSubmissionById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const response = await quizService.getSubmissionById(id);
@@ -260,10 +232,8 @@ class QuizController {
         res.status(404).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -271,17 +241,13 @@ class QuizController {
    * Get user's submission for a quiz
    * GET /api/quizzes/:id/submission
    */
-  async getUserSubmission(req: Request, res: Response): Promise<void> {
+  async getUserSubmission(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id: quizId } = req.params;
       const userId = (req as any).user?.id || req.query.userId as string;
 
       if (!userId) {
-        res.status(400).json({
-          success: false,
-          message: 'User ID is required'
-        });
-        return;
+        throw new ValidationError('User ID is required');
       }
 
       const response = await quizService.getUserSubmissions(quizId, userId);
@@ -292,10 +258,8 @@ class QuizController {
         res.status(404).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -303,7 +267,7 @@ class QuizController {
    * Get quiz results
    * GET /api/quizzes/:id/results
    */
-  async getQuizResults(req: Request, res: Response): Promise<void> {
+  async getQuizResults(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id: quizId } = req.params;
       const userId = req.query.userId as string;
@@ -318,10 +282,8 @@ class QuizController {
         res.status(400).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -329,7 +291,7 @@ class QuizController {
    * Get quiz statistics
    * GET /api/quizzes/:id/statistics
    */
-  async getQuizStatistics(req: Request, res: Response): Promise<void> {
+  async getQuizStatistics(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id: quizId } = req.params;
       const response = await quizService.getQuizStatistics(quizId);
@@ -340,10 +302,8 @@ class QuizController {
         res.status(404).json(response);
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -351,7 +311,7 @@ class QuizController {
    * Get grading statistics for a quiz
    * GET /api/quizzes/:id/grading-statistics
    */
-  async getGradingStatistics(req: Request, res: Response): Promise<void> {
+  async getGradingStatistics(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id: quizId } = req.params;
       const statistics = await gradingService.getGradingStatistics(quizId);
@@ -361,10 +321,8 @@ class QuizController {
         data: statistics
       });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -372,7 +330,7 @@ class QuizController {
    * Re-grade a submission
    * POST /api/quizzes/submissions/:id/regrade
    */
-  async regradeSubmission(req: Request, res: Response): Promise<void> {
+  async regradeSubmission(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id: submissionId } = req.params;
       const result = await gradingService.regradeSubmission(submissionId);
@@ -382,10 +340,8 @@ class QuizController {
         data: result
       });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: `Internal server error: ${(error as Error).message}`
-      });
+      logger.error('Quiz controller error:', error);
+      next(error);
     }
   }
 
@@ -393,7 +349,7 @@ class QuizController {
    * Health check for quiz service
    * GET /api/quizzes/health
    */
-  async healthCheck(req: Request, res: Response): Promise<void> {
+  async healthCheck(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       res.status(200).json({
         success: true,

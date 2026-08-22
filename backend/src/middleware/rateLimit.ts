@@ -1,75 +1,68 @@
-/**
- * Rate Limiting Middleware
- * Provides rate limiting functionality for API endpoints
- */
+import { RequestHandler } from 'express';
+import {
+  rateLimitConfig,
+  RateLimitConfiguration,
+  RateLimitTierConfig,
+} from '../config/redis';
 
-import rateLimit from 'express-rate-limit';
+export type RateLimitScope = 'ip' | 'user' | 'endpoint';
 
-export interface RateLimitOptions {
-  windowMs: number; // Time window in milliseconds
-  max: number; // Max requests per window
-  message?: string;
-  standardHeaders?: boolean;
-  legacyHeaders?: boolean;
-  skipSuccessfulRequests?: boolean;
-  skipFailedRequests?: boolean;
+export interface RateLimitOptions extends RateLimitTierConfig {
+  name?: string;
+  scope?: RateLimitScope;
+  keyPrefix?: string;
 }
 
-export const rateLimitMiddleware = (options: RateLimitOptions) => {
-  return rateLimit({
-    windowMs: options.windowMs,
-    max: options.max,
-    message: (options.message || 'Too many requests from this IP, please try again later.') as any,
-    standardHeaders: options.standardHeaders !== false, // Send rate limit info in headers
-    legacyHeaders: options.legacyHeaders !== false, // Send rate limit info in legacy headers
-    skipSuccessfulRequests: options.skipSuccessfulRequests || false,
-    skipFailedRequests: options.skipFailedRequests || false,
-    handler: (req, res) => {
-      res.status(429).json({
-        error: 'Too many requests from this IP, please try again later.',
-        retryAfter: Math.ceil(options.windowMs / 1000)
-      });
-    }
-  });
+export interface TieredRateLimitConfiguration extends RateLimitConfiguration {}
+
+// The implementation remains in the CommonJS module for compatibility with
+// existing JavaScript routes. These typed exports provide one configuration
+// contract to TypeScript consumers.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const limiter = require('./rateLimiter') as {
+  createRateLimiter: (options: Partial<RateLimitOptions>) => RequestHandler;
 };
 
-// Predefined rate limit configurations
+export const rateLimitConfiguration: TieredRateLimitConfiguration = rateLimitConfig;
+
+export const rateLimitMiddleware = (
+  options: Partial<RateLimitOptions> = {}
+): RequestHandler => limiter.createRateLimiter(options);
+
 export const rateLimits = {
-  // Very strict limits for sensitive operations
   auth: rateLimitMiddleware({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 attempts per 15 minutes
-    message: {
-      error: 'Too many authentication attempts, please try again later.',
-      retryAfter: 900
-    } as any
+    ...rateLimitConfig.endpoints.auth,
+    name: 'auth',
+    scope: 'ip',
   }),
-
-  // Strict limits for file uploads
   upload: rateLimitMiddleware({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // 20 uploads per 15 minutes
-    message: {
-      error: 'Too many file uploads, please try again later.',
-      retryAfter: 900
-    } as any
+    ...rateLimitConfig.endpoints.ipfs,
+    name: 'ipfs',
+    scope: 'user',
   }),
-
-  // Moderate limits for general API usage
   general: rateLimitMiddleware({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // 100 requests per 15 minutes
+    ...rateLimitConfig.authenticated,
+    name: 'authenticated',
+    scope: 'user',
   }),
-
-  // Lenient limits for read-only operations
   readOnly: rateLimitMiddleware({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 200, // 200 requests per 15 minutes
+    ...rateLimitConfig.public,
+    name: 'public',
+    scope: 'ip',
   }),
-
-  // Very lenient limits for static content
   static: rateLimitMiddleware({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // 1000 requests per 15 minutes
-  })
+    ...rateLimitConfig.public,
+    max: rateLimitConfig.public.max * 3,
+    burstMax: rateLimitConfig.public.burstMax * 3,
+    name: 'static',
+    scope: 'ip',
+  }),
+  graphql: rateLimitMiddleware({
+    ...rateLimitConfig.public,
+    max: Math.max(60, Math.floor(rateLimitConfig.public.max / 2)),
+    burstMax: Math.max(10, Math.floor(rateLimitConfig.public.burstMax / 2)),
+    name: 'graphql',
+    scope: 'endpoint',
+    message: 'GraphQL rate limit exceeded. Please try again shortly.',
+  }),
 };

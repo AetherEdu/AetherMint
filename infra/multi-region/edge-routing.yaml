@@ -1,0 +1,23 @@
+apiVersion: aethermint.io/v1alpha1
+kind: GlobalRoute
+metadata:
+  name: aethermint
+spec:
+  hostname: app.aethermint.example
+  policy: latency-based-with-health-failover
+  healthCheck:
+    protocol: https
+    path: /api/health
+    intervalSeconds: 15
+    timeoutSeconds: 5
+    unhealthyAfterFailures: 3
+    recoveryAfterSuccesses: 2
+  endpoints:
+    - region: region-a
+      url: https://region-a.example.invalid
+      priority: 1
+    - region: region-b
+      url: https://region-b.example.invalid
+      priority: 2
+  sessionAffinity: none
+  cachePolicy: no-store-for-api
