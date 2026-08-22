@@ -311,6 +311,11 @@ app.use('/api/admin/bulk', bulkOperationsRoutes);
 const featureFlagRoutes = resolveRoute(require('./routes/admin/featureFlags'));
 app.use('/api/admin/feature-flags', featureFlagRoutes);
 
+// Admin Audit routes
+// @ts-ignore
+const adminAuditRoutes = resolveRoute(require('./routes/admin/audit'));
+app.use('/api/admin/audit', adminAuditRoutes);
+
 // Public evaluation endpoint for SPA / mobile clients – Issue #267
 // First pulls `publicRouter` off the same module so the admin auth
 // middleware on the default export is not applied to public callers.
@@ -379,6 +384,7 @@ app.use('/api/v1/translate', translationRoutes);
 app.use('/api/v1/localization', localizationRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/admin/audit', adminAuditRoutes);
 app.get('/api/v1/health', (req, res) => {
   if (isShuttingDown()) {
     res.status(503).json({
