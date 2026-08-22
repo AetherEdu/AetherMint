@@ -4,9 +4,9 @@
 extern crate std;
 
 use crate::schema_registry::{
-    activate_schema, deprecate_schema, get_schema, get_schema_by_name_version,
-    get_schema_count, get_schemas_by_author, initialize_schema_registry, is_schema_verifiable,
-    register_schema, require_issuable_schema, sunset_schema, SchemaField, SchemaStatus,
+    activate_schema, deprecate_schema, get_schema, get_schema_by_name_version, get_schema_count,
+    get_schemas_by_author, initialize_schema_registry, is_schema_verifiable, register_schema,
+    require_issuable_schema, sunset_schema, SchemaField, SchemaStatus,
 };
 use crate::{AetherMintContract, AetherMintContractClient};
 use soroban_sdk::{

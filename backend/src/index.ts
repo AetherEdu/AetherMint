@@ -256,6 +256,11 @@ app.use('/api/aco', acoRoutes);
 app.use('/api/federated-learning', federatedLearningRoutes);
 app.use('/api/swarm-learning', swarmLearningRoutes);
 app.use('/api/smart-wallet', smartWalletRoutes);
+
+// Self-sovereign identity (DID) routes — issue #397
+const didRoutes = loadRoute('./routes/did');
+app.use('/api/did', didRoutes);
+
 app.use('/api/secure-comm', secureCommRoutes);
 app.use('/api/agi-tutor', agiTutorRoutes);
 app.use('/api/analytics', analyticsRoutes);
@@ -365,6 +370,7 @@ app.use('/api/v1/aco', acoRoutes);
 app.use('/api/v1/federated-learning', federatedLearningRoutes);
 app.use('/api/v1/swarm-learning', swarmLearningRoutes);
 app.use('/api/v1/smart-wallet', smartWalletRoutes);
+app.use('/api/v1/did', didRoutes);
 app.use('/api/v1/secure-comm', secureCommRoutes);
 app.use('/api/v1/agi-tutor', agiTutorRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
