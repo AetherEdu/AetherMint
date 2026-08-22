@@ -25,6 +25,16 @@ jest.mock('../src/services/ipfs', () => ({
   updateFileMetadata: jest.fn()
 }));
 
+// Mock roles utility to provide UserRole export needed by auth.js
+jest.mock('../src/utils/roles', () => {
+  const actualRoles = jest.requireActual('../src/utils/roles');
+  const { UserRole } = jest.requireActual('../src/models/User');
+  return {
+    ...actualRoles,
+    UserRole,
+  };
+});
+
 const app = require('../src/index');
 
 jest.setTimeout(60000);

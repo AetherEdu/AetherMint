@@ -178,6 +178,20 @@ app.use('/api/translate', translationRoutes);
 const crossProtocolBridgeRoutes = require('./routes/crossProtocolBridge');
 app.use('/api/cross-protocol-bridge', crossProtocolBridgeRoutes);
 
+// Moderation routes (ML-assisted content moderation)
+import { scoringService, queueService, appealService, moderationController } from './routes/moderation';
+import { ModerationJob } from './workers/moderationJob';
+// @ts-ignore
+const moderationRoutes = require('./routes/moderation');
+const moderationRoutesResolved = resolveRoute(moderationRoutes);
+app.use('/api/moderation', moderationRoutesResolved);
+
+// Start the ML moderation background worker
+const moderationJob = new ModerationJob(scoringService, queueService);
+moderationController.setJob(moderationJob);
+moderationJob.start();
+logger.info('ML Moderation background worker started');
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -240,6 +254,7 @@ async function startServer() {
           '/api/federated-learning',
           '/api/agi-tutor',
           '/api/secure-comm',
+          '/api/moderation',
           '/api/health',
         ],
       });
@@ -252,6 +267,7 @@ async function startServer() {
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
+  moderationJob.stop();
   await (transactionQueue as any).stopProcessing();
   await (transactionProcessor as any).stop();
   await (transactionEvents as any).stopListening();
