@@ -1,0 +1,68 @@
+apiVersion: aethermint.io/v1alpha1
+kind: ReleaseRoute
+metadata:
+  name: aethermint-production
+spec:
+  # Declarative contract for zero-downtime releases. The routing provider must
+  # implement this contract the same way it implements the GlobalRoute contract
+  # in ../multi-region/edge-routing.yaml: HTTPS health checks against the
+  # configured path, traffic delivered only to the color marked active, and no
+  # session affinity that would pin users to a retired color.
+  #
+  # This file describes the *intended* release topology. The runtime authority
+  # for "what is live right now" is the routing provider; the release pipeline
+  # updates `activeColor` and the per-color `version` fields here after each
+  # successful promotion (scripts/update-release-state.sh) so the file never
+  # silently drifts from reality.
+
+  # Color that currently serves production traffic. The next release is always
+  # deployed to the other color first and only promoted once health gates pass.
+  activeColor: blue
+
+  # Color that receives the next release before promotion. Blue and green must
+  # be fully isolated so the standby can be replaced without touching live pods.
+  standbyColor: green
+
+  # Image repositories the release pipeline tags. Deploy scripts override the
+  # tag at release time via --version; never release an image tagged `latest`.
+  images:
+    backend: ghcr.io/aetheredu/aethermint-backend
+    frontend: ghcr.io/aetheredu/aethermint-frontend
+
+  # Version currently deployed in each color. Updated by the release pipeline
+  # after every successful promotion and by rollback after every reversion.
+  environments:
+    blue:
+      version: "0.1.0"
+    green:
+      version: "0.1.0"
+
+  canary:
+    # When enabled, release traffic can be shifted gradually to the canary
+    # color instead of promoted in one atomic switch.
+    enabled: true
+    # Color that hosts the canary during a canary release.
+    canaryColor: green
+    # Percentage of traffic on the canary at each progressive step. The final
+    # step must be 100 to complete the release; a canary can be aborted at any
+    # earlier step by shifting back to 0.
+    weights: [5, 25, 50, 100]
+    # Minimum time (seconds) to observe a step's health before shifting more
+    # traffic. Operators may override per run with --hold.
+    holdSeconds: 300
+
+  healthCheck:
+    # Health gate applied to a color before and after traffic moves to it.
+    path: /api/health
+    port: 3001
+    timeoutSeconds: 5
+    # Consecutive failed probes before a color is treated as unhealthy.
+    failureThreshold: 3
+    # Consecutive successful probes before a color is treated as healthy.
+    successThreshold: 2
+
+  rollback:
+    # When true, deploy coordinators automatically revert to the previous
+    # color/weight the moment a health gate fails, then exit non-zero so the
+    # pipeline surfaces the failure.
+    autoRollback: true
