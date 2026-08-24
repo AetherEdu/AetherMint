@@ -124,7 +124,14 @@ jobs:
       - name: Run ${{ matrix.test-group }} tests
         run: |
           if [ "${{ matrix.test-group }}" = "integration" ]; then
-            cd contracts && cargo test --test '*' --release
+            # `cargo test --test '*'` errors when no integration test targets
+            # exist (no contracts/tests/ directory), so only run it when there
+            # is at least one *.rs integration test file.
+            if ls contracts/tests/*.rs >/dev/null 2>&1; then
+              cd contracts && cargo test --test '*' --release
+            else
+              echo "No integration test targets in contracts/tests/; skipping."
+            fi
           else
             cd contracts && cargo test --lib --release
           fi
