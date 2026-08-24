@@ -149,24 +149,27 @@ pub mod dynamic_fees;
 pub mod marketplace;
 pub mod profile_nft;
 
-#[cfg(test)]
-mod analyticsStorage_test;
-#[cfg(test)]
-mod consciousness_test;
-#[cfg(test)]
-mod courseMetadata_test;
-#[cfg(test)]
-mod event_logger_test;
-#[cfg(test)]
-mod progress_test;
-#[cfg(test)]
-mod syncCoordination_test;
-#[cfg(test)]
-mod time_lock_credential_test;
+// Test modules for contracts disabled above (they reference disabled
+// contract symbols and cannot compile under soroban-sdk 26 until the
+// contracts themselves are re-enabled in separate crates).
+// #[cfg(test)]
+// mod analyticsStorage_test;
+// #[cfg(test)]
+// mod consciousness_test;
+// #[cfg(test)]
+// mod courseMetadata_test;
+// #[cfg(test)]
+// mod event_logger_test;
+// #[cfg(test)]
+// mod progress_test;
+// #[cfg(test)]
+// mod syncCoordination_test;
+// #[cfg(test)]
+// mod time_lock_credential_test;
 #[cfg(test)]
 mod user_profile_test;
-#[cfg(test)]
-mod vrf_system_test;
+// #[cfg(test)]
+// mod vrf_system_test;
 
 #[cfg(test)]
 mod access_control_test;
