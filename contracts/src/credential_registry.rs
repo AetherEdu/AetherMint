@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 use crate::credential_events::{publish_credential_event, CredentialLifecycleEvent};
 use crate::utils::storage::{EntityType, StorageUtils, StorageVersion};
 use crate::utils::validation::{
@@ -89,6 +94,7 @@ pub enum CredentialEvent {
 }
 
 /// Issue a new credential with expiration support
+#[allow(clippy::too_many_arguments)] // Contract-facing signature; kept as-is.
 pub fn issue_credential_with_expiration(
     env: &Env,
     issuer: Address,
@@ -630,6 +636,7 @@ pub fn is_proctored_credential(env: &Env, credential_id: u64) -> bool {
 }
 
 /// Issue a credential and mark it as proctored once the session is linked.
+#[allow(clippy::too_many_arguments)] // Contract-facing signature; kept as-is.
 pub fn issue_proctored_cred_with_exp(
     env: &Env,
     issuer: Address,

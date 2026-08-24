@@ -1,8 +1,4 @@
 #![cfg_attr(not(test), no_std)]
-#![allow(deprecated)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::manual_checked_ops)]
-#![allow(clippy::needless_range_loop)]
 extern crate alloc;
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, String, Vec};
 
@@ -300,6 +296,10 @@ pub struct Profile {
 #[contract]
 pub struct AetherMintContract;
 
+// The `contractimpl` macro generates client wrappers that mirror every
+// method signature, so this allow covers the macro-expanded code rather
+// than any single hand-written function.
+#[allow(clippy::too_many_arguments)]
 #[contractimpl]
 impl AetherMintContract {
     /// Initialize the contract with optimized storage
@@ -530,6 +530,7 @@ impl AetherMintContract {
     // ===== CredentialRegistry Integration =====
 
     /// Issue a new credential with expiration support
+    #[allow(clippy::too_many_arguments)] // Contract ABI signature; kept as-is.
     pub fn issue_credential_with_expiration(
         env: Env,
         issuer: Address,

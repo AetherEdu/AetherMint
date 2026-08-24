@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 //! Proctoring session lifecycle and result verification.
 //!
 //! This module records the on-chain state for proctored exams so a later
