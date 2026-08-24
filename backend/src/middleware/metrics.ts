@@ -8,22 +8,15 @@
  * - Redis cache hit/miss ratio counters
  * - Database query duration histogram
  * - Credential issuance rate counter
+ * - SLO journey metrics (enrollment / verification / playback) — see metrics/slo.ts
  *
  * Also enables prom-client's default metrics (event loop lag, memory, GC, etc.).
  */
 
 import { NextFunction, Request, Response } from 'express';
 import client from 'prom-client';
-
-// ── Registry ──────────────────────────────────────────────────────────────────
-
-const register = new client.Registry();
-register.setDefaultLabels({
-  app: 'aethermint-backend',
-});
-
-// Enable default metrics (event loop lag, heap, GC, process CPU, open handles, etc.)
-client.collectDefaultMetrics({ register, prefix: 'aethermint_' });
+import { register } from '../metrics/registry';
+import { observeSloJourneyForRequest } from '../metrics/slo';
 
 // ── HTTP Metrics ──────────────────────────────────────────────────────────────
 
@@ -109,6 +102,9 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
 
     httpRequestDurationMicroseconds.observe({ method, route, status_code: statusCode }, durationSeconds);
     httpRequestsTotal.inc({ method, route, status_code: statusCode });
+
+    // Record core-journey SLO metrics (enrollment / verification / playback)
+    observeSloJourneyForRequest(req, res, durationSeconds);
   });
 
   next();

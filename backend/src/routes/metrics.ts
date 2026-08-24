@@ -6,7 +6,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { register } from '../middleware/metrics';
+import { register } from '../metrics/registry';
 
 const router = Router();
 

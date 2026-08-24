@@ -1,0 +1,116 @@
+# SLO alert rules for the core AetherMint journeys (enrollment, verification,
+# playback).
+#
+# Targets and burn-rate math are documented in docs/observability/slos.md.
+# The 30-day window (43,200 minutes) yields:
+#   - 14.4x burn rate  -> budget exhausted in ~2.5 days (fast burn, critical)
+#   - 3x burn rate     -> budget exhausted in ~10 days   (slow burn, warning)
+#
+# Deploy with:
+#   promtool check rules infra/prometheus/slo-alerts.yml
+# and configure Prometheus to load this file (see infra/grafana/README.md).
+
+groups:
+  - name: aethermint-slo-recordings
+    rules:
+      # Availability target per journey, as a 0..1 fraction.
+      - record: aethermint:slo:target
+        expr: |
+          label_replace(vector(0.999), "journey", "enrollment", "", "")
+          or label_replace(vector(0.999), "journey", "verification", "", "")
+          or label_replace(vector(0.995), "journey", "playback", "", "")
+
+      # Observed error rate per journey over several windows. Prometheus
+      # histogram buckets are irrelevant here: these are plain rate ratios.
+      - record: aethermint:slo:error_rate_5m
+        expr: |
+          sum by (journey) (rate(aethermint_slo_requests_total{result="failure"}[5m]))
+            / clamp_min(sum by (journey) (rate(aethermint_slo_requests_total[5m])), 1)
+
+      - record: aethermint:slo:error_rate_30m
+        expr: |
+          sum by (journey) (rate(aethermint_slo_requests_total{result="failure"}[30m]))
+            / clamp_min(sum by (journey) (rate(aethermint_slo_requests_total[30m])), 1)
+
+      - record: aethermint:slo:error_rate_2h
+        expr: |
+          sum by (journey) (rate(aethermint_slo_requests_total{result="failure"}[2h]))
+            / clamp_min(sum by (journey) (rate(aethermint_slo_requests_total[2h])), 1)
+
+      - record: aethermint:slo:error_rate_6h
+        expr: |
+          sum by (journey) (rate(aethermint_slo_requests_total{result="failure"}[6h]))
+            / clamp_min(sum by (journey) (rate(aethermint_slo_requests_total[6h])), 1)
+
+  - name: aethermint-slo-alerts
+    rules:
+      # Fast burn: consuming the error budget at >= 14.4x the target rate on
+      # both a 5m and 30m window. The two-window AND removes flapping.
+      - alert: SloBurnRateCritical
+        expr: |
+          (
+            aethermint:slo:error_rate_5m > on (journey) (1 - aethermint:slo:target) * 14.4
+          ) and on (journey) (
+            aethermint:slo:error_rate_30m > on (journey) (1 - aethermint:slo:target) * 14.4
+          )
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "{{ $labels.journey }} journey burning error budget fast"
+          description: >
+            The {{ $labels.journey }} journey is consuming its SLO error budget at
+            more than 14.4x the target rate (observed error rate
+            {{ printf "%.4f" $value }} over the last 5 minutes). See
+            docs/observability/on-call-runbook.md.
+
+      # Slow burn: consuming the error budget at >= 3x the target rate on both
+      # a 2h and 6h window.
+      - alert: SloBurnRateWarning
+        expr: |
+          (
+            aethermint:slo:error_rate_2h > on (journey) (1 - aethermint:slo:target) * 3
+          ) and on (journey) (
+            aethermint:slo:error_rate_6h > on (journey) (1 - aethermint:slo:target) * 3
+          )
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "{{ $labels.journey }} journey burning error budget"
+          description: >
+            The {{ $labels.journey }} journey has sustained an error rate above
+            3x its SLO target over the last few hours. Investigate before the
+            error budget is exhausted. See docs/observability/on-call-runbook.md.
+
+      # Critical errors: a single route returning 5xx at a high rate.
+      - alert: CriticalErrorRate
+        expr: |
+          sum by (route) (rate(aethermint_http_requests_total{status_code=~"5.."}[5m]))
+            / clamp_min(sum by (route) (rate(aethermint_http_requests_total[5m])), 1)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High 5xx rate on route {{ $labels.route }}"
+          description: >
+            Route {{ $labels.route }} is returning 5xx responses for more than
+            5% of requests over the last 5 minutes ({{ printf "%.2f" $value }}%).
+
+      # Backend unreachable from Prometheus' point of view. Requires a scrape
+      # job named "aethermint-backend" targeting the backend metrics endpoint.
+      - alert: BackendDown
+        expr: up{job="aethermint-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Backend is unreachable"
+          description: >
+            Prometheus cannot scrape the aethermint-backend metrics endpoint.
+            Check the deployment and service in the affected region.
