@@ -261,6 +261,11 @@ app.use('/api/agi-tutor', agiTutorRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
+// Progress tracking routes
+// @ts-ignore
+const progressRoutes = loadRoute('./routes/progress');
+app.use('/api/progress', progressRoutes);
+
 // Autonomous Agents routes
 // @ts-ignore
 const autonomousAgentsRoutes = loadRoute('./routes/autonomousAgents');
@@ -374,6 +379,7 @@ app.use('/api/v1/secure-comm', secureCommRoutes);
 app.use('/api/v1/agi-tutor', agiTutorRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/progress', progressRoutes);
 app.use('/api/v1/autonomous-agents', autonomousAgentsRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/bridge', bridgeRoutes);
