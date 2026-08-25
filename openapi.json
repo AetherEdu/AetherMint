@@ -1603,6 +1603,10 @@
     {
       "name": "Bridge Monitor",
       "description": "Cross-chain bridge relayer monitoring and fraud proofs"
+    },
+    {
+      "name": "Adaptation",
+      "description": "Engagement-aware content adaptation (issue"
     }
   ],
   "paths": {
@@ -10987,6 +10991,304 @@
         "responses": {
           "200": {
             "description": "Emotional support provided"
+          }
+        }
+      }
+    },
+    "/api/adaptation/signal": {
+      "post": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "Report a client-derived engagement signal",
+        "description": "Ingest the derived signal from the frontend emotion hook. Raw video never leaves the client.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "engagementScore": {
+                    "type": "number"
+                  },
+                  "frustrationScore": {
+                    "type": "number"
+                  },
+                  "dominantEmotion": {
+                    "type": "string"
+                  },
+                  "progress": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signal ingested (stored only if consent is granted)"
+          }
+        }
+      }
+    },
+    "/api/adaptation/recommend": {
+      "post": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "Get an explainable, overridable adaptation recommendation",
+        "description": "Decision based on the current signal (and stored window if consent was given).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "engagementScore": {
+                    "type": "number"
+                  },
+                  "frustrationScore": {
+                    "type": "number"
+                  },
+                  "dominantEmotion": {
+                    "type": "string"
+                  },
+                  "progress": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Adaptation recommendation"
+          }
+        }
+      }
+    },
+    "/api/adaptation/preferences": {
+      "get": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "Get adaptation preferences for the authenticated user",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User preferences"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "Update adaptation preferences",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "adaptationEnabled": {
+                    "type": "boolean"
+                  },
+                  "pacingEnabled": {
+                    "type": "boolean"
+                  },
+                  "difficultyEnabled": {
+                    "type": "boolean"
+                  },
+                  "hintsEnabled": {
+                    "type": "boolean"
+                  },
+                  "maxPlaybackRate": {
+                    "type": "number"
+                  },
+                  "minPlaybackRate": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preferences updated"
+          }
+        }
+      }
+    },
+    "/api/adaptation/consent": {
+      "get": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "Get consent state for the authenticated user",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consent state"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "Update consent state (revocation purges stored signals)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "engagementTrackingConsent": {
+                    "type": "boolean"
+                  },
+                  "biometricConsent": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consent updated"
+          }
+        }
+      }
+    },
+    "/api/adaptation/outcome": {
+      "post": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "Record learning outcome measured after an adaptation was applied",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recommendationId": {
+                    "type": "string"
+                  },
+                  "accepted": {
+                    "type": "boolean"
+                  },
+                  "quizScoreAfter": {
+                    "type": "number"
+                  },
+                  "completionDelta": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Outcome recorded"
+          }
+        }
+      }
+    },
+    "/api/adaptation/effectiveness": {
+      "get": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "Get adaptation effectiveness metrics for the authenticated user",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Effectiveness metrics"
+          }
+        }
+      }
+    },
+    "/api/adaptation/recommendations": {
+      "get": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "List past recommendations for the authenticated user",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Past recommendations"
+          }
+        }
+      }
+    },
+    "/api/adaptation/purge": {
+      "delete": {
+        "tags": [
+          "Adaptation"
+        ],
+        "summary": "Purge all stored engagement data (GDPR right-to-erasure)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data purged"
           }
         }
       }
