@@ -150,9 +150,9 @@ const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 // @ts-ignore
 const jobRoutes = loadRoute('./routes/jobRoutes');
 
-// Engagement-aware content adaptation routes — Issue #408
+// Public verification route
 // @ts-ignore
-const adaptationRoutes = loadRoute('./routes/adaptation');
+const verifyRoutes = loadRoute('./routes/verify');
 
 // Initialize Express app
 const app: Application = express();
@@ -413,8 +413,7 @@ app.use('/api/v1/localization', localizationRoutes);
 app.use('/api/v1/adaptation', adaptationRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
-app.use('/api/v1/admin/audit', adminAuditRoutes);
-app.use('/api/v1/admin/simulate', adminSimulateRoutes);
+app.use('/api/v1/verify', verifyRoutes);
 app.get('/api/v1/health', (req, res) => {
   if (isShuttingDown()) {
     res.status(503).json({

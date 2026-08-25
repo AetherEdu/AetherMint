@@ -580,6 +580,14 @@ impl AetherMintContract {
         credential_registry::get_credential(&env, credential_id)
     }
 
+    /// Get credential strictly read-only
+    pub fn get_credential_read_only(
+        env: Env,
+        credential_id: u64,
+    ) -> credential_registry::CredentialRegistry {
+        credential_registry::get_credential_read_only(&env, credential_id)
+    }
+
     /// Get user credentials with current status
     pub fn get_user_credentials_with_status(env: Env, user: Address) -> Vec<u64> {
         credential_registry::get_user_credentials(&env, user)
