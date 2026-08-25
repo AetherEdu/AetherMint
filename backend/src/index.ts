@@ -106,7 +106,7 @@ const contentRoutes = loadRoute('./routes/content');
 // @ts-ignore
 const transactionRoutes = loadRoute('./routes/transactions');
 // @ts-ignore
-const notificationRoutes = loadRoute('./routes/notificationRoutes');
+const notificationRoutes = loadRoute('./routes/notifications');
 
 // Your branch routes
 // @ts-ignore
