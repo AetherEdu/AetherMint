@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 //! Cross-chain bridge relayer registry and optimistic attestation protocol
 //! (issue #423).
 //!

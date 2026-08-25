@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 use crate::dna_storage::{verify_dna_credential, DNACredential, DNAStorageKey, DNAStorageProtocol};
 use soroban_sdk::{contracttype, Address, Bytes, Env, String, Symbol, Vec};
 

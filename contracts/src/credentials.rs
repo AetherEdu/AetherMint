@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 use crate::credential_events::{publish_credential_event, CredentialLifecycleEvent};
 use crate::utils::storage::{EntityType, StorageUtils};
 use soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec};
@@ -231,8 +236,8 @@ fn generate_string_hash(string: &String) -> u64 {
     let len = string.len() as usize;
     let buf_len = if len < 256 { len } else { 256usize };
     string.copy_into_slice(&mut buf[..buf_len]);
-    for i in 0..buf_len {
-        hash = hash.wrapping_mul(31).wrapping_add(buf[i] as u64);
+    for &b in buf.iter().take(buf_len) {
+        hash = hash.wrapping_mul(31).wrapping_add(b as u64);
     }
     hash
 }
