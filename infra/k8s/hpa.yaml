@@ -1,0 +1,107 @@
+# Horizontal Pod Autoscaling policies.
+#
+# Both HPAs scale on:
+#   - CPU utilization (Resource metric)
+#   - Memory utilization (Resource metric)
+#   - A custom per-pod request-rate metric (Pods metric) — exposed by the
+#     Prometheus Adapter from the built-in /api/metrics endpoint. The custom
+#     metric names are placeholders; wire them to the adapter's rule set as
+#     described in docs/infrastructure/kubernetes.md.
+#
+# Stateful supporting services (postgres, redis, mongodb) intentionally have no
+# HPA: they run single-replica with PVCs, and scaling them safely requires a
+# dedicated HA setup (replica sets / clusters), which is out of scope.
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aethermint-backend
+  labels:
+    app.kubernetes.io/component: backend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aethermint-backend
+  minReplicas: 3
+  maxReplicas: 12
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Pods
+      pods:
+        metric:
+          name: backend_http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: 1
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 120
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aethermint-frontend
+  labels:
+    app.kubernetes.io/component: frontend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aethermint-frontend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+    - type: Pods
+      pods:
+        metric:
+          name: frontend_http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: 2
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 120

@@ -71,14 +71,17 @@ const securityConfig = {
 
   // Advanced Restrictions
   geoRestrictions: {
-    enabled: false,
-    blockedCountries: [],
+    enabled: process.env.GEO_RESTRICTIONS_ENABLED === 'true',
+    blockedCountries: (process.env.GEO_BLOCKED_COUNTRIES || '')
+      .split(',')
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean),
   },
 
   timeRestrictions: {
-    enabled: false,
-    startHour: 0, // 00:00 (Midnight)
-    endHour: 6,   // 06:00 (6 AM)
+    enabled: process.env.TIME_RESTRICTIONS_ENABLED === 'true',
+    startHour: parseInt(process.env.TIME_RESTRICTIONS_START_HOUR || '0', 10),
+    endHour: parseInt(process.env.TIME_RESTRICTIONS_END_HOUR || '6', 10),
   },
 
   // Automated blocking

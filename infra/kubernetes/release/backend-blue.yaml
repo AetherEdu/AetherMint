@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aethermint-backend-blue
+  labels:
+    app.kubernetes.io/component: backend
+    release.aethermint.io/color: blue
+spec:
+  replicas: 3
+  # Blue-green: the standby color is replaced out-of-band while the active color
+  # keeps serving. Recreate guarantees a color never mixes old and new versions.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: backend
+      release.aethermint.io/color: blue
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: backend
+        release.aethermint.io/color: blue
+    spec:
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: backend
+          # Explicit tag, never `latest`. The release pipeline overrides this
+          # with the promoted image tag (kubectl set image).
+          image: ghcr.io/aetheredu/aethermint-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: aethermint-region
+            - secretRef:
+                name: aethermint-runtime
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aethermint-backend-blue
+  labels:
+    app.kubernetes.io/component: backend
+    release.aethermint.io/color: blue
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: backend
+    release.aethermint.io/color: blue
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http

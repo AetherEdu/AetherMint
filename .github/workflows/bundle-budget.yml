@@ -9,19 +9,30 @@ on:
 jobs:
   bundle-budget:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Verify lock file
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "Error: root package-lock.json is missing"
+            exit 1
+          fi
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci -w frontend
+
       - name: Build
         env:
           NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA
-        run: npm run build
+        run: npm run build -w frontend
+
       - name: Check bundle budget (report-only)
-        run: npm run bundle-budget
+        run: npm run bundle-budget -w frontend

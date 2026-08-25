@@ -1,0 +1,253 @@
+name: Release Pipeline
+
+# Zero-downtime release pipeline for blue-green and canary deployments.
+#
+# Triggers:
+#   - push to `main`: automatically runs a blue-green release of the merged
+#     commit's images (app code paths only, so the release-state commit pushed
+#     back to infra/release/ never re-triggers this workflow).
+#   - workflow_dispatch: manual release with a selectable strategy, version,
+#     and canary weights.
+#
+# Wiring to the existing CI (ci-pr.yml):
+#   - The `ci-gate` job refuses to deploy a commit whose recorded check runs
+#     are failing or still running. For push-triggered deploys there is usually
+#     no check data on the merge commit; branch protection already required the
+#     PR CI to pass before the merge, so the gate passes through in that case.
+#   - The `validate-release-tooling` job runs the release scripts' dry-run test
+#     suite (scripts/test-release.sh) so a broken coordinator can never ship.
+#
+# Deployment mechanics:
+#   - Images are built, tagged with the git SHA (or the dispatch `version`
+#     input), and pushed to GHCR.
+#   - The `deploy` job runs scripts/deploy-blue-green.sh or
+#     scripts/deploy-canary.sh with platform commands injected from secrets,
+#     matching the provider-neutral pattern of scripts/failover-region.sh.
+#   - Only the upstream repository may deploy; fork runs stop at ci-gate/build.
+#
+# Required secrets (configure in the repository, see
+# docs/infrastructure/release-runbook.md):
+#   DEPLOY_CMD, DEPLOY_VERIFY_CMD, DEPLOY_SWITCH_CMD, DEPLOY_ROLLBACK_CMD,
+#   DEPLOY_SHIFT_CMD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "contracts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options:
+          - production
+          - staging
+        default: production
+      strategy:
+        description: Release strategy
+        type: choice
+        options:
+          - blue-green
+          - canary
+        default: blue-green
+      version:
+        description: "Image tag to release (default: default-branch head SHA)"
+        type: string
+        required: false
+      canary-weights:
+        description: "Canary weights, comma-separated (e.g. 5,25,50,100)"
+        type: string
+        required: false
+        default: "5,25,50,100"
+      hold-seconds:
+        description: Seconds to observe each canary step before shifting more traffic
+        type: string
+        required: false
+        default: "300"
+
+concurrency:
+  group: release-${{ inputs.environment || 'production' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify CI checks on the release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="${{ inputs.version || github.sha }}"
+          echo "Checking CI status for ${SHA}..."
+          TOTAL=$(gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs" --jq '.total_count')
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "No check runs recorded for ${SHA}; branch protection is the gate for push-triggered deploys."
+            exit 0
+          fi
+          BAD=$(gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs" --jq \
+            '[.check_runs[] | select(.status == "queued" or .status == "in_progress" or .conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")] | length')
+          if [ "$BAD" -gt 0 ]; then
+            echo "::error::CI checks for ${SHA} are failing or still running; refusing to deploy."
+            gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs" --jq \
+              '.check_runs[] | "\(.name): \(.status)/\(.conclusion)"'
+            exit 1
+          fi
+          echo "CI gate passed for ${SHA}."
+
+  validate-release-tooling:
+    name: Validate release tooling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax check
+        run: bash -n scripts/deploy-blue-green.sh scripts/deploy-canary.sh scripts/rollback-release.sh scripts/update-release-state.sh scripts/test-release.sh
+
+      - name: Run release dry-run tests
+        run: scripts/test-release.sh
+
+  build-and-push:
+    name: Build & push images
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.params.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "image_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "image_tag=${{ inputs.version || github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: ghcr.io/aetheredu/aethermint-backend:${{ steps.params.outputs.image_tag }}
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.params.outputs.image_tag }}
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          tags: ghcr.io/aetheredu/aethermint-frontend:${{ steps.params.outputs.image_tag }}
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.params.outputs.image_tag }}
+            NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS=${{ secrets.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA' }}
+
+  deploy:
+    name: Deploy (${{ inputs.strategy || 'blue-green' }})
+    needs:
+      - build-and-push
+      - validate-release-tooling
+    if: ${{ github.repository == 'AetherEdu/AetherMint' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'production' }}
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine release parameters
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "strategy=blue-green" >> "$GITHUB_OUTPUT"
+            echo "version=${{ needs.build-and-push.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            echo "weights=5 25 50 100" >> "$GITHUB_OUTPUT"
+            echo "hold=300" >> "$GITHUB_OUTPUT"
+          else
+            echo "strategy=${{ inputs.strategy || 'blue-green' }}" >> "$GITHUB_OUTPUT"
+            echo "version=${{ needs.build-and-push.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            WEIGHTS="${{ inputs.canary-weights || '5,25,50,100' }}"
+            echo "weights=$(printf '%s' "$WEIGHTS" | tr ',' ' ')" >> "$GITHUB_OUTPUT"
+            echo "hold=${{ inputs.hold-seconds || '300' }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run blue-green release
+        id: release
+        if: ${{ steps.params.outputs.strategy == 'blue-green' }}
+        env:
+          DEPLOY_APPROVED: "true"
+          DEPLOY_CMD: ${{ secrets.DEPLOY_CMD }}
+          DEPLOY_VERIFY_CMD: ${{ secrets.DEPLOY_VERIFY_CMD }}
+          DEPLOY_SWITCH_CMD: ${{ secrets.DEPLOY_SWITCH_CMD }}
+          DEPLOY_ROLLBACK_CMD: ${{ secrets.DEPLOY_ROLLBACK_CMD }}
+        run: |
+          scripts/deploy-blue-green.sh \
+            --version "${{ steps.params.outputs.version }}" \
+            --execute \
+            --deploy "$DEPLOY_CMD" \
+            --verify "$DEPLOY_VERIFY_CMD" \
+            --switch "$DEPLOY_SWITCH_CMD" \
+            --rollback "$DEPLOY_ROLLBACK_CMD"
+          NEW_COLOR="$(grep -E '^[[:space:]]*standbyColor:' infra/release/release-route.yaml | awk '{print $2}')"
+          echo "new_color=${NEW_COLOR}" >> "$GITHUB_OUTPUT"
+
+      - name: Run canary release
+        id: release-canary
+        if: ${{ steps.params.outputs.strategy == 'canary' }}
+        env:
+          DEPLOY_APPROVED: "true"
+          DEPLOY_CMD: ${{ secrets.DEPLOY_CMD }}
+          DEPLOY_VERIFY_CMD: ${{ secrets.DEPLOY_VERIFY_CMD }}
+          DEPLOY_SHIFT_CMD: ${{ secrets.DEPLOY_SHIFT_CMD }}
+        run: |
+          scripts/deploy-canary.sh \
+            --version "${{ steps.params.outputs.version }}" \
+            --weights "${{ steps.params.outputs.weights }}" \
+            --hold "${{ steps.params.outputs.hold }}" \
+            --execute \
+            --deploy "$DEPLOY_CMD" \
+            --verify "$DEPLOY_VERIFY_CMD" \
+            --shift "$DEPLOY_SHIFT_CMD"
+          NEW_COLOR="$(grep -E '^[[:space:]]*canaryColor:' infra/release/release-route.yaml | awk '{print $2}')"
+          echo "new_color=${NEW_COLOR}" >> "$GITHUB_OUTPUT"
+
+      - name: Update ReleaseRoute state
+        if: ${{ steps.release.outcome == 'success' || steps.release-canary.outcome == 'success' }}
+        run: |
+          NEW_COLOR="${{ steps.release.outputs.new_color || steps.release-canary.outputs.new_color }}"
+          scripts/update-release-state.sh --color "$NEW_COLOR" --version "${{ steps.params.outputs.version }}"
+          git config user.name "aethermint-release-bot"
+          git config user.email "release-bot@aetheredu.example"
+          git add infra/release/release-route.yaml
+          git -c core.hooksPath=/dev/null commit -m "chore(release): promote ${{ steps.params.outputs.version }} to ${NEW_COLOR}"
+          git push

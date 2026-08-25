@@ -237,24 +237,33 @@ export const checkBlacklist = async (req: Request, res: Response, next: NextFunc
 /**
  * Advanced Restrictions Middleware (Geo & Time)
  */
+const BYPASS_PATHS = new Set(['/api/health', '/']);
+
 export const advancedRestrictions = async (req: Request, res: Response, next: NextFunction) => {
-    if (process.env.NODE_ENV === 'test') return next();
-
-    const ip = req.ip;
-    
-    // Check Geo
-    const isGeoRestricted = await (securityService as any).checkGeoRestriction(ip);
-    if (isGeoRestricted) {
-        return next(new ForbiddenError('Access denied from your location.'));
+    if (process.env.NODE_ENV === 'test' && req.headers['x-test-security'] !== 'true') {
+        return next();
     }
 
-    // Check Time
-    const isTimeRestricted = await (securityService as any).checkTimeRestriction();
-    if (isTimeRestricted) {
-        return next(new ForbiddenError('Platform is currently in maintenance window.'));
+    if (BYPASS_PATHS.has(req.path)) {
+        return next();
     }
 
-    next();
+    try {
+        const isGeoRestricted = await (securityService as any).checkGeoRestriction(req.ip, req);
+        if (isGeoRestricted) {
+            return next(new ForbiddenError('Access denied from your location.'));
+        }
+
+        const isTimeRestricted = await (securityService as any).checkTimeRestriction();
+        if (isTimeRestricted) {
+            return next(new ForbiddenError('Platform is currently in maintenance window.'));
+        }
+
+        next();
+    } catch (error) {
+        logger.error('Advanced restrictions middleware error:', error);
+        next();
+    }
 };
 
 /**

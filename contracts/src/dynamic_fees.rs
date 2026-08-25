@@ -247,13 +247,15 @@ fn calculate_user_discount(env: &Env, metrics: &UserBehaviorMetrics) -> u64 {
         discount += 2;
     }
 
-    if metrics.transaction_count > 0 {
-        let success_rate = metrics.successful_transactions * 100 / metrics.transaction_count;
-        if success_rate >= 95 {
-            discount += 3;
-        } else if success_rate >= 90 {
-            discount += 1;
-        }
+    let success_rate = metrics
+        .successful_transactions
+        .checked_mul(100)
+        .and_then(|n| n.checked_div(metrics.transaction_count))
+        .unwrap_or(0);
+    if success_rate >= 95 {
+        discount += 3;
+    } else if success_rate >= 90 {
+        discount += 1;
     }
 
     discount.min(50)
@@ -339,10 +341,12 @@ fn apply_fee_smoothing(config: &DynamicFeeConfig, new_fee: u64, base_fee: u64) -
 fn calculate_reputation_score(metrics: &UserBehaviorMetrics) -> u64 {
     let mut score = 100u64;
 
-    if metrics.transaction_count > 0 {
-        let success_rate = metrics.successful_transactions * 100 / metrics.transaction_count;
-        score += success_rate;
-    }
+    let success_rate = metrics
+        .successful_transactions
+        .checked_mul(100)
+        .and_then(|n| n.checked_div(metrics.transaction_count))
+        .unwrap_or(0);
+    score += success_rate;
 
     score += (metrics.transaction_count / 10).min(200);
     score += (metrics.streak_days as u64 * 2).min(100);
@@ -377,12 +381,14 @@ fn check_abuse_patterns(env: &Env, user: &Address, metrics: &UserBehaviorMetrics
         abuse.rapid_transactions = 0;
     }
 
-    if metrics.transaction_count > 0 {
-        let failure_rate = metrics.failed_transactions * 100 / metrics.transaction_count;
-        if failure_rate > 50 {
-            abuse.unusual_patterns = true;
-            abuse.abuse_score += 30;
-        }
+    let failure_rate = metrics
+        .failed_transactions
+        .checked_mul(100)
+        .and_then(|n| n.checked_div(metrics.transaction_count))
+        .unwrap_or(0);
+    if failure_rate > 50 {
+        abuse.unusual_patterns = true;
+        abuse.abuse_score += 30;
     }
 
     if abuse.abuse_score > 800 {
@@ -417,11 +423,11 @@ fn create_fee_breakdown(
     _network_metrics: &NetworkMetrics,
     user_metrics: &UserBehaviorMetrics,
 ) -> String {
-    let _success_rate = if user_metrics.transaction_count > 0 {
-        user_metrics.successful_transactions * 100 / user_metrics.transaction_count
-    } else {
-        0
-    };
+    let _success_rate = user_metrics
+        .successful_transactions
+        .checked_mul(100)
+        .and_then(|n| n.checked_div(user_metrics.transaction_count))
+        .unwrap_or(0);
     String::from_str(
         env,
         "Network Level: X, Utilization: Y%, User Reputation: Z, Success Rate: W%",

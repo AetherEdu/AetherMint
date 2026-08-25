@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 use crate::dynamic_fees::calculate_marketplace_fee;
 use crate::utils::pause::PauseUtils;
 use crate::utils::storage::StorageKey;

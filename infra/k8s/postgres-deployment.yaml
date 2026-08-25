@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aethermint-postgres
+  labels:
+    app.kubernetes.io/component: postgres
+spec:
+  replicas: 1
+  # Recreate (not RollingUpdate): the RWO volume can only be attached to one
+  # pod at a time, so a rolling upgrade would stall waiting for a free volume.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: postgres
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: aethermint
+            - name: POSTGRES_USER
+              value: aethermint
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: aethermint-runtime
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "pg_isready -U aethermint -d aethermint"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "pg_isready -U aethermint -d aethermint"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: aethermint-postgres-data

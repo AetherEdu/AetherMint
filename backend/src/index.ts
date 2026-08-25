@@ -9,6 +9,8 @@ import logger from './utils/logger';
 import requestId from './middleware/requestId';
 import requestLogger from './middleware/requestLogger';
 import { metricsMiddleware, websocketConnectionsActive } from './middleware/metrics';
+// Registers SLO journey metrics on the shared Prometheus registry (Issue #415)
+import './metrics/slo';
 import responseCompression from './middleware/compression';
 import { errorHandler } from './middleware/errorHandler';
 import { NotFoundError } from './utils/errors';
@@ -43,6 +45,8 @@ import * as transactionEvents from './events/transactionEvents';
 // Bridge relayer monitor watch job — Issue #423
 import { bridgeMonitorJob } from './workers/bridgeMonitorJob';
 import { processQuestionGenerationJob } from './workers/questionGenJob';
+// Course content indexing worker — Issue #406 (AGI tutor RAG pipeline)
+import { startIndexingJob, stopIndexingJob } from './workers/indexingJob';
 import questionGeneratorService from './services/questionGen/questionGenerator';
 
 // Background job queue — Issue #258
@@ -192,6 +196,12 @@ app.use(shutdownGuard(['/api/health', '/']));
 app.use(securityPerformanceTracker);
 // Blacklist check
 app.use(checkBlacklist);
+
+if (process.env.ADVANCED_RESTRICTIONS_ENABLED === 'true') {
+  app.use(advancedRestrictions);
+  logger.info('Advanced restrictions middleware enabled (geo/time)');
+}
+
 // DDoS protection
 app.use(ddosProtection);
 // Bot detection
@@ -265,6 +275,11 @@ app.use('/api/agi-tutor', agiTutorRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
+// Progress tracking routes
+// @ts-ignore
+const progressRoutes = loadRoute('./routes/progress');
+app.use('/api/progress', progressRoutes);
+
 // Autonomous Agents routes
 // @ts-ignore
 const autonomousAgentsRoutes = loadRoute('./routes/autonomousAgents');
@@ -315,6 +330,16 @@ app.use('/api/admin/bulk', bulkOperationsRoutes);
 const featureFlagRoutes = resolveRoute(require('./routes/admin/featureFlags'));
 app.use('/api/admin/feature-flags', featureFlagRoutes);
 
+// Admin Audit routes
+// @ts-ignore
+const adminAuditRoutes = resolveRoute(require('./routes/admin/audit'));
+app.use('/api/admin/audit', adminAuditRoutes);
+
+// Admin Smart Contract Simulation routes
+// @ts-ignore
+const adminSimulateRoutes = resolveRoute(require('./routes/admin/simulate'));
+app.use('/api/admin/simulate', adminSimulateRoutes);
+
 // Public evaluation endpoint for SPA / mobile clients – Issue #267
 // First pulls `publicRouter` off the same module so the admin auth
 // middleware on the default export is not applied to public callers.
@@ -343,6 +368,9 @@ app.use('/api/metrics', metricsRoutes);
 
 // Background job management routes — Issue #258
 app.use('/api/jobs', jobRoutes);
+
+// Engagement-aware content adaptation — Issue #408
+app.use('/api/adaptation', adaptationRoutes);
 
 // Root endpoint
 // ── Versioned API routes (/api/v1/*) ────────────────────────────────────────
@@ -373,6 +401,7 @@ app.use('/api/v1/secure-comm', secureCommRoutes);
 app.use('/api/v1/agi-tutor', agiTutorRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/progress', progressRoutes);
 app.use('/api/v1/autonomous-agents', autonomousAgentsRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/bridge', bridgeRoutes);
@@ -381,6 +410,7 @@ app.use('/api/v1/time-lock', timeLockCredentialsRoutes);
 app.use('/api/v1/vrf', vrfRoutes);
 app.use('/api/v1/translate', translationRoutes);
 app.use('/api/v1/localization', localizationRoutes);
+app.use('/api/v1/adaptation', adaptationRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/verify', verifyRoutes);
@@ -476,9 +506,25 @@ const PORT = process.env.PORT || 3001;
  */
 async function ensureMongooseIndexes(): Promise<void> {
   const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  const modelNames = mongoose.modelNames();
+
+  // Fail fast when Mongoose models are registered but no MongoDB URI is
+  // configured. Continuing would silently skip index synchronization and
+  // leave mongoose-backed routes behaving as if no database existed.
+  // (Issue #471)
+  if (!mongoUri && modelNames.length > 0) {
+    throw new Error(
+      'MongoDB is not configured: MONGODB_URI is unset while Mongoose models are ' +
+        'registered. Set MONGODB_URI in your environment (see .env.example).'
+    );
+  }
+
+  if (!mongoUri) {
+    return;
+  }
 
   // Attempt to connect if a MongoDB URI is configured and not yet connected
-  if (mongoUri && mongoose.connection.readyState !== 1) {
+  if (mongoose.connection.readyState !== 1) {
     try {
       await mongoose.connect(mongoUri);
       logger.info('MongoDB connected for index synchronization');
@@ -488,11 +534,6 @@ async function ensureMongooseIndexes(): Promise<void> {
     }
   }
 
-  if (mongoose.connection.readyState !== 1) {
-    return;
-  }
-
-  const modelNames = mongoose.modelNames();
   if (modelNames.length === 0) return;
 
   logger.info(`Ensuring Mongoose indexes for ${modelNames.length} model(s)...`);
@@ -547,6 +588,11 @@ async function startServer() {
     if (typeof bridgeMonitorJob.start === 'function') {
       await bridgeMonitorJob.start();
     }
+
+    // Start the course content indexing worker for the AGI tutor RAG
+    // pipeline (Issue #406). Fails open when the vector store is
+    // unreachable so single-node deployments keep working.
+    startIndexingJob();
 
     // Initialise the presence & availability system (Issue #405). Fails open
     // when Redis is unreachable so single-node deployments keep working.
@@ -646,6 +692,7 @@ server.listen(PORT, () => {
            '/api/metrics',
            '/api/health',
            '/api/jobs',
+           '/api/adaptation',
          ],
        });
      });
@@ -670,6 +717,7 @@ if (require.main === module) {
       { name: 'transaction-processor', run: () => typeof (transactionProcessor as any).stop === 'function' && (transactionProcessor as any).stop() },
       { name: 'transaction-events', run: () => typeof (transactionEvents as any).stopListening === 'function' && (transactionEvents as any).stopListening() },
       { name: 'presence', run: () => presenceService.destroy() },
+      { name: 'indexing-job', run: () => stopIndexingJob() },
       { name: 'job-queue', run: async () => { try { const jq = getJobQueue(); await jq.destroy(); } catch { /* queue may not be initialised */ } } },
       {
         name: 'redis',

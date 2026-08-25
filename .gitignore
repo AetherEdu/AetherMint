@@ -88,6 +88,9 @@ prof/
 
 # Deployment / CI artifacts
 .github/workflows/cache/
+
+# Chaos engineering results
+.chaos-results/
 .vercel/
 .netlify/
 .output/
