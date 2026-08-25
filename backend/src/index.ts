@@ -45,6 +45,8 @@ import * as transactionEvents from './events/transactionEvents';
 // Bridge relayer monitor watch job — Issue #423
 import { bridgeMonitorJob } from './workers/bridgeMonitorJob';
 import { processQuestionGenerationJob } from './workers/questionGenJob';
+// Course content indexing worker — Issue #406 (AGI tutor RAG pipeline)
+import { startIndexingJob, stopIndexingJob } from './workers/indexingJob';
 import questionGeneratorService from './services/questionGen/questionGenerator';
 
 // Background job queue — Issue #258
@@ -588,6 +590,11 @@ async function startServer() {
       await bridgeMonitorJob.start();
     }
 
+    // Start the course content indexing worker for the AGI tutor RAG
+    // pipeline (Issue #406). Fails open when the vector store is
+    // unreachable so single-node deployments keep working.
+    startIndexingJob();
+
     // Initialise the presence & availability system (Issue #405). Fails open
     // when Redis is unreachable so single-node deployments keep working.
     await presenceService.initialize();
@@ -711,6 +718,7 @@ if (require.main === module) {
       { name: 'transaction-processor', run: () => typeof (transactionProcessor as any).stop === 'function' && (transactionProcessor as any).stop() },
       { name: 'transaction-events', run: () => typeof (transactionEvents as any).stopListening === 'function' && (transactionEvents as any).stopListening() },
       { name: 'presence', run: () => presenceService.destroy() },
+      { name: 'indexing-job', run: () => stopIndexingJob() },
       { name: 'job-queue', run: async () => { try { const jq = getJobQueue(); await jq.destroy(); } catch { /* queue may not be initialised */ } } },
       {
         name: 'redis',
