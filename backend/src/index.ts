@@ -505,9 +505,25 @@ const PORT = process.env.PORT || 3001;
  */
 async function ensureMongooseIndexes(): Promise<void> {
   const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  const modelNames = mongoose.modelNames();
+
+  // Fail fast when Mongoose models are registered but no MongoDB URI is
+  // configured. Continuing would silently skip index synchronization and
+  // leave mongoose-backed routes behaving as if no database existed.
+  // (Issue #471)
+  if (!mongoUri && modelNames.length > 0) {
+    throw new Error(
+      'MongoDB is not configured: MONGODB_URI is unset while Mongoose models are ' +
+        'registered. Set MONGODB_URI in your environment (see .env.example).'
+    );
+  }
+
+  if (!mongoUri) {
+    return;
+  }
 
   // Attempt to connect if a MongoDB URI is configured and not yet connected
-  if (mongoUri && mongoose.connection.readyState !== 1) {
+  if (mongoose.connection.readyState !== 1) {
     try {
       await mongoose.connect(mongoUri);
       logger.info('MongoDB connected for index synchronization');
@@ -517,11 +533,6 @@ async function ensureMongooseIndexes(): Promise<void> {
     }
   }
 
-  if (mongoose.connection.readyState !== 1) {
-    return;
-  }
-
-  const modelNames = mongoose.modelNames();
   if (modelNames.length === 0) return;
 
   logger.info(`Ensuring Mongoose indexes for ${modelNames.length} model(s)...`);
