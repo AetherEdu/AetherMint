@@ -190,6 +190,12 @@ app.use(shutdownGuard(['/api/health', '/']));
 app.use(securityPerformanceTracker);
 // Blacklist check
 app.use(checkBlacklist);
+
+if (process.env.ADVANCED_RESTRICTIONS_ENABLED === 'true') {
+  app.use(advancedRestrictions);
+  logger.info('Advanced restrictions middleware enabled (geo/time)');
+}
+
 // DDoS protection
 app.use(ddosProtection);
 // Bot detection
