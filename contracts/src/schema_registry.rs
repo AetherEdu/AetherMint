@@ -28,8 +28,8 @@
 
 use crate::access_control;
 use crate::utils::validation::{
-    validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH, MAX_SHORT_TEXT_LENGTH,
-    MAX_TITLE_LENGTH,
+    validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH,
+    MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH,
 };
 use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
 
@@ -183,10 +183,8 @@ fn require_registry_admin(env: &Env, caller: &Address) {
         .unwrap_or_else(|| panic!("SchemaRegistry: not initialized"));
     if caller != &admin {
         // Also accept the global contract admin (stored under "admin").
-        let contract_admin: Option<Address> = env
-            .storage()
-            .instance()
-            .get(&Symbol::new(env, "admin"));
+        let contract_admin: Option<Address> =
+            env.storage().instance().get(&Symbol::new(env, "admin"));
         match contract_admin {
             Some(ref ca) if ca == caller => {}
             _ => panic!("SchemaRegistry: caller is not an admin"),
@@ -305,9 +303,7 @@ pub fn register_schema(
         .get(&author_key)
         .unwrap_or_else(|| Vec::new(env));
     author_schemas.push_back(schema_id);
-    env.storage()
-        .persistent()
-        .set(&author_key, &author_schemas);
+    env.storage().persistent().set(&author_key, &author_schemas);
 
     env.events().publish(
         (symbol_short!("schema"), symbol_short!("reg")),

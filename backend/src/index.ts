@@ -150,9 +150,9 @@ const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 // @ts-ignore
 const jobRoutes = loadRoute('./routes/jobRoutes');
 
-// Public verification route
+// DID registry routes — Issue #397
 // @ts-ignore
-const verifyRoutes = loadRoute('./routes/verify');
+const didRoutes = loadRoute('./routes/did');
 
 // Initialize Express app
 const app: Application = express();
@@ -369,8 +369,8 @@ app.use('/api/metrics', metricsRoutes);
 // Background job management routes — Issue #258
 app.use('/api/jobs', jobRoutes);
 
-// Engagement-aware content adaptation — Issue #408
-app.use('/api/adaptation', adaptationRoutes);
+// DID registry — Issue #397
+app.use('/api/did', didRoutes);
 
 // Root endpoint
 // ── Versioned API routes (/api/v1/*) ────────────────────────────────────────
@@ -410,7 +410,7 @@ app.use('/api/v1/time-lock', timeLockCredentialsRoutes);
 app.use('/api/v1/vrf', vrfRoutes);
 app.use('/api/v1/translate', translationRoutes);
 app.use('/api/v1/localization', localizationRoutes);
-app.use('/api/v1/adaptation', adaptationRoutes);
+app.use('/api/v1/did', didRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/verify', verifyRoutes);

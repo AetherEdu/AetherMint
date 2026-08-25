@@ -96,15 +96,19 @@ pub mod tokenomics_events;
 
 pub mod credential_registry;
 #[cfg(test)]
-mod credential_registry_test;
-#[cfg(test)]
 mod credential_registry_spec_test;
+#[cfg(test)]
+mod credential_registry_test;
+
+pub mod did_registry;
+#[cfg(test)]
+mod did_registry_test;
 
 pub mod schema_registry;
 #[cfg(test)]
-mod schema_registry_test;
-#[cfg(test)]
 mod schema_registry_spec_test;
+#[cfg(test)]
+mod schema_registry_test;
 
 #[cfg(test)]
 pub mod specs;
@@ -140,8 +144,10 @@ pub mod tokenomics;
 pub mod dynamic_fees;
 pub mod marketplace;
 pub mod profile_nft;
-pub mod zk;
 
+// Test modules for contracts disabled above (they reference disabled
+// contract symbols and cannot compile under soroban-sdk 26 until the
+// contracts themselves are re-enabled in separate crates).
 // #[cfg(test)]
 // mod analyticsStorage_test;
 // #[cfg(test)]
@@ -156,8 +162,8 @@ pub mod zk;
 // mod syncCoordination_test;
 // #[cfg(test)]
 // mod time_lock_credential_test;
-// #[cfg(test)]
-// mod user_profile_test;
+#[cfg(test)]
+mod user_profile_test;
 // #[cfg(test)]
 // mod vrf_system_test;
 
@@ -1029,6 +1035,67 @@ impl AetherMintContract {
     /// Whether a relayer is live (active and within the liveness window).
     pub fn is_relayer_live(env: Env, relayer: Address) -> bool {
         bridge::is_relayer_live(&env, relayer)
+    }
+
+    // ===== DID Registry (issue #397) =====
+
+    /// Register a new DID bound to the caller's wallet.
+    pub fn register_did(env: Env, controller: Address, verification_key: BytesN<32>) -> String {
+        PauseUtils::require_not_paused(&env);
+        did_registry::register_did(&env, controller, verification_key)
+    }
+
+    /// Resolve a DID to its current document.
+    pub fn resolve_did(env: Env, did: String) -> did_registry::DidDocument {
+        did_registry::resolve_did(&env, did)
+    }
+
+    /// Reverse lookup: the DID bound to a wallet, if any.
+    pub fn get_did_for_controller(env: Env, controller: Address) -> Option<String> {
+        did_registry::get_did_for_controller(&env, controller)
+    }
+
+    /// Whether a DID exists.
+    pub fn did_exists(env: Env, did: String) -> bool {
+        did_registry::did_exists(&env, did)
+    }
+
+    /// Rotate the verification key of a DID, returning the new key version.
+    pub fn rotate_did_key(
+        env: Env,
+        did: String,
+        new_key: BytesN<32>,
+        challenge: Bytes,
+        new_key_signature: BytesN<64>,
+    ) -> u32 {
+        PauseUtils::require_not_paused(&env);
+        did_registry::rotate_did_key(&env, did, new_key, challenge, new_key_signature)
+    }
+
+    /// Deactivate a DID. Only the controller may deactivate.
+    pub fn deactivate_did(env: Env, did: String) -> bool {
+        PauseUtils::require_not_paused(&env);
+        did_registry::deactivate_did(&env, did)
+    }
+
+    /// Full rotation history for a DID.
+    pub fn get_did_key_history(env: Env, did: String) -> Vec<did_registry::KeyRotationRecord> {
+        did_registry::get_key_history(&env, did)
+    }
+
+    /// Verify a signature over `message` against the DID's current key.
+    pub fn verify_did_signature(
+        env: Env,
+        did: String,
+        message: Bytes,
+        signature: BytesN<64>,
+    ) -> bool {
+        did_registry::verify_signature(&env, did, message, signature)
+    }
+
+    /// Credentials issued to the holder of a DID.
+    pub fn get_credentials_for_did(env: Env, did: String) -> Vec<u64> {
+        did_registry::get_credentials_for_did(&env, did)
     }
 
     // ===== Pause / Unpause (Circuit Breaker) =====
