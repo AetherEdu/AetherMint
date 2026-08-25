@@ -10995,6 +10995,69 @@
         }
       }
     },
+    "/api/agi-tutor/rag/ask": {
+      "post": {
+        "tags": [
+          "AGITutor"
+        ],
+        "summary": "Answer a question with retrieval-augmented generation over course content",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "question"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string"
+                  },
+                  "topK": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grounded answer with citations and grounding metrics"
+          },
+          "400": {
+            "description": "Missing question"
+          }
+        }
+      }
+    },
+    "/api/agi-tutor/rag/index": {
+      "post": {
+        "tags": [
+          "AGITutor"
+        ],
+        "summary": "Trigger indexing of course content into the vector store",
+        "responses": {
+          "200": {
+            "description": "Indexing completed"
+          }
+        }
+      }
+    },
+    "/api/agi-tutor/rag/status": {
+      "get": {
+        "tags": [
+          "AGITutor"
+        ],
+        "summary": "Get RAG pipeline indexing status",
+        "responses": {
+          "200": {
+            "description": "Indexing status"
+          }
+        }
+      }
+    },
     "/api/adaptation/signal": {
       "post": {
         "tags": [
