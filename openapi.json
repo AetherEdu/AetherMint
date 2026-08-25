@@ -1585,6 +1585,10 @@
       "description": "Course-content localization pipeline (multi-locale, workflow, fallback)"
     },
     {
+      "name": "DID Registry",
+      "description": "Self-sovereign identity (decentralized identifiers) for learners"
+    },
+    {
       "name": "Cross-Protocol Bridge",
       "description": "Cross-chain and cross-protocol interoperability bridge"
     },
@@ -10006,6 +10010,144 @@
         "responses": {
           "200": {
             "description": "Enrollments retrieved"
+          }
+        }
+      }
+    },
+    "/api/did/register": {
+      "post": {
+        "tags": [
+          "DID Registry"
+        ],
+        "summary": "Register a DID bound to a wallet",
+        "description": "Creates a `did:aethermint:<wallet>` identity holding the given verification key. One DID per wallet.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "DID registered"
+          }
+        }
+      }
+    },
+    "/api/did/resolve/{did}": {
+      "get": {
+        "tags": [
+          "DID Registry"
+        ],
+        "summary": "Resolve a DID document",
+        "responses": {
+          "200": {
+            "description": "DID document resolved"
+          }
+        }
+      }
+    },
+    "/api/did/controller/{controller}": {
+      "get": {
+        "tags": [
+          "DID Registry"
+        ],
+        "summary": "Reverse lookup — the DID bound to a wallet",
+        "responses": {
+          "200": {
+            "description": "DID found or null"
+          }
+        }
+      }
+    },
+    "/api/did/rotate": {
+      "post": {
+        "tags": [
+          "DID Registry"
+        ],
+        "summary": "Rotate a DID's verification key",
+        "description": "The new key must sign the challenge to prove possession. Old keys remain in the rotation history.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Key rotated"
+          }
+        }
+      }
+    },
+    "/api/did/deactivate": {
+      "post": {
+        "tags": [
+          "DID Registry"
+        ],
+        "summary": "Deactivate a DID",
+        "description": "Stops signature verification without deleting the document or its history.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DID deactivated"
+          }
+        }
+      }
+    },
+    "/api/did/verify": {
+      "post": {
+        "tags": [
+          "DID Registry"
+        ],
+        "summary": "Verify a signature against a DID's current key",
+        "responses": {
+          "200": {
+            "description": "Verification result"
+          }
+        }
+      }
+    },
+    "/api/did/{did}/credentials": {
+      "get": {
+        "tags": [
+          "DID Registry"
+        ],
+        "summary": "Credentials issued to a DID's holder",
+        "responses": {
+          "200": {
+            "description": "Credential id list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "DID Registry"
+        ],
+        "summary": "Link an issued credential to a DID's holder",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Credential linked"
+          }
+        }
+      }
+    },
+    "/api/did/{did}/history": {
+      "get": {
+        "tags": [
+          "DID Registry"
+        ],
+        "summary": "Rotation history of a DID",
+        "responses": {
+          "200": {
+            "description": "Rotation records"
           }
         }
       }
