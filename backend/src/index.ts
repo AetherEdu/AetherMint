@@ -146,6 +146,10 @@ const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 // @ts-ignore
 const jobRoutes = loadRoute('./routes/jobRoutes');
 
+// Public verification route
+// @ts-ignore
+const verifyRoutes = loadRoute('./routes/verify');
+
 // Initialize Express app
 const app: Application = express();
 const server = createServer(app);
@@ -379,6 +383,7 @@ app.use('/api/v1/translate', translationRoutes);
 app.use('/api/v1/localization', localizationRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/verify', verifyRoutes);
 app.get('/api/v1/health', (req, res) => {
   if (isShuttingDown()) {
     res.status(503).json({

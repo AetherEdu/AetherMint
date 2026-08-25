@@ -331,6 +331,23 @@ pub fn get_credential(env: &Env, credential_id: u64) -> CredentialRegistry {
         .unwrap_or_else(|| panic!("Credential not found"))
 }
 
+/// Get credential purely read-only without updating expiration status in storage
+pub fn get_credential_read_only(env: &Env, credential_id: u64) -> CredentialRegistry {
+    StorageVersion::require_compatible_version(env);
+    let mut credential: CredentialRegistry = env
+        .storage()
+        .persistent()
+        .get(&CredentialRegistryKey::Credential(credential_id))
+        .unwrap_or_else(|| panic!("Credential not found"));
+        
+    let current_time = env.ledger().timestamp();
+    if credential.status == CredentialStatus::Active && current_time >= credential.expires_at {
+        credential.status = CredentialStatus::Expired;
+    }
+    
+    credential
+}
+
 /// Get user credentials with current status
 pub fn get_user_credentials(env: &Env, user: Address) -> Vec<u64> {
     env.storage()
