@@ -148,6 +148,10 @@ const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 // @ts-ignore
 const jobRoutes = loadRoute('./routes/jobRoutes');
 
+// Engagement-aware content adaptation routes — Issue #408
+// @ts-ignore
+const adaptationRoutes = loadRoute('./routes/adaptation');
+
 // Initialize Express app
 const app: Application = express();
 const server = createServer(app);
@@ -363,6 +367,9 @@ app.use('/api/metrics', metricsRoutes);
 // Background job management routes — Issue #258
 app.use('/api/jobs', jobRoutes);
 
+// Engagement-aware content adaptation — Issue #408
+app.use('/api/adaptation', adaptationRoutes);
+
 // Root endpoint
 // ── Versioned API routes (/api/v1/*) ────────────────────────────────────────
 //
@@ -401,6 +408,7 @@ app.use('/api/v1/time-lock', timeLockCredentialsRoutes);
 app.use('/api/v1/vrf', vrfRoutes);
 app.use('/api/v1/translate', translationRoutes);
 app.use('/api/v1/localization', localizationRoutes);
+app.use('/api/v1/adaptation', adaptationRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/admin/audit', adminAuditRoutes);
@@ -667,6 +675,7 @@ server.listen(PORT, () => {
            '/api/metrics',
            '/api/health',
            '/api/jobs',
+           '/api/adaptation',
          ],
        });
      });
