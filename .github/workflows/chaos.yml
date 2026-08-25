@@ -1,0 +1,193 @@
+name: Chaos Engineering Suite
+
+# =============================================================================
+# AetherMint — Chaos Engineering Workflow
+# =============================================================================
+#
+# Runs resilience experiments against staging on a schedule (weekly) and on
+# demand via workflow_dispatch. The experiments validate that the platform
+# degrades gracefully when dependencies (Redis, MongoDB, RPC) fail or become
+# latent.
+#
+# Schedule: Every Sunday at 06:00 UTC (off-peak, after weekly backups).
+#
+# Results are uploaded as artifacts and summarised in the run summary.
+# This is non-blocking for the main CI pipeline — failures produce annotations
+# but do not prevent deployment (matching the project's "report, don't block"
+# posture).
+# =============================================================================
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'  # Weekly on Sunday at 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      experiment:
+        description: 'Experiment to run'
+        required: false
+        type: choice
+        default: 'all'
+        options:
+          - all
+          - redis
+          - mongo
+          - rpc
+          - pod
+      staging:
+        description: 'Enable destructive experiments'
+        required: false
+        type: boolean
+        default: false
+  # Also trigger on pushes to scripts/chaos/ or this workflow for validation
+  pull_request:
+    paths:
+      - 'scripts/chaos/**'
+      - '.github/workflows/chaos.yml'
+
+concurrency:
+  group: chaos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chaos-experiments:
+    name: Chaos Engineering — ${{ github.event.inputs.experiment || 'all' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      # Spin up a full local AetherMint stack for experiment isolation
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      STAGING: '${{ github.event.inputs.staging || ''false'' }}'
+      # Pod termination is destructive; only run in staging or manual dispatch
+      CHAOS_DURATION_SECONDS: '60'
+      BACKEND_HEALTH_URL: 'http://localhost:3001/api/health'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci -w backend
+
+      - name: Start backend service
+        run: |
+          cd backend
+          cp .env.example .env.chaos 2>/dev/null || true
+          echo "PORT=3001" >> .env.chaos
+          echo "REDIS_HOST=localhost" >> .env.chaos
+          echo "REDIS_PORT=6379" >> .env.chaos
+          echo "REDIS_PASSWORD=" >> .env.chaos
+          echo "MONGODB_URI=mongodb://localhost:27017/aethermint-chaos" >> .env.chaos
+          echo "NODE_ENV=development" >> .env.chaos
+
+          DOTENV_CONFIG_PATH=.env.chaos npx tsx src/index.ts &
+          BACKEND_PID=$!
+          echo "BACKEND_PID=$BACKEND_PID" >> "$GITHUB_ENV"
+
+          # Wait for backend to be ready
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:3001/api/health | grep -q 'healthy'; then
+              echo "Backend ready after ${i}s"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Verify backend health
+        run: |
+          curl -fsS http://localhost:3001/api/health
+          echo "Backend health check passed"
+
+      - name: Make experiment scripts executable
+        run: chmod +x scripts/chaos/experiments/*.sh scripts/chaos/run-experiments.sh
+
+      - name: Run chaos experiments
+        id: chaos
+        run: |
+          ARGS=""
+          if [[ -n "${{ github.event.inputs.experiment }}" ]]; then
+            ARGS="--experiment ${{ github.event.inputs.experiment }}"
+          fi
+          if [[ "${{ github.event.inputs.staging }}" == "true" ]]; then
+            ARGS="$ARGS --staging"
+          fi
+
+          set -o pipefail
+          scripts/chaos/run-experiments.sh $ARGS 2>&1 | tee /tmp/chaos-output.txt
+          echo "CHAOS_EXIT=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
+
+      - name: Upload chaos results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-results
+          path: |
+            .chaos-results/
+            /tmp/chaos-output.txt
+          retention-days: 90
+
+      - name: Report results summary
+        if: always()
+        run: |
+          echo "## Chaos Engineering Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ -f .chaos-results/summary.json ]]; then
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat .chaos-results/summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No summary produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Surface individual experiment results
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Experiment | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          for f in .chaos-results/*.json; do
+            if [[ "$f" == *.json ]] && [[ "$f" != *summary.json ]]; then
+              name="$(basename "$f" .json)"
+              result="$(grep -o '"result":"[^"]*"' "$f" | head -1 | cut -d'"' -f4)"
+              echo "| $name | $result |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Report experiment failures (non-blocking)
+        if: env.CHAOS_EXIT != '0'
+        run: |
+          echo "::warning title=Chaos experiment failures::One or more chaos experiments did not pass. Review the chaos-results artifact for details."
+
+      - name: Cleanup backend
+        if: always()
+        run: |
+          if [[ -n "${BACKEND_PID:-}" ]]; then
+            kill "$BACKEND_PID" 2>/dev/null || true
+          fi

@@ -22,6 +22,7 @@ jobs:
       contracts: ${{ steps.changes.outputs.contracts }}
       backend: ${{ steps.changes.outputs.backend }}
       frontend: ${{ steps.changes.outputs.frontend }}
+      release: ${{ steps.changes.outputs.release }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,6 +43,12 @@ jobs:
               - 'package.json'
               - 'package-lock.json'
               - '.github/workflows/ci-pr.yml'
+            release:
+              - 'scripts/**'
+              - 'infra/**'
+              - 'docs/infrastructure/**'
+              - '.github/workflows/ci-pr.yml'
+              - '.github/workflows/deploy.yml'
 
   build-contracts:
     name: Build & Lint Contracts
@@ -275,6 +282,20 @@ jobs:
         env:
           NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS: ${{ secrets.NEXT_PUBLIC_STELLAR_RECEIVER_ADDRESS || 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA' }}
 
+  validate-release-tooling:
+    name: Validate Release Tooling
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.release == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax check
+        run: bash -n scripts/deploy-blue-green.sh scripts/deploy-canary.sh scripts/rollback-release.sh scripts/update-release-state.sh scripts/test-release.sh
+
+      - name: Run release dry-run tests
+        run: scripts/test-release.sh
+
   security-scan:
     name: Security Scan
     needs: detect-changes
@@ -345,6 +366,7 @@ jobs:
       - build-backend
       - test-backend
       - build-frontend
+      - validate-release-tooling
       - security-scan
     if: ${{ always() }}
     runs-on: ubuntu-latest
@@ -357,6 +379,7 @@ jobs:
           echo "build-backend: ${{ needs.build-backend.result }}"
           echo "test-backend: ${{ needs.test-backend.result }}"
           echo "build-frontend: ${{ needs.build-frontend.result }}"
+          echo "validate-release-tooling: ${{ needs.validate-release-tooling.result }}"
           echo "security-scan: ${{ needs.security-scan.result }}"
 
       - name: Fail if any critical job failed
@@ -364,5 +387,6 @@ jobs:
           needs.build-contracts.result == 'failure' ||
           needs.spec-test-contracts.result == 'failure' ||
           needs.build-backend.result == 'failure' ||
-          needs.build-frontend.result == 'failure'
+          needs.build-frontend.result == 'failure' ||
+          needs.validate-release-tooling.result == 'failure'
         run: exit 1

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aethermint-frontend
+  labels:
+    app.kubernetes.io/component: frontend
+spec:
+  # ClusterIP on purpose: external traffic enters through the ingress, which
+  # terminates TLS and routes /api to the backend service.
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

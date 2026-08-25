@@ -45,6 +45,15 @@ services:
     networks:
       - aethermint-network
     restart: unless-stopped
+    # Resource requests/limits kept in parity with infra/k8s manifests.
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.1"
+          memory: 256m
+        limits:
+          cpus: "0.5"
+          memory: 512m
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
       interval: 30s
@@ -78,6 +87,8 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - MONGODB_URI=mongodb://mongodb:27017/aethermint
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION=aethermint_course_content
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,6 +97,15 @@ services:
     networks:
       - aethermint-network
     restart: unless-stopped
+    # Resource requests/limits kept in parity with infra/k8s manifests.
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512m
+        limits:
+          cpus: "1.0"
+          memory: 1g
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
       interval: 30s
@@ -110,6 +130,15 @@ services:
     networks:
       - aethermint-network
     restart: unless-stopped
+    # Resource requests/limits kept in parity with infra/k8s manifests.
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512m
+        limits:
+          cpus: "1.0"
+          memory: 1g
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U aethermint -d aethermint"]
       interval: 10s
@@ -134,6 +163,15 @@ services:
     networks:
       - aethermint-network
     restart: unless-stopped
+    # Resource requests/limits kept in parity with infra/k8s manifests.
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.1"
+          memory: 128m
+        limits:
+          cpus: "0.5"
+          memory: 512m
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -156,8 +194,40 @@ services:
     networks:
       - aethermint-network
     restart: unless-stopped
+    # Resource requests/limits kept in parity with infra/k8s manifests.
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512m
+        limits:
+          cpus: "1.0"
+          memory: 1g
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # --------------------------------------------------------------------------
+  # Qdrant - Vector store for the AGI tutor RAG pipeline (Issue #406)
+  # --------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:v1.9.7
+    container_name: aethermint-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - aethermint-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && echo ok' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -219,3 +289,5 @@ volumes:
     name: aethermint-redis-data
   mongo_data:
     name: aethermint-mongo-data
+  qdrant_data:
+    name: aethermint-qdrant-data

@@ -55,7 +55,7 @@ impl Lcg {
 
 const TRACE_DEPTH: u32 = 40;
 
-fn setup() -> (Env, AetherMintContractClient, Address) {
+fn setup() -> (Env, AetherMintContractClient<'static>, Address) {
     let env = Env::default();
     env.mock_all_auths();
     env.ledger().set_timestamp(2_000_000);

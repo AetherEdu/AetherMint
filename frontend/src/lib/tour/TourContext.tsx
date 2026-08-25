@@ -27,7 +27,6 @@ type TourContextType = {
 const TourContext = createContext<TourContextType | undefined>(undefined);
 
 export function TourProvider({ children }: { children: ReactNode }) {
-  const [isClient, setIsClient] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true); // default true to prevent flash
   const [dismissedTours, setDismissedTours] = useState<string[]>([]);
   const [activeTour, setActiveTour] = useState<string | null>(null);
@@ -35,7 +34,6 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   useEffect(() => {
-    setIsClient(true);
     const onboardingState = localStorage.getItem('aethermint_onboarding_completed');
     if (onboardingState !== 'true') {
       setHasCompletedOnboarding(false);
@@ -94,8 +92,8 @@ export function TourProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  if (!isClient) return <>{children}</>;
-
+  // Always render the provider so children that call useTour() during SSR
+  // (prerendering) receive a valid context instead of throwing.
   return (
     <TourContext.Provider
       value={{

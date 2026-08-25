@@ -1,5 +1,6 @@
 import logger from '../utils/logger';
 import { credentialIssuanceTotal, courseCompletionTotal, enrollmentTotal } from '../middleware/metrics';
+import { timeSloJourney } from '../metrics/slo';
 
 interface EventLog {
   id: number;
@@ -157,33 +158,37 @@ class EventLoggerService {
 
   /**
    * Log a course enrollment event
+   *
+   * Tracked against the enrollment SLO (see docs/observability/slo.md).
    */
   public async logCourseEnrollment(
     user: string,
     courseId: string,
     metadata: Record<string, any> = {}
   ): Promise<number> {
-    try {
-      const eventMetadata = {
-        ...metadata,
-        event_source: 'backend_service',
-        timestamp: new Date().toISOString()
-      };
+    return timeSloJourney('enrollment', async () => {
+      try {
+        const eventMetadata = {
+          ...metadata,
+          event_source: 'backend_service',
+          timestamp: new Date().toISOString()
+        };
 
-      const eventId = await this.invokeContract('log_course_enrollment', {
-        user,
-        course_id: courseId,
-        metadata: JSON.stringify(eventMetadata)
-      });
+        const eventId = await this.invokeContract('log_course_enrollment', {
+          user,
+          course_id: courseId,
+          metadata: JSON.stringify(eventMetadata)
+        });
 
-      logger.info(`Course enrollment logged for user ${user}, course ${courseId}, event ID: ${eventId}`);
-      enrollmentTotal.inc();
-      
-      return eventId;
-    } catch (error) {
-      logger.error('Error logging course enrollment:', error);
-      throw error;
-    }
+        logger.info(`Course enrollment logged for user ${user}, course ${courseId}, event ID: ${eventId}`);
+        enrollmentTotal.inc();
+        
+        return eventId;
+      } catch (error) {
+        logger.error('Error logging course enrollment:', error);
+        throw error;
+      }
+    });
   }
 
   /**
@@ -293,26 +298,32 @@ class EventLoggerService {
 
   /**
    * Verify event authenticity
+   *
+   * Tracked against the verification SLO (see docs/observability/slo.md).
+   * A "not authentic" result is still a successful request for SLO purposes;
+   * only thrown errors count against the error budget.
    */
   public async verifyEvent(eventId: number): Promise<boolean> {
-    try {
-      const event = await this.getEvent(eventId);
-      if (!event) return false;
-      
-      // In a real implementation, we would verify the event against the blockchain
-      // This might involve checking the contract state, transaction hashes, etc.
-      
-      // Basic verification - check if event exists and has required fields
-      const isValid = Boolean(event.id === eventId && 
-                     event.user && 
-                     event.timestamp > 0);
-      
-      logger.info(`Event ${eventId} verification: ${isValid ? 'PASSED' : 'FAILED'}`);
-      return isValid;
-    } catch (error) {
-      logger.error(`Error verifying event ${eventId}:`, error);
-      return false;
-    }
+    return timeSloJourney('verification', async () => {
+      try {
+        const event = await this.getEvent(eventId);
+        if (!event) return false;
+        
+        // In a real implementation, we would verify the event against the blockchain
+        // This might involve checking the contract state, transaction hashes, etc.
+        
+        // Basic verification - check if event exists and has required fields
+        const isValid = Boolean(event.id === eventId && 
+                       event.user && 
+                       event.timestamp > 0);
+        
+        logger.info(`Event ${eventId} verification: ${isValid ? 'PASSED' : 'FAILED'}`);
+        return isValid;
+      } catch (error) {
+        logger.error(`Error verifying event ${eventId}:`, error);
+        throw error;
+      }
+    });
   }
 
   /**

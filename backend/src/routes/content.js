@@ -9,6 +9,7 @@ const express = require('express');
 const multer = require('multer');
 const router = express.Router();
 const ipfsService = require('../services/ipfs');
+const { recordSlo } = require('../metrics/slo');
 const { requirePermission } = require('../middleware/rbac');
 const { PERMISSIONS } = require('../utils/roles');
 const { ipfsAuth, optionalIpfsAuth, validateContentAccess, validateFileSize } = require('../middleware/ipfsAuth');
@@ -205,6 +206,7 @@ router.get('/:cid',
   validateContentAccess,
   validate(getContentQuerySchema),
   async (req, res) => {
+    const sloStart = process.hrtime.bigint();
     try {
       const { cid } = req.params;
       const { format = 'buffer' } = req.query;
@@ -212,6 +214,9 @@ router.get('/:cid',
       const content = await ipfsService.getContent(cid, {
         bypassCache: req.query.bypassCache === 'true'
       });
+
+      // Tracked against the playback SLO (see docs/observability/slo.md)
+      recordSlo('playback', 'success', Number(process.hrtime.bigint() - sloStart) / 1e9);
 
       // Handle different response formats
       if (format === 'base64') {
@@ -245,6 +250,7 @@ router.get('/:cid',
         });
       }
 
+      recordSlo('playback', 'failure', Number(process.hrtime.bigint() - sloStart) / 1e9);
       res.status(500).json({
         success: false,
         message: 'Content retrieval failed',

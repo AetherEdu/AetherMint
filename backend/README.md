@@ -297,7 +297,25 @@ NODE_ENV=development
 LOG_LEVEL=debug
 DATABASE_URL=postgresql://user:password@localhost:5432/db
 REDIS_URL=redis://localhost:6379
+MONGODB_URI=mongodb://localhost:27017/aethermint
 ```
+
+### Databases
+
+The backend uses two databases with distinct responsibilities:
+
+- **PostgreSQL** (via `DATABASE_URL`) is the primary relational store. It holds
+  transactional data — users, enrollments, payments, courses, and audit logs —
+  and is managed through SQL migrations in `backend/migrations/`.
+- **MongoDB** (via `MONGODB_URI`) is the document store used by Mongoose-backed
+  services: content delivery and versions, notifications, offline sync,
+  quizzes and assignments, translations, whiteboard sessions, and similar
+  document-shaped data.
+
+`MONGODB_URI` is required at startup: the backend fails fast if Mongoose models
+are registered but no MongoDB URI is configured, so index synchronization and
+Mongoose-backed routes never silently run without a database. `docker-compose.yml`
+provides a `mongodb` service and wires `MONGODB_URI` for the backend container.
 
 ### Logger Configuration
 Logs are written to:

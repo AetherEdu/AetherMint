@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 use soroban_sdk::{contracttype, Address, Bytes, Env, String, Symbol, Vec};
 
 /// DNA nucleotide bases
@@ -238,6 +243,7 @@ pub fn decode_from_dna(env: &Env, dna_sequence: &DNASequence) -> Bytes {
 }
 
 /// Store credential in DNA format
+#[allow(clippy::too_many_arguments)] // Contract-facing signature; kept as-is.
 pub fn store_credential_in_dna(
     env: &Env,
     _credential_id: u64,

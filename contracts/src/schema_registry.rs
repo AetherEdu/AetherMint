@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 //! Verifiable Credential Schema Registry
 //!
 //! Closes Issue #421.
@@ -227,6 +232,7 @@ fn validate_fields(env: &Env, fields: &Vec<SchemaField>) {
 ///
 /// # Returns
 /// The freshly assigned `schema_id`.
+#[allow(clippy::too_many_arguments)] // Contract-facing signature; kept as-is.
 pub fn register_schema(
     env: &Env,
     author: Address,
