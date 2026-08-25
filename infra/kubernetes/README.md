@@ -31,6 +31,24 @@ must expose `/` on port 3000. Replace the image tags in the base deployments as
 part of the release promotion process; never use `latest` for a production
 release.
 
+## Blue-green release mode
+
+The `release/` overlay renders a blue and a green Deployment + Service pair for
+backend and frontend, replacing the single rolling-update Deployment during
+release-mode operation. Each color only talks to its own backend service; the
+edge router (the `ReleaseRoute` contract in
+[`../../release/release-route.yaml`](../../release/release-route.yaml)) sends
+traffic to the active color's frontend service.
+
+```bash
+kubectl kustomize infra/kubernetes/release
+```
+
+See [`docs/infrastructure/release-runbook.md`](../../docs/infrastructure/release-runbook.md)
+for the full blue-green/canary release and rollback procedure, and
+`scripts/deploy-blue-green.sh` / `scripts/deploy-canary.sh` for the
+coordinators that drive it.
+
 ## Regional readiness checks
 
 Before adding a region to global routing, verify:
