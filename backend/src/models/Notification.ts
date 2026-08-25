@@ -95,6 +95,7 @@ export interface INotificationPreference extends Document {
   userId: string;
   enabledCategories: string[];
   deliveryMethods: ("email" | "push" | "websocket")[];
+  digest: "none" | "daily" | "weekly";
   quietHours: {
     enabled: boolean;
     start: string;
@@ -123,6 +124,11 @@ const NotificationPreferenceSchema: Schema = new Schema(
         enum: ["email", "push", "websocket"],
       },
     ],
+    digest: {
+      type: String,
+      enum: ["none", "daily", "weekly"],
+      default: "none",
+    },
     quietHours: {
       enabled: { type: Boolean, default: false },
       start: { type: String, default: "22:00" },
