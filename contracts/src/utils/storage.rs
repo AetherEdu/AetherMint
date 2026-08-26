@@ -129,6 +129,7 @@ pub struct StorageUtils;
 
 impl StorageUtils {
     /// Store user data with minimal storage slots
+    #[allow(clippy::too_many_arguments)] // Storage helper with a fixed field set.
     pub fn store_user_compact(
         env: &Env,
         user: Address,
@@ -161,6 +162,7 @@ impl StorageUtils {
     }
 
     /// Store course data with packed structures
+    #[allow(clippy::too_many_arguments)] // Storage helper with a fixed field set.
     pub fn store_course_compact(
         env: &Env,
         course_id: String,
@@ -248,6 +250,7 @@ impl StorageUtils {
     }
 
     /// Batch store analytics data to reduce storage operations
+    #[allow(clippy::too_many_arguments)] // Storage helper with a fixed field set.
     pub fn store_analytics_batch(
         env: &Env,
         timestamp: u64,

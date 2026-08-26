@@ -54,7 +54,7 @@ impl Lcg {
 
 const TRACE_DEPTH: u32 = 32;
 
-fn setup() -> (Env, AetherMintContractClient, Address) {
+fn setup() -> (Env, AetherMintContractClient<'static>, Address) {
     let env = Env::default();
     env.mock_all_auths();
     env.ledger().set_timestamp(1_000_000);
@@ -169,8 +169,8 @@ fn spec_governance_invariants() {
                     let voter = voters[v_idx].clone();
 
                     let proposal_id = proposals[p_idx].id;
-                    let is_active = clock >= proposals[p_idx].start_time
-                        && clock < proposals[p_idx].end_time;
+                    let is_active =
+                        clock >= proposals[p_idx].start_time && clock < proposals[p_idx].end_time;
 
                     if !is_active {
                         // Precondition: do not vote outside the active window.
@@ -267,10 +267,7 @@ fn spec_governance_invariants() {
                             let _ = vote_count; // suppress unused warning
 
                             // Invariant GOV-4: totals consistent.
-                            let expected_total: i128 = proposals[p_idx]
-                                .votes_cast
-                                .values()
-                                .sum();
+                            let expected_total: i128 = proposals[p_idx].votes_cast.values().sum();
                             spec::inv_vote_totals_consistent(
                                 after_for,
                                 after_against,

@@ -1,10 +1,15 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 use crate::credential_events::{publish_credential_event, CredentialLifecycleEvent};
 use crate::utils::storage::{EntityType, StorageUtils, StorageVersion};
 use crate::utils::validation::{
     validate_duration, validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH,
     MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH, MAX_URI_LENGTH,
 };
-use soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{contracttype, Address, BytesN, Env, String, Symbol, Vec};
 
 /// Credential status enumeration
 #[contracttype]
@@ -65,6 +70,7 @@ pub enum CredentialRegistryKey {
     ExpiredCredentials,
     RenewalHistory(u64),   // credential_id -> Vec<RenewalRecord>
     AttestationCount(u64), // credential_id -> number of active attestations
+    Nullifier(BytesN<32>), // verifier-scoped nullifier for ZK proofs
 }
 
 /// Renewal record for tracking credential renewals
@@ -89,6 +95,7 @@ pub enum CredentialEvent {
 }
 
 /// Issue a new credential with expiration support
+#[allow(clippy::too_many_arguments)] // Contract-facing signature; kept as-is.
 pub fn issue_credential_with_expiration(
     env: &Env,
     issuer: Address,
@@ -329,6 +336,23 @@ pub fn get_credential(env: &Env, credential_id: u64) -> CredentialRegistry {
         .persistent()
         .get(&CredentialRegistryKey::Credential(credential_id))
         .unwrap_or_else(|| panic!("Credential not found"))
+}
+
+/// Get credential purely read-only without updating expiration status in storage
+pub fn get_credential_read_only(env: &Env, credential_id: u64) -> CredentialRegistry {
+    StorageVersion::require_compatible_version(env);
+    let mut credential: CredentialRegistry = env
+        .storage()
+        .persistent()
+        .get(&CredentialRegistryKey::Credential(credential_id))
+        .unwrap_or_else(|| panic!("Credential not found"));
+        
+    let current_time = env.ledger().timestamp();
+    if credential.status == CredentialStatus::Active && current_time >= credential.expires_at {
+        credential.status = CredentialStatus::Expired;
+    }
+    
+    credential
 }
 
 /// Get user credentials with current status
@@ -630,6 +654,7 @@ pub fn is_proctored_credential(env: &Env, credential_id: u64) -> bool {
 }
 
 /// Issue a credential and mark it as proctored once the session is linked.
+#[allow(clippy::too_many_arguments)] // Contract-facing signature; kept as-is.
 pub fn issue_proctored_cred_with_exp(
     env: &Env,
     issuer: Address,
@@ -692,3 +717,67 @@ pub fn migrate_v1_to_v2(env: &Env) -> u32 {
 
     touched
 }
+
+// ===== ZK Selective Disclosure Proof Verification =====
+
+/// Check if a nullifier has already been recorded in persistent storage.
+pub fn is_nullifier_used(env: &Env, nullifier: &BytesN<32>) -> bool {
+    env.storage()
+        .persistent()
+        .has(&CredentialRegistryKey::Nullifier(nullifier.clone()))
+}
+
+/// Verify a zero-knowledge proof for selective attribute disclosure on-chain.
+/// Ensures the proof is valid, non-transferable, and that the nullifier has not been spent.
+pub fn verify_zk_selective_proof(
+    env: &Env,
+    credential_id: u64,
+    proof: crate::zk::ZkProof,
+    holder: Address,
+    verifier: Address,
+) -> bool {
+    StorageVersion::require_compatible_version(env);
+    verifier.require_auth();
+
+    // 1. Verify credential exists and is active
+    if !is_credential_valid(env, credential_id) {
+        panic!("Credential is not valid or expired/revoked");
+    }
+
+    // 2. Prevent replay attacks: ensure nullifier has not been used
+    let nullifier_key = CredentialRegistryKey::Nullifier(proof.nullifier.clone());
+    if env.storage().persistent().has(&nullifier_key) {
+        panic!("Nullifier already used - replay attack prevented");
+    }
+
+    // 3. Cryptographic proof verification
+    match crate::zk::verify_zk_proof(env, &proof, &holder, &verifier) {
+        Ok(true) => {
+            // Store nullifier to prevent double-spending/replay
+            env.storage().persistent().set(&nullifier_key, &true);
+
+            // Publish credential event for verification audit trail
+            publish_credential_event(
+                env,
+                CredentialLifecycleEvent::Verified,
+                credential_id,
+                verifier,
+            );
+
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Alias for verify_zk_selective_proof
+pub fn verify_selective_disclosure_proof(
+    env: &Env,
+    credential_id: u64,
+    proof: crate::zk::ZkProof,
+    holder: Address,
+    verifier: Address,
+) -> bool {
+    verify_zk_selective_proof(env, credential_id, proof, holder, verifier)
+}
+

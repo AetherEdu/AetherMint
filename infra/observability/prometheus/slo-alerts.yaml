@@ -1,0 +1,176 @@
+# SLO recording and alerting rules for the AetherMint backend (Issue #415).
+#
+# Consumes the journey metrics emitted by the backend:
+#   aethermint_slo_requests_total{journey, result}             (counter)
+#   aethermint_slo_request_duration_seconds{journey}           (histogram)
+#   aethermint_slo_last_success_timestamp_seconds{journey}     (gauge)
+#
+# SLO targets (see docs/observability/slo.md):
+#   enrollment   availability 99.5% / latency p95 < 2s
+#   verification availability 99.9% / latency p95 < 1s
+#   playback     availability 99.9% / latency p95 < 1s
+#
+# Burn-rate alerts follow the multi-window, multi-burn-rate pattern from the
+# Google SRE Workbook so slow-burn and fast-burn SLO violations both page
+# promptly without alert fatigue.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: aethermint-slo-alerts
+  labels:
+    app.kubernetes.io/name: aethermint
+    app.kubernetes.io/part-of: aethermint
+    prometheus: k8s
+spec:
+  groups:
+    # ── Recording rules ────────────────────────────────────────────────────────
+    # Collapse instance/pod labels so the error ratio and burn rate are
+    # computed per journey across the whole fleet.
+    - name: aethermint-slo-recording.rules
+      interval: 1m
+      rules:
+        - record: aethermint:slo_requests_total:rate5m
+          expr: sum by (journey) (rate(aethermint_slo_requests_total[5m]))
+        - record: aethermint:slo_requests_total:rate30m
+          expr: sum by (journey) (rate(aethermint_slo_requests_total[30m]))
+        - record: aethermint:slo_requests_total:rate2h
+          expr: sum by (journey) (rate(aethermint_slo_requests_total[2h]))
+        - record: aethermint:slo_requests_total:rate24h
+          expr: sum by (journey) (rate(aethermint_slo_requests_total[24h]))
+        - record: aethermint:slo_errors_total:rate5m
+          expr: sum by (journey) (rate(aethermint_slo_requests_total{result="failure"}[5m]))
+        - record: aethermint:slo_errors_total:rate30m
+          expr: sum by (journey) (rate(aethermint_slo_requests_total{result="failure"}[30m]))
+        - record: aethermint:slo_errors_total:rate2h
+          expr: sum by (journey) (rate(aethermint_slo_requests_total{result="failure"}[2h]))
+        - record: aethermint:slo_errors_total:rate24h
+          expr: sum by (journey) (rate(aethermint_slo_requests_total{result="failure"}[24h]))
+        # Error ratio = failures / total traffic, per journey.
+        - record: aethermint:slo_error_ratio:rate5m
+          expr: |
+            aethermint:slo_errors_total:rate5m
+            / clamp_min(aethermint:slo_requests_total:rate5m, 1e-6)
+        - record: aethermint:slo_error_ratio:rate30m
+          expr: |
+            aethermint:slo_errors_total:rate30m
+            / clamp_min(aethermint:slo_requests_total:rate30m, 1e-6)
+        - record: aethermint:slo_error_ratio:rate2h
+          expr: |
+            aethermint:slo_errors_total:rate2h
+            / clamp_min(aethermint:slo_requests_total:rate2h, 1e-6)
+        - record: aethermint:slo_error_ratio:rate24h
+          expr: |
+            aethermint:slo_errors_total:rate24h
+            / clamp_min(aethermint:slo_requests_total:rate24h, 1e-6)
+        # Error budget remaining (0..1+). 0.99 = the highest SLO target; the
+        # dashboard highlights the per-journey target lines instead.
+        - record: aethermint:slo_error_budget_remaining
+          expr: |
+            1 - aethermint:slo_error_ratio:rate24h / (1 - 0.99)
+
+    # ── Alerting rules ─────────────────────────────────────────────────────────
+    - name: aethermint-slo-alerting.rules
+      interval: 1m
+      rules:
+        # Page: fast burn — consumes the whole 30-day error budget in < 2h.
+        # Burn rate 14.4 for a 1% error budget ⇒ ratio > 0.144 sustained over
+        # both the 5m and 30m windows.
+        - alert: AetherMintSLOPageFastBurn
+          expr: |
+            (
+              aethermint:slo_error_ratio:rate5m > 0.144
+              and on (journey) aethermint:slo_error_ratio:rate30m > 0.144
+            )
+          for: 2m
+          labels:
+            severity: page
+            journey: "{{ $labels.journey }}"
+          annotations:
+            summary: "{{ $labels.journey }} SLO fast burn (burn rate 14.4)"
+            description: >
+              The {{ $labels.journey }} journey is consuming its error budget at
+              burn rate ~14.4 (would exhaust the 30-day budget in under 2 hours).
+              Current error ratio (5m): {{ $value | humanizePercentage }}.
+
+        # Page: long burn — budget consumed within ~5h.
+        - alert: AetherMintSLOPageLongBurn
+          expr: |
+            (
+              aethermint:slo_error_ratio:rate30m > 0.06
+              and on (journey) aethermint:slo_error_ratio:rate2h > 0.06
+            )
+          for: 5m
+          labels:
+            severity: page
+            journey: "{{ $labels.journey }}"
+          annotations:
+            summary: "{{ $labels.journey }} SLO long burn (burn rate 6)"
+            description: >
+              The {{ $labels.journey }} journey is burning its error budget at a
+              sustained rate that would exhaust it within ~5 hours. Current error
+              ratio (30m): {{ $value | humanizePercentage }}.
+
+        # Ticket: short burn — budget consumed within ~1 day; create a ticket.
+        - alert: AetherMintSLOTicketShortBurn
+          expr: |
+            (
+              aethermint:slo_error_ratio:rate2h > 0.03
+              and on (journey) aethermint:slo_error_ratio:rate24h > 0.03
+            )
+          for: 10m
+          labels:
+            severity: ticket
+            journey: "{{ $labels.journey }}"
+          annotations:
+            summary: "{{ $labels.journey }} SLO burn (burn rate 3)"
+            description: >
+              The {{ $labels.journey }} journey is on track to exhaust its error
+              budget within about a day. Current error ratio (2h):
+              {{ $value | humanizePercentage }}.
+
+        # Critical error spike: a single journey returning mostly 5xx.
+        - alert: AetherMintCriticalErrorRate
+          expr: |
+            aethermint:slo_error_ratio:rate5m > 0.10
+          for: 5m
+          labels:
+            severity: page
+            journey: "{{ $labels.journey }}"
+          annotations:
+            summary: "Critical error rate on {{ $labels.journey }} journey"
+            description: >
+              More than 10% of {{ $labels.journey }} journey requests are failing
+              over the last 5 minutes (error ratio {{ $value | humanizePercentage }}).
+              See docs/observability/runbook.md.
+
+        # Total outage: no successful request for the journey for 10 minutes
+        # while traffic is still arriving.
+        - alert: AetherMintJourneyNoSuccess
+          expr: |
+            time() - aethermint_slo_last_success_timestamp_seconds > 600
+            and on (journey) aethermint:slo_requests_total:rate5m > 0
+          for: 2m
+          labels:
+            severity: page
+            journey: "{{ $labels.journey }}"
+          annotations:
+            summary: "No successful {{ $labels.journey }} requests for 10m"
+            description: >
+              The {{ $labels.journey }} journey is receiving traffic but has not
+              completed a single successful request in the last 10 minutes.
+              See docs/observability/runbook.md.
+
+        # Error budget mostly consumed (ticket, not page).
+        - alert: AetherMintErrorBudgetDepleted
+          expr: |
+            aethermint:slo_error_budget_remaining < 0.25
+          for: 1h
+          labels:
+            severity: ticket
+            journey: "{{ $labels.journey }}"
+          annotations:
+            summary: "{{ $labels.journey }} error budget below 25%"
+            description: >
+              The {{ $labels.journey }} journey has less than 25% of its 30-day
+              error budget remaining. Review the dashboards and schedule
+              reliability work before the budget is exhausted.

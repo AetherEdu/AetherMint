@@ -72,7 +72,7 @@ impl Lcg {
 
 const TRACE_DEPTH: u32 = 48;
 
-fn setup() -> (Env, AetherMintContractClient, Address) {
+fn setup() -> (Env, AetherMintContractClient<'static>, Address) {
     let env = Env::default();
     env.mock_all_auths();
     env.ledger().set_timestamp(2_000_000);
@@ -210,8 +210,7 @@ fn spec_credential_registry_invariants() {
                     match client.try_revoke_credential_registry(&shadow.id, &admin) {
                         Ok(true) => {
                             // Postcondition: status must be Revoked (2).
-                            let status =
-                                client.check_credential_expiration(&shadow.id);
+                            let status = client.check_credential_expiration(&shadow.id);
                             spec::post_revoked_status(status, shadow.id);
 
                             // Invariant: revoked credential is not active.
@@ -289,15 +288,18 @@ fn spec_credential_registry_invariants() {
             // Invariant CR-1 (total count).
             let stored_count = client.get_credential_count();
             assert_eq!(
-                stored_count,
-                total_issued,
+                stored_count, total_issued,
                 "[CR-1] {trace_label}: total count mismatch"
             );
 
             // Invariant CR-4 (per-recipient counts).
             for (i, recipient) in recipients.iter().enumerate() {
                 let list = client.get_user_credentials_with_status(recipient);
-                spec::inv_per_recipient_count(list.len(), per_recipient[i], &std::format!("recipient[{i}]"));
+                spec::inv_per_recipient_count(
+                    list.len(),
+                    per_recipient[i],
+                    &std::format!("recipient[{i}]"),
+                );
             }
         }
     }

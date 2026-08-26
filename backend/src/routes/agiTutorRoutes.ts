@@ -123,4 +123,60 @@ router.post('/emotional-support', async (req, res) => {
   await agiTutorController.provideEmotionalSupport(req, res);
 });
 
+/**
+ * @openapi
+ * /api/agi-tutor/rag/ask:
+ *   post:
+ *     tags: [AGITutor]
+ *     summary: Answer a question with retrieval-augmented generation over course content
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [question]
+ *             properties:
+ *               question:
+ *                 type: string
+ *               topK:
+ *                 type: number
+ *     responses:
+ *       '200':
+ *         description: Grounded answer with citations and grounding metrics
+ *       '400':
+ *         description: Missing question
+ */
+router.post('/rag/ask', async (req, res) => {
+  await agiTutorController.askRagQuestion(req, res);
+});
+
+/**
+ * @openapi
+ * /api/agi-tutor/rag/index:
+ *   post:
+ *     tags: [AGITutor]
+ *     summary: Trigger indexing of course content into the vector store
+ *     responses:
+ *       '200':
+ *         description: Indexing completed
+ */
+router.post('/rag/index', async (req, res) => {
+  await agiTutorController.triggerRagIndexing(req, res);
+});
+
+/**
+ * @openapi
+ * /api/agi-tutor/rag/status:
+ *   get:
+ *     tags: [AGITutor]
+ *     summary: Get RAG pipeline indexing status
+ *     responses:
+ *       '200':
+ *         description: Indexing status
+ */
+router.get('/rag/status', async (req, res) => {
+  await agiTutorController.getRagStatus(req, res);
+});
+
 export default router;

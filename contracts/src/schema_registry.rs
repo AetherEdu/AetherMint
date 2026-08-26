@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 //! Verifiable Credential Schema Registry
 //!
 //! Closes Issue #421.
@@ -23,8 +28,8 @@
 
 use crate::access_control;
 use crate::utils::validation::{
-    validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH, MAX_SHORT_TEXT_LENGTH,
-    MAX_TITLE_LENGTH,
+    validate_non_zero_address, validate_string_length, MAX_DESCRIPTION_LENGTH,
+    MAX_SHORT_TEXT_LENGTH, MAX_TITLE_LENGTH,
 };
 use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
 
@@ -178,10 +183,8 @@ fn require_registry_admin(env: &Env, caller: &Address) {
         .unwrap_or_else(|| panic!("SchemaRegistry: not initialized"));
     if caller != &admin {
         // Also accept the global contract admin (stored under "admin").
-        let contract_admin: Option<Address> = env
-            .storage()
-            .instance()
-            .get(&Symbol::new(env, "admin"));
+        let contract_admin: Option<Address> =
+            env.storage().instance().get(&Symbol::new(env, "admin"));
         match contract_admin {
             Some(ref ca) if ca == caller => {}
             _ => panic!("SchemaRegistry: caller is not an admin"),
@@ -229,6 +232,7 @@ fn validate_fields(env: &Env, fields: &Vec<SchemaField>) {
 ///
 /// # Returns
 /// The freshly assigned `schema_id`.
+#[allow(clippy::too_many_arguments)] // Contract-facing signature; kept as-is.
 pub fn register_schema(
     env: &Env,
     author: Address,
@@ -299,9 +303,7 @@ pub fn register_schema(
         .get(&author_key)
         .unwrap_or_else(|| Vec::new(env));
     author_schemas.push_back(schema_id);
-    env.storage()
-        .persistent()
-        .set(&author_key, &author_schemas);
+    env.storage().persistent().set(&author_key, &author_schemas);
 
     env.events().publish(
         (symbol_short!("schema"), symbol_short!("reg")),
