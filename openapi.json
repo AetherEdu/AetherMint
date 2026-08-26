@@ -8661,28 +8661,495 @@
         }
       }
     },
-    "/api/payments/create-payment-intent": {
+    "/api/payments/checkout": {
       "post": {
         "tags": [
           "Payments"
         ],
-        "summary": "Create payment intent",
+        "summary": "Create a unified checkout for a course purchase (Stripe or Stellar)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "enrollmentId",
+                  "method",
+                  "amount",
+                  "currency"
+                ],
+                "properties": {
+                  "enrollmentId": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "stripe",
+                      "stellar"
+                    ]
+                  },
+                  "amount": {
+                    "type": "number"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "stellar": {
+                    "type": "object",
+                    "properties": {
+                      "fromAddress": {
+                        "type": "string"
+                      },
+                      "assetCode": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
-            "description": "Payment intent created"
+          "201": {
+            "description": "Checkout created with gateway data (Stripe client secret or Stellar XDR)"
+          },
+          "400": {
+            "description": "Invalid payment parameters"
           }
         }
       }
     },
-    "/api/payments/webhook": {
+    "/api/payments/checkout/{checkoutId}/confirm": {
       "post": {
         "tags": [
           "Payments"
         ],
-        "summary": "Handle payment webhook",
+        "summary": "Confirm a checkout (submit signed Stellar XDR or confirm Stripe intent)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "checkoutId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "signedTransactionXDR": {
+                    "type": "string"
+                  },
+                  "paymentMethodId": {
+                    "type": "string"
+                  },
+                  "paymentIntentId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout confirmed"
+          }
+        }
+      }
+    },
+    "/api/payments/checkout/{checkoutId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get checkout details",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "checkoutId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Checkout details retrieved"
+          }
+        }
+      }
+    },
+    "/api/payments/intent": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Create a payment intent",
+        "security": [
+          {
+            "bearerAuth": [],
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Payment intent created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "paymentIntentId": {
+                          "type": "string",
+                          "example": "pi_01HXZ9QABC000001"
+                        },
+                        "clientSecret": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "stellarMemo": {
+                          "type": "string",
+                          "nullable": true,
+                          "example": "AETHERMINT-PAY-01HXZ9"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payment parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Payment service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "description": "Initiates a new payment for a course enrollment. Supports Stellar XLM, Stripe, and PayPal. Returns a payment intent object containing the information needed to complete the payment on the client side.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentIntentRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/stellar/create": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Create a Stellar payment intent",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Stellar payment intent created with XDR"
+          }
+        }
+      }
+    },
+    "/api/payments/stellar/submit": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Submit a signed Stellar transaction",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment processed"
+          }
+        }
+      }
+    },
+    "/api/payments/webhook/stripe": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Stripe webhook (signature verified, raw body)",
+        "responses": {
+          "200": {
+            "description": "Webhook received"
+          }
+        }
+      }
+    },
+    "/api/payments/webhook/stellar": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Stellar webhook (triggers on-chain reconciliation)",
         "responses": {
           "200": {
             "description": "Webhook processed"
+          }
+        }
+      }
+    },
+    "/api/payments/reconcile": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Trigger reconciliation of pending crypto payments against the Stellar network",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reconciliation summary"
+          }
+        }
+      }
+    },
+    "/api/payments/methods": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get supported payment methods",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment methods retrieved"
+          }
+        }
+      }
+    },
+    "/api/payments/exchange-rates": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get current exchange rates",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exchange rates retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "number"
+                      },
+                      "example": {
+                        "XLM_USD": 0.11,
+                        "USD_EUR": 0.92
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Exchange rate service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns live exchange rates for supported currencies (XLM, USD, EUR, etc.)."
+      }
+    },
+    "/api/payments/convert": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Convert currency amount",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Converted amount"
+          }
+        }
+      }
+    },
+    "/api/payments/validate": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Validate payment parameters",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validation result"
+          }
+        }
+      }
+    },
+    "/api/payments/analytics": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get payment analytics",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment analytics retrieved"
+          }
+        }
+      }
+    },
+    "/api/payments/history/{userId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get payment history for a user",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment history retrieved"
+          }
+        }
+      }
+    },
+    "/api/payments/receipt/{paymentId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Generate payment receipt",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt generated"
           }
         }
       }
@@ -8693,6 +9160,11 @@
           "Payments"
         ],
         "summary": "Get payment details",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -8715,7 +9187,12 @@
         "tags": [
           "Payments"
         ],
-        "summary": "Refund payment",
+        "summary": "Refund a payment (Stripe or Stellar)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -8726,32 +9203,29 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Payment refunded"
-          }
-        }
-      }
-    },
-    "/api/payments/history/{userId}": {
-      "get": {
-        "tags": [
-          "Payments"
-        ],
-        "summary": "Get payment history for user",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "userId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Payment history retrieved"
           }
         }
       }
@@ -12522,96 +12996,6 @@
         }
       }
     },
-    "/api/payments/intent": {
-      "post": {
-        "tags": [
-          "Payments"
-        ],
-        "summary": "Create a payment intent",
-        "description": "Initiates a new payment for a course enrollment. Supports Stellar XLM, Stripe, and PayPal. Returns a payment intent object containing the information needed to complete the payment on the client side.\n",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PaymentIntentRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Payment intent created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "paymentIntentId": {
-                          "type": "string",
-                          "example": "pi_01HXZ9QABC000001"
-                        },
-                        "clientSecret": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "stellarMemo": {
-                          "type": "string",
-                          "nullable": true,
-                          "example": "AETHERMINT-PAY-01HXZ9"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid payment parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Payment service error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/payments/{id}": {
       "get": {
         "tags": [
@@ -12858,53 +13242,6 @@
           },
           "500": {
             "description": "Stellar network error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/payments/exchange-rates": {
-      "get": {
-        "tags": [
-          "Payments"
-        ],
-        "summary": "Get current exchange rates",
-        "description": "Returns live exchange rates for supported currencies (XLM, USD, EUR, etc.).",
-        "responses": {
-          "200": {
-            "description": "Exchange rates retrieved",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "type": "number"
-                      },
-                      "example": {
-                        "XLM_USD": 0.11,
-                        "USD_EUR": 0.92
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Exchange rate service error",
             "content": {
               "application/json": {
                 "schema": {
