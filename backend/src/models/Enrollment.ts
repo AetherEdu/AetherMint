@@ -27,6 +27,7 @@ export enum PaymentStatus {
 
 export enum PaymentMethod {
   STELLAR = 'stellar',
+  STRIPE = 'stripe',
   CREDIT_CARD = 'credit_card',
   BANK_TRANSFER = 'bank_transfer',
   CRYPTO = 'crypto',

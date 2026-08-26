@@ -302,7 +302,8 @@ export class ReportingService {
         averageRevenuePerEnrollment: 228,
         revenueByPaymentMethod: {
           [PaymentMethod.STELLAR]: 142500,
-          [PaymentMethod.CREDIT_CARD]: 114000,
+          [PaymentMethod.STRIPE]: 114000,
+          [PaymentMethod.CREDIT_CARD]: 0,
           [PaymentMethod.BANK_TRANSFER]: 28500,
           [PaymentMethod.CRYPTO]: 0,
           [PaymentMethod.INSTALLMENT]: 0
@@ -342,10 +343,15 @@ export class ReportingService {
           revenue: 142500,
           successRate: 96.5
         },
-        [PaymentMethod.CREDIT_CARD]: {
+        [PaymentMethod.STRIPE]: {
           count: 500,
           revenue: 114000,
           successRate: 94.8
+        },
+        [PaymentMethod.CREDIT_CARD]: {
+          count: 0,
+          revenue: 0,
+          successRate: 0
         },
         [PaymentMethod.BANK_TRANSFER]: {
           count: 100,
@@ -415,7 +421,8 @@ export class ReportingService {
         averageRevenuePerEnrollment: 99.90,
         revenueByPaymentMethod: {
           [PaymentMethod.STELLAR]: 7492,
-          [PaymentMethod.CREDIT_CARD]: 5994,
+          [PaymentMethod.STRIPE]: 5994,
+          [PaymentMethod.CREDIT_CARD]: 0,
           [PaymentMethod.BANK_TRANSFER]: 1499,
           [PaymentMethod.CRYPTO]: 0,
           [PaymentMethod.INSTALLMENT]: 0
@@ -533,7 +540,8 @@ export class ReportingService {
         ],
         paymentMethods: {
           [PaymentMethod.STELLAR]: { count: 4, amount: 399.96 },
-          [PaymentMethod.CREDIT_CARD]: { count: 3, amount: 299.96 },
+          [PaymentMethod.STRIPE]: { count: 3, amount: 299.96 },
+          [PaymentMethod.CREDIT_CARD]: { count: 0, amount: 0 },
           [PaymentMethod.BANK_TRANSFER]: { count: 1, amount: 100.00 },
           [PaymentMethod.CRYPTO]: { count: 0, amount: 0 },
           [PaymentMethod.INSTALLMENT]: { count: 0, amount: 0 }

@@ -12,6 +12,34 @@ export type Payment = PaymentTransaction;
 export type RefundRequest = { transactionId: string; reason: string; amount: number; };
 export type RefundAnalytics = { totalRefunds: number; totalAmount: number; reasons: Record<string, number>; };
 
+// Unified checkout (Issue #391) — one abstraction over both payment rails.
+export type CheckoutMethod = 'stripe' | 'stellar';
+export type CheckoutStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'expired';
+
+export interface Checkout {
+  id: string;
+  enrollmentId: string;
+  userId: string;
+  courseId?: string;
+  amount: number;
+  currency: string;
+  method: CheckoutMethod;
+  status: CheckoutStatus;
+  /** PaymentService payment intent id backing this checkout. */
+  paymentIntentId?: string;
+  /** Local payment record id (set at creation, confirmed once finalized). */
+  paymentId?: string;
+  /** Gateway reference: Stripe PaymentIntent id or Stellar payment id. */
+  gatewayPaymentIntentId?: string;
+  gatewayData?: Record<string, any>;
+  transactionHash?: string;
+  createdAt: Date;
+  expiresAt?: Date;
+  confirmedAt?: Date;
+  failedAt?: Date;
+  failureReason?: string;
+}
+
 export interface PaymentGateway {
   id: string;
   name: string;

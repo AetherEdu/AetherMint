@@ -27,7 +27,11 @@ type TourContextType = {
 const TourContext = createContext<TourContextType | undefined>(undefined);
 
 export function TourProvider({ children }: { children: ReactNode }) {
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true); // default true to prevent flash
+  // The provider is always mounted — even during SSR/static generation — so
+  // that components calling useTour() (TourGuide, OnboardingModal, profile
+  // pages) render safely. Onboarding state defaults to "completed" to avoid
+  // flashing the modal before the localStorage read resolves on the client.
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true);
   const [dismissedTours, setDismissedTours] = useState<string[]>([]);
   const [activeTour, setActiveTour] = useState<string | null>(null);
   const [tourSteps, setTourSteps] = useState<TourStep[]>([]);
@@ -92,8 +96,6 @@ export function TourProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Always render the provider so children that call useTour() during SSR
-  // (prerendering) receive a valid context instead of throwing.
   return (
     <TourContext.Provider
       value={{
