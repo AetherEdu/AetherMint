@@ -130,6 +130,10 @@ const analyticsRoutes = loadRoute('./routes/analytics');
 // @ts-ignore
 const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 
+// Passkey (WebAuthn) authentication routes
+// @ts-ignore
+const passkeyAuthRoutes = loadRoute('./routes/passkeyAuth');
+
 // Job management routes — Issue #258
 // @ts-ignore
 const jobRoutes = loadRoute('./routes/jobRoutes');
@@ -308,6 +312,9 @@ app.use('/api/audit', auditRoutes);
 // CSP Violation Reporting endpoint
 app.use('/api/csp-violation', cspViolationRoutes);
 
+// Passkey (WebAuthn) authentication endpoints
+app.use('/api/auth/passkeys', passkeyAuthRoutes);
+
 // Prometheus metrics endpoint
 // @ts-ignore
 const metricsRoutes = resolveRoute(require('./routes/metrics'));
@@ -315,6 +322,9 @@ app.use('/api/metrics', metricsRoutes);
 
 // Background job management routes — Issue #258
 app.use('/api/jobs', jobRoutes);
+
+// ── Versioned passkey routes ────────────────────────────────────────────────
+app.use('/api/v1/auth/passkeys', apiVersionHeader, passkeyAuthRoutes);
 
 // Root endpoint
 // ── Versioned API routes (/api/v1/*) ────────────────────────────────────────
