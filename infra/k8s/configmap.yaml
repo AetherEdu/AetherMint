@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aethermint-config
+  labels:
+    app.kubernetes.io/name: aethermint
+data:
+  # Backend
+  NODE_ENV: production
+  PORT: "3001"
+  LOG_LEVEL: info
+  # Replace with the public origin served by the ingress so browser-side API
+  # calls target the same host (the ingress routes /api to the backend).
+  NEXT_PUBLIC_API_URL: https://aethermint.example.com
+  NEXT_PUBLIC_STELLAR_NETWORK: testnet
+
+  # Supporting services (service discovery via the cluster DNS names below)
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  MONGODB_URI: mongodb://mongodb:27017/aethermint

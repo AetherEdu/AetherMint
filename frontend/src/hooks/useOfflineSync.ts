@@ -470,3 +470,108 @@ const deleteDataFromIndexedDB = (db: IDBDatabase, key: string): Promise<void> =>
     request.onsuccess = () => resolve();
   });
 };
+
+/**
+ * Reconcile two progress objects deterministically (Conflict-Free)
+ * High completion %, latest playback timestamp, and union of completed lessons.
+ */
+export const reconcileProgress = (localProgress: any, remoteProgress: any) => {
+  if (!localProgress) return remoteProgress;
+  if (!remoteProgress) return localProgress;
+
+  const completedLessons = Array.from(
+    new Set([
+      ...(localProgress.completedLessons || []),
+      ...(remoteProgress.completedLessons || []),
+    ])
+  );
+
+  const playbackPositions = {
+    ...(remoteProgress.playbackPositions || {}),
+    ...(localProgress.playbackPositions || {}),
+  };
+
+  // Merge lesson timestamps picking the latest timestamp per lesson
+  const allLessonIds = new Set([
+    ...Object.keys(localProgress.playbackPositions || {}),
+    ...Object.keys(remoteProgress.playbackPositions || {}),
+  ]);
+
+  allLessonIds.forEach((lessonId) => {
+    const localPos = localProgress.playbackPositions?.[lessonId];
+    const remotePos = remoteProgress.playbackPositions?.[lessonId];
+
+    if (localPos && remotePos) {
+      if ((localPos.lastUpdated || 0) >= (remotePos.lastUpdated || 0)) {
+        playbackPositions[lessonId] = localPos;
+      } else {
+        playbackPositions[lessonId] = remotePos;
+      }
+    }
+  });
+
+  const overallProgress = Math.max(
+    localProgress.overallProgress || 0,
+    remoteProgress.overallProgress || 0
+  );
+
+  const lastActiveLessonId =
+    (localProgress.lastUpdated || 0) >= (remoteProgress.lastUpdated || 0)
+      ? localProgress.lastActiveLessonId || remoteProgress.lastActiveLessonId
+      : remoteProgress.lastActiveLessonId || localProgress.lastActiveLessonId;
+
+  return {
+    courseId: localProgress.courseId || remoteProgress.courseId,
+    overallProgress,
+    completedLessons,
+    lastActiveLessonId,
+    playbackPositions,
+    lastUpdated: Math.max(localProgress.lastUpdated || 0, remoteProgress.lastUpdated || 0),
+  };
+};
+
+/** Hook for storage quota management & download metrics */
+export const useStorageQuota = () => {
+  const [quotaInfo, setQuotaInfo] = useState<{
+    quota: number;
+    usage: number;
+    usagePercentage: number;
+    availableBytes: number;
+  }>({
+    quota: 1024 * 1024 * 500,
+    usage: 0,
+    usagePercentage: 0,
+    availableBytes: 1024 * 1024 * 500,
+  });
+
+  const refreshQuota = useCallback(async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+        const estimate = await navigator.storage.estimate();
+        const quota = estimate.quota || 1024 * 1024 * 1024;
+        const usage = estimate.usage || 0;
+        const usagePercentage = Math.min(100, (usage / quota) * 100);
+        const availableBytes = Math.max(0, quota - usage);
+
+        setQuotaInfo({
+          quota,
+          usage,
+          usagePercentage,
+          availableBytes,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to get storage estimate:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshQuota();
+  }, [refreshQuota]);
+
+  return {
+    quotaInfo,
+    refreshQuota,
+  };
+};
+

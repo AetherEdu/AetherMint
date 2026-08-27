@@ -461,13 +461,8 @@ fn test_zero_release_time() {
     let hash = create_test_credential_hash(&env);
 
     env.mock_all_auths();
-    let credential_id = client.issue_credential(
-        &issuer,
-        &recipient,
-        &hash,
-        &"Test".into_val(&env),
-        &0,
-    );
+    let credential_id =
+        client.issue_credential(&issuer, &recipient, &hash, &"Test".into_val(&env), &0);
 
     // Should be immediately releasable
     let result = client.try_release_credential(&credential_id, &recipient);
@@ -586,7 +581,7 @@ fn test_batch_release_with_errors() {
 
     // cred2 should succeed, cred1 and cred3 should fail
     assert!(results.get(0).unwrap().is_err()); // cred1 not yet released
-    assert!(results.get(1).unwrap().is_ok());  // cred2 released
+    assert!(results.get(1).unwrap().is_ok()); // cred2 released
     assert!(results.get(2).unwrap().is_err()); // cred3 not yet released
 }
 

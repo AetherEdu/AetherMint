@@ -1,0 +1,42 @@
+# Persistent volumes for the stateful supporting services. Sizes are starting
+# points; right-size them for the deployment. No storageClassName is set, so
+# the cluster default StorageClass provisions the volume — set one explicitly
+# if a specific provider (e.g. gp3, premium-ssd) is required.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aethermint-postgres-data
+  labels:
+    app.kubernetes.io/component: postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aethermint-redis-data
+  labels:
+    app.kubernetes.io/component: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aethermint-mongo-data
+  labels:
+    app.kubernetes.io/component: mongodb
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

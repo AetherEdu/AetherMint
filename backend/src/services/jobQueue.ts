@@ -32,6 +32,7 @@ export type JobType =
   | 'report_generation'
   | 'data_export'
   | 'content_processing'
+  | 'question_generation'
   | 'general';
 
 export interface JobData {

@@ -1,0 +1,56 @@
+apiVersion: aethermint.io/v1alpha1
+kind: MultiRegionTopology
+metadata:
+  name: aethermint-production
+spec:
+  regions:
+    - name: region-a
+      role: primary
+      clusterContext: aethermint-region-a
+      endpoint: https://region-a.example.invalid
+    - name: region-b
+      role: standby
+      clusterContext: aethermint-region-b
+      endpoint: https://region-b.example.invalid
+
+  routing:
+    mode: nearest-healthy
+    healthPath: /api/health
+    healthIntervalSeconds: 15
+    unhealthyAfterFailures: 3
+    recoveryAfterSuccesses: 2
+    failoverOrder: [region-a, region-b]
+
+  availability:
+    target: 99.9%
+    rtoMinutes: 15
+    rpoMinutes: 5
+
+  replication:
+    postgresql:
+      mode: asynchronous-physical-standby
+      primaryRegion: region-a
+      standbyRegions: [region-b]
+      maxReplicationLagSeconds: 300
+      promotion: manual-with-verification
+    mongodb:
+      mode: replica-set
+      members:
+        - region-a
+        - region-b
+      writeConcern: majority
+      readPreference: primaryPreferred
+    redis:
+      mode: active-passive
+      primaryRegion: region-a
+      standbyRegions: [region-b]
+      persistence: aof
+      promotion: manual-with-verification
+
+  statelessServices:
+    - name: backend
+      replicasPerRegion: 3
+      readinessPath: /api/health
+    - name: frontend
+      replicasPerRegion: 2
+      readinessPath: /

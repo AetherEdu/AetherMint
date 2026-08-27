@@ -115,13 +115,20 @@ class SecurityService {
   /**
    * Check Geometric Restrictions
    */
-  async checkGeoRestriction(ip) {
-      // Stub for geo-blocking implementation (e.g., using geoip-lite)
-      const restrictedCountries = securityConfig.geoRestrictions?.blockedCountries || [];
-      if (restrictedCountries.length > 0) {
-          logger.debug(`Geo-restriction check for IP ${ip} (No-op stub)`);
-      }
-      return false; // Allow by default
+  async checkGeoRestriction(ip, req) {
+      const { enabled, blockedCountries } = securityConfig.geoRestrictions || {};
+      if (!enabled || blockedCountries.length === 0) return false;
+
+      if (securityConfig.whitelist.includes(ip)) return false;
+
+      const country = (
+        req?.headers?.['cf-ipcountry'] ||
+        req?.headers?.['x-country-code'] ||
+        ''
+      ).toString().toUpperCase();
+
+      if (!country || country === 'XX' || country === 'T1') return false;
+      return blockedCountries.includes(country);
   }
 
   /**
@@ -131,11 +138,14 @@ class SecurityService {
       const restrictions = securityConfig.timeRestrictions;
       if (!restrictions || !restrictions.enabled) return false;
 
-      const now = new Date();
-      const hour = now.getHours();
-      
-      const isRestricted = hour >= restrictions.startHour || hour < restrictions.endHour;
-      return isRestricted;
+      const hour = new Date().getHours();
+      const { startHour, endHour } = restrictions;
+
+      if (startHour === endHour) return false;
+      if (startHour < endHour) {
+          return hour >= startHour && hour < endHour;
+      }
+      return hour >= startHour || hour < endHour;
   }
 
   /**
