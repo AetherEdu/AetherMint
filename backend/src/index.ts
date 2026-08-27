@@ -9,6 +9,8 @@ import logger from './utils/logger';
 import requestId from './middleware/requestId';
 import requestLogger from './middleware/requestLogger';
 import { metricsMiddleware, websocketConnectionsActive } from './middleware/metrics';
+// Registers SLO journey metrics on the shared Prometheus registry (Issue #415)
+import './metrics/slo';
 import responseCompression from './middleware/compression';
 import { errorHandler } from './middleware/errorHandler';
 import { NotFoundError } from './utils/errors';
@@ -16,6 +18,7 @@ import { connectRedis } from './utils/redis';
 import { initWebsocketService } from './services/websocketService';
 import { setSyncWebsocketEmitter } from './services/syncService';
 import { initCollaborationService } from './services/initCollaboration';
+import presenceService from './services/presence';
 import redisConfig from './config/redis';
 import {
   registerShutdownHandlers,
@@ -38,6 +41,13 @@ import * as transactionQueue from './services/transactionQueue';
 import * as transactionProcessor from './workers/transactionProcessor';
 // @ts-ignore
 import * as transactionEvents from './events/transactionEvents';
+
+// Bridge relayer monitor watch job — Issue #423
+import { bridgeMonitorJob } from './workers/bridgeMonitorJob';
+import { processQuestionGenerationJob } from './workers/questionGenJob';
+// Course content indexing worker — Issue #406 (AGI tutor RAG pipeline)
+import { startIndexingJob, stopIndexingJob } from './workers/indexingJob';
+import questionGeneratorService from './services/questionGen/questionGenerator';
 
 // Background job queue — Issue #258
 import { getJobQueue } from './services/jobQueue';
@@ -88,6 +98,8 @@ const loadRoute = (routePath: string) => {
 // @ts-ignore
 const quizRoutes = loadRoute('./routes/quizRoutes');
 // @ts-ignore
+const questionGenerationRoutes = loadRoute('./routes/questionGen');
+// @ts-ignore
 const eventLoggerRoutes = loadRoute('./routes/eventLoggerRoutes');
 // @ts-ignore
 const syncRoutes = loadRoute('./routes/syncRoutes');
@@ -98,7 +110,7 @@ const contentRoutes = loadRoute('./routes/content');
 // @ts-ignore
 const transactionRoutes = loadRoute('./routes/transactions');
 // @ts-ignore
-const notificationRoutes = loadRoute('./routes/notificationRoutes');
+const notificationRoutes = loadRoute('./routes/notifications');
 
 // Your branch routes
 // @ts-ignore
@@ -126,6 +138,10 @@ const agiTutorRoutes = loadRoute('./routes/agiTutorRoutes');
 // @ts-ignore
 const analyticsRoutes = loadRoute('./routes/analytics');
 
+// Learner dashboard aggregation
+// @ts-ignore
+const dashboardRoutes = loadRoute('./routes/dashboard');
+
 // CSP Violation Reporting route
 // @ts-ignore
 const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
@@ -137,6 +153,10 @@ const passkeyAuthRoutes = loadRoute('./routes/passkeyAuth');
 // Job management routes — Issue #258
 // @ts-ignore
 const jobRoutes = loadRoute('./routes/jobRoutes');
+
+// Unified payments routes — Issue #391 (Stripe fiat + Stellar crypto)
+// @ts-ignore
+const paymentsRoutes = loadRoute('./routes/payments');
 
 // Initialize Express app
 const app: Application = express();
@@ -161,7 +181,14 @@ app.use(helmet());
 app.use(cspMiddleware);
 app.use(securityHeadersMiddleware);
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+// Stash the raw request body so Stripe webhook signatures can be verified
+// against the exact bytes Stripe signed (Issue #391).
+app.use(express.json({
+  limit: '10mb',
+  verify: (req: any, _res: any, buf: Buffer) => {
+    req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestId);
 app.use(requestLogger);
@@ -180,6 +207,12 @@ app.use(shutdownGuard(['/api/health', '/']));
 app.use(securityPerformanceTracker);
 // Blacklist check
 app.use(checkBlacklist);
+
+if (process.env.ADVANCED_RESTRICTIONS_ENABLED === 'true') {
+  app.use(advancedRestrictions);
+  logger.info('Advanced restrictions middleware enabled (geo/time)');
+}
+
 // DDoS protection
 app.use(ddosProtection);
 // Bot detection
@@ -235,6 +268,7 @@ app.use('/graphql', rateLimits.graphql, graphqlBootstrap.middleware);
 
 // API routes
 app.use('/api/quizzes', quizRoutes);
+app.use('/api/question-generation', questionGenerationRoutes);
 app.use('/api/events', eventLoggerRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/content', contentRoutes);
@@ -250,6 +284,10 @@ app.use('/api/smart-wallet', smartWalletRoutes);
 app.use('/api/secure-comm', secureCommRoutes);
 app.use('/api/agi-tutor', agiTutorRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+
+// Unified payments — Issue #391
+app.use('/api/payments', paymentsRoutes);
 
 // Autonomous Agents routes
 // @ts-ignore
@@ -266,6 +304,11 @@ app.use('/api/gamification', gamificationRoutes);
 const bridgeRoutes = loadRoute('./routes/bridge');
 app.use('/api/bridge', bridgeRoutes);
 
+// Bridge relayer monitoring routes — Issue #423
+// @ts-ignore
+const bridgeMonitorRoutes = loadRoute('./routes/bridgeMonitor');
+app.use('/api/bridge-monitor', bridgeMonitorRoutes);
+
 // Time-Locked Credential routes with idempotency (Issue #264)
 // @ts-ignore
 const timeLockCredentialsRoutes = loadRoute('./routes/timeLockCredentials');
@@ -281,6 +324,11 @@ app.use('/api/vrf', vrfRoutes);
 const translationRoutes = loadRoute('./routes/translation');
 app.use('/api/translate', translationRoutes);
 
+// Course content localization pipeline routes — Issue #418
+// @ts-ignore
+const localizationRoutes = loadRoute('./routes/localization');
+app.use('/api/localization', localizationRoutes);
+
 // Bulk operations routes (Admin) – Issue #262
 // @ts-ignore
 const bulkOperationsRoutes = loadRoute('./routes/bulkOperations');
@@ -290,6 +338,16 @@ app.use('/api/admin/bulk', bulkOperationsRoutes);
 // @ts-ignore
 const featureFlagRoutes = resolveRoute(require('./routes/admin/featureFlags'));
 app.use('/api/admin/feature-flags', featureFlagRoutes);
+
+// Admin Audit routes
+// @ts-ignore
+const adminAuditRoutes = resolveRoute(require('./routes/admin/audit'));
+app.use('/api/admin/audit', adminAuditRoutes);
+
+// Admin Smart Contract Simulation routes
+// @ts-ignore
+const adminSimulateRoutes = resolveRoute(require('./routes/admin/simulate'));
+app.use('/api/admin/simulate', adminSimulateRoutes);
 
 // Public evaluation endpoint for SPA / mobile clients – Issue #267
 // First pulls `publicRouter` off the same module so the admin auth
@@ -323,8 +381,8 @@ app.use('/api/metrics', metricsRoutes);
 // Background job management routes — Issue #258
 app.use('/api/jobs', jobRoutes);
 
-// ── Versioned passkey routes ────────────────────────────────────────────────
-app.use('/api/v1/auth/passkeys', apiVersionHeader, passkeyAuthRoutes);
+// DID registry — Issue #397
+app.use('/api/did', didRoutes);
 
 // Root endpoint
 // ── Versioned API routes (/api/v1/*) ────────────────────────────────────────
@@ -338,6 +396,7 @@ app.use('/api/v1/auth/passkeys', apiVersionHeader, passkeyAuthRoutes);
 app.use('/api/v1', apiVersionHeader);
 
 app.use('/api/v1/quizzes', quizRoutes);
+app.use('/api/v1/question-generation', questionGenerationRoutes);
 app.use('/api/v1/events', eventLoggerRoutes);
 app.use('/api/v1/sync', syncRoutes);
 app.use('/api/v1/content', contentRoutes);
@@ -353,14 +412,20 @@ app.use('/api/v1/smart-wallet', smartWalletRoutes);
 app.use('/api/v1/secure-comm', secureCommRoutes);
 app.use('/api/v1/agi-tutor', agiTutorRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/payments', paymentsRoutes);
 app.use('/api/v1/autonomous-agents', autonomousAgentsRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/bridge', bridgeRoutes);
+app.use('/api/v1/bridge-monitor', bridgeMonitorRoutes);
 app.use('/api/v1/time-lock', timeLockCredentialsRoutes);
 app.use('/api/v1/vrf', vrfRoutes);
 app.use('/api/v1/translate', translationRoutes);
+app.use('/api/v1/localization', localizationRoutes);
+app.use('/api/v1/did', didRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/verify', verifyRoutes);
 app.get('/api/v1/health', (req, res) => {
   if (isShuttingDown()) {
     res.status(503).json({
@@ -453,9 +518,25 @@ const PORT = process.env.PORT || 3001;
  */
 async function ensureMongooseIndexes(): Promise<void> {
   const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  const modelNames = mongoose.modelNames();
+
+  // Fail fast when Mongoose models are registered but no MongoDB URI is
+  // configured. Continuing would silently skip index synchronization and
+  // leave mongoose-backed routes behaving as if no database existed.
+  // (Issue #471)
+  if (!mongoUri && modelNames.length > 0) {
+    throw new Error(
+      'MongoDB is not configured: MONGODB_URI is unset while Mongoose models are ' +
+        'registered. Set MONGODB_URI in your environment (see .env.example).'
+    );
+  }
+
+  if (!mongoUri) {
+    return;
+  }
 
   // Attempt to connect if a MongoDB URI is configured and not yet connected
-  if (mongoUri && mongoose.connection.readyState !== 1) {
+  if (mongoose.connection.readyState !== 1) {
     try {
       await mongoose.connect(mongoUri);
       logger.info('MongoDB connected for index synchronization');
@@ -465,11 +546,6 @@ async function ensureMongooseIndexes(): Promise<void> {
     }
   }
 
-  if (mongoose.connection.readyState !== 1) {
-    return;
-  }
-
-  const modelNames = mongoose.modelNames();
   if (modelNames.length === 0) return;
 
   logger.info(`Ensuring Mongoose indexes for ${modelNames.length} model(s)...`);
@@ -521,6 +597,18 @@ async function startServer() {
     if (typeof (transactionEvents as any).startListening === 'function') {
       await (transactionEvents as any).startListening();
     }
+    if (typeof bridgeMonitorJob.start === 'function') {
+      await bridgeMonitorJob.start();
+    }
+
+    // Start the course content indexing worker for the AGI tutor RAG
+    // pipeline (Issue #406). Fails open when the vector store is
+    // unreachable so single-node deployments keep working.
+    startIndexingJob();
+
+    // Initialise the presence & availability system (Issue #405). Fails open
+    // when Redis is unreachable so single-node deployments keep working.
+    await presenceService.initialize();
 
     // Initialise background job queue — Issue #258
     const jobQueue = getJobQueue(redis, { pollIntervalMs: 2000, concurrency: 5 });
@@ -553,6 +641,16 @@ async function startServer() {
     jobQueue.registerHandler('content_processing', async (job) => {
       logger.info(`Processing content processing job ${job.id}`, job.payload);
       job.progress = 100;
+    });
+    jobQueue.registerHandler('question_generation', async (job) => {
+      await processQuestionGenerationJob(job);
+    });
+    questionGeneratorService.setQueue({
+      enqueue: (generationId) => jobQueue.enqueue({
+        type: 'question_generation',
+        payload: { generationId },
+        metadata: { feature: 'question-generation' },
+      }),
     });
     jobQueue.registerHandler('general', async (job) => {
       logger.info(`Processing general job ${job.id}`, job.payload);
@@ -590,6 +688,7 @@ server.listen(PORT, () => {
          port: PORT,
          routes: [
            '/api/quizzes',
+           '/api/question-generation',
            '/api/events',
            '/api/sync',
            '/api/content',
@@ -599,11 +698,13 @@ server.listen(PORT, () => {
            '/api/aco',
            '/api/federated-learning',
            '/api/agi-tutor',
+           '/api/dashboard',
            '/api/secure-comm',
            '/api/audit',
            '/api/metrics',
            '/api/health',
            '/api/jobs',
+           '/api/adaptation',
          ],
        });
      });
@@ -627,6 +728,8 @@ if (require.main === module) {
       { name: 'transaction-queue', run: () => typeof (transactionQueue as any).stopProcessing === 'function' && (transactionQueue as any).stopProcessing() },
       { name: 'transaction-processor', run: () => typeof (transactionProcessor as any).stop === 'function' && (transactionProcessor as any).stop() },
       { name: 'transaction-events', run: () => typeof (transactionEvents as any).stopListening === 'function' && (transactionEvents as any).stopListening() },
+      { name: 'presence', run: () => presenceService.destroy() },
+      { name: 'indexing-job', run: () => stopIndexingJob() },
       { name: 'job-queue', run: async () => { try { const jq = getJobQueue(); await jq.destroy(); } catch { /* queue may not be initialised */ } } },
       {
         name: 'redis',

@@ -1,3 +1,8 @@
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
 use crate::credential_events::{publish_credential_event, CredentialLifecycleEvent};
 use crate::utils::storage::{EntityType, StorageUtils};
 use soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec};
@@ -54,6 +59,14 @@ pub fn issue_credential(
 ) -> u64 {
     issuer.require_auth();
 
+    let admin: Address = env
+        .storage()
+        .instance()
+        .get(&Symbol::new(env, "admin"))
+        .unwrap_or_else(|| panic!("Admin not set"));
+    if issuer != admin {
+        panic!("Unauthorized issuer");
+    }
     // RBAC: require Issuer role
     crate::access_control::require_role(env, &issuer, crate::access_control::Role::Issuer);
 
@@ -139,6 +152,14 @@ pub fn verify_credential(env: &Env, credential_id: u64, verifier: Address) -> bo
 pub fn revoke_credential(env: &Env, credential_id: u64, revoker: Address) {
     revoker.require_auth();
 
+    let admin: Address = env
+        .storage()
+        .instance()
+        .get(&Symbol::new(env, "admin"))
+        .unwrap_or_else(|| panic!("Admin not set"));
+    if revoker != admin {
+        panic!("Only admin can revoke");
+    }
     // RBAC: only Admin can revoke credentials
     crate::access_control::require_role(env, &revoker, crate::access_control::Role::Admin);
 
@@ -215,8 +236,8 @@ fn generate_string_hash(string: &String) -> u64 {
     let len = string.len() as usize;
     let buf_len = if len < 256 { len } else { 256usize };
     string.copy_into_slice(&mut buf[..buf_len]);
-    for i in 0..buf_len {
-        hash = hash.wrapping_mul(31).wrapping_add(buf[i] as u64);
+    for &b in buf.iter().take(buf_len) {
+        hash = hash.wrapping_mul(31).wrapping_add(b as u64);
     }
     hash
 }

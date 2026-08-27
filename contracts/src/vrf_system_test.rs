@@ -400,12 +400,8 @@ fn test_empty_purpose_and_context() {
     let seed = create_test_seed(&env);
 
     env.mock_all_auths();
-    let request_id = client.request_randomness(
-        &requester,
-        &seed,
-        &"".into_val(&env),
-        &"".into_val(&env),
-    );
+    let request_id =
+        client.request_randomness(&requester, &seed, &"".into_val(&env), &"".into_val(&env));
 
     assert_eq!(request_id, 0u64);
 
@@ -664,7 +660,10 @@ fn test_stats_zero_initially() {
 
     let stats = client.get_stats();
     assert_eq!(stats.get("total_requests".into_val(&env)).unwrap(), 0u64);
-    assert_eq!(stats.get("fulfilled_requests".into_val(&env)).unwrap(), 0u64);
+    assert_eq!(
+        stats.get("fulfilled_requests".into_val(&env)).unwrap(),
+        0u64
+    );
 }
 
 #[test]

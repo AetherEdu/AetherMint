@@ -1,4 +1,10 @@
-use crate::utils::storage::{EntityType, StorageUtils};
+// This module emits events via the legacy `env.events().publish` API
+// (deprecated in soroban-sdk 26). Scoped here rather than crate-wide until it
+// is migrated to the `#[contractevent]` macro.
+#![allow(deprecated)]
+
+use crate::utils::pause::PauseUtils;
+use crate::utils::storage::{EntityType, StorageUtils, StorageVersion};
 use crate::utils::validation::{
     validate_distinct_addresses, validate_non_zero_address, validate_optional_string_length,
     validate_string_length, MAX_METADATA_LENGTH, MAX_URI_LENGTH,
@@ -399,7 +405,7 @@ pub fn evolve_nft(env: &Env, token_id: u64, achievement_id: u64, new_metadata: S
     if let Some(new_stage) =
         check_evolution_requirements(env, nft.current_level, nft.experience_points)
     {
-        nft.evolution_stage = new_stage.clone();
+        nft.evolution_stage = new_stage;
         nft.current_level += 1;
         nft.last_evolved = timestamp;
 
@@ -556,7 +562,7 @@ pub fn transfer_nft(env: &Env, from: Address, to: Address, token_id: u64) {
         panic!("Token not found in owner's list");
     }
     let index = found_idx;
-    from_tokens.remove(index as u32);
+    from_tokens.remove(index);
     env.storage()
         .persistent()
         .set(&DynamicNFTKey::OwnerTokens(from.clone()), &from_tokens);

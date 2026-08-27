@@ -13,14 +13,44 @@ import logger from '../utils/logger';
 export class StellarPaymentService {
   private server: any;
   private network: any;
-  private distributionKeypair: Keypair;
+  private distributionKeypair: Keypair | null = null;
   private settings: StellarPaymentSettings;
 
   constructor(settings: StellarPaymentSettings) {
     this.settings = settings;
     this.server = new Server(settings.horizonUrl);
     this.network = settings.network === 'mainnet' ? (Networks as any).PUBLIC : (Networks as any).TESTNET;
-    this.distributionKeypair = Keypair.fromSecret(settings.distributionAccount);
+  }
+
+  /**
+   * Lazily derive the distribution keypair so the server can boot without
+   * STELLAR_DISTRIBUTION_ACCOUNT configured (development / CI). Operations
+   * that need the distribution account fail with a clear message instead of
+   * crashing at startup.
+   */
+  private getDistributionKeypair(): Keypair {
+    if (!this.distributionKeypair) {
+      if (!this.settings.distributionAccount) {
+        throw new Error('Stellar distribution account is not configured (STELLAR_DISTRIBUTION_ACCOUNT)');
+      }
+      this.distributionKeypair = Keypair.fromSecret(this.settings.distributionAccount);
+    }
+    return this.distributionKeypair;
+  }
+
+  /**
+   * Public address of the distribution account payments are sent to.
+   *
+   * Returns '' when the account secret is not configured so the server can
+   * boot without secrets; operations that actually need the address (payment
+   * creation, refunds) surface the configuration error at call time.
+   */
+  getDistributionAddress(): string {
+    try {
+      return this.getDistributionKeypair().publicKey();
+    } catch {
+      return '';
+    }
   }
 
   /**
@@ -40,6 +70,7 @@ export class StellarPaymentService {
 
       // Load the source account
       const sourceAccount = await this.server.loadAccount(fromAddress);
+      const distributionAddress = this.getDistributionAddress();
       
       // Create transaction
       const transaction = new TransactionBuilder(sourceAccount, {
@@ -47,7 +78,7 @@ export class StellarPaymentService {
         networkPassphrase: this.network.passphrase
       })
         .addOperation((Operation as any).payment({
-          destination: this.distributionKeypair.publicKey(),
+          destination: distributionAddress,
           asset,
           amount
         }))
@@ -120,7 +151,7 @@ export class StellarPaymentService {
         const op = (paymentOperation as any) as any;
         
         // Verify destination
-        if (op.destination !== this.distributionKeypair.publicKey()) {
+        if (op.destination !== this.getDistributionAddress()) {
           errors.push('Payment destination does not match distribution account');
         }
 
@@ -192,7 +223,7 @@ export class StellarPaymentService {
 
     return {
       from: paymentOp.body().paymentOp().sourceAccount().ed25519().toString(),
-      to: this.distributionKeypair.publicKey(),
+      to: this.getDistributionAddress(),
       amount: paymentOp.body().paymentOp().amount().toString(),
       assetCode,
       assetIssuer,
@@ -330,7 +361,7 @@ export class StellarPaymentService {
         : new Asset(assetCode, assetIssuer!);
 
       // Load the source account (distribution account)
-      const sourceAccount = await this.server.loadAccount(this.distributionKeypair.publicKey());
+      const sourceAccount = await this.server.loadAccount(this.getDistributionAddress());
       
       // Create refund memo
       let memoText = originalTransactionHash 

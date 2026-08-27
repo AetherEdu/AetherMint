@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import '../styles/features.css';
 
 const CredentialMarketplace = () => {
@@ -66,6 +67,7 @@ const CredentialMarketplace = () => {
           ))}
         </div>
       </div>
+    </ErrorBoundary>
     );
   };
 

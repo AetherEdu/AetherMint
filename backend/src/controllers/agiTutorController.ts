@@ -4,6 +4,7 @@ import { UniversalKnowledgeService } from '../services/universalKnowledgeService
 import { StudentAdaptationService } from '../services/studentAdaptationService';
 import { EmotionalIntelligenceService } from '../services/emotionalIntelligenceService';
 import { CrossDomainIntegrationService } from '../services/crossDomainIntegrationService';
+import { ragPipeline } from '../services/tutor';
 import logger from '../utils/logger';
 
 export class AGITutorController {
@@ -286,6 +287,78 @@ export class AGITutorController {
       res.status(500).json({
         success: false,
         error: 'Failed to provide emotional support'
+      });
+    }
+  }
+
+  /**
+   * Answer a question using the RAG pipeline over indexed course content
+   */
+  async askRagQuestion(req: Request, res: Response) {
+    try {
+      const { question, topK } = req.body;
+
+      if (!question || typeof question !== 'string' || question.trim() === '') {
+        res.status(400).json({
+          success: false,
+          error: 'question is required'
+        });
+        return;
+      }
+
+      const answer = await ragPipeline.answer(question, {
+        topK: typeof topK === 'number' && topK > 0 ? topK : undefined
+      });
+
+      res.json({
+        success: true,
+        data: answer
+      });
+    } catch (error) {
+      logger.error('Error answering RAG question:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to answer question'
+      });
+    }
+  }
+
+  /**
+   * Trigger indexing of course content into the vector store
+   */
+  async triggerRagIndexing(req: Request, res: Response) {
+    try {
+      const result = await ragPipeline.indexContent();
+
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      logger.error('Error indexing course content:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to index course content'
+      });
+    }
+  }
+
+  /**
+   * Get RAG pipeline indexing status
+   */
+  async getRagStatus(req: Request, res: Response) {
+    try {
+      const status = await ragPipeline.getStatus();
+
+      res.json({
+        success: true,
+        data: status
+      });
+    } catch (error) {
+      logger.error('Error getting RAG status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get RAG status'
       });
     }
   }

@@ -6,6 +6,7 @@ export interface AuditQueryOptions {
   action?: AuditAction;
   resource?: string;
   result?: AuditResult;
+  search?: string;
   dateFrom?: Date;
   dateTo?: Date;
   page?: number;
@@ -106,7 +107,7 @@ export class AuditService {
     const query: Record<string, unknown> = {};
 
     if (options.actor) {
-      query.actor = options.actor;
+      query.actor = { $regex: options.actor, $options: 'i' };
     }
 
     if (options.action) {
@@ -114,11 +115,22 @@ export class AuditService {
     }
 
     if (options.resource) {
-      query.resource = options.resource;
+      query.resource = { $regex: options.resource, $options: 'i' };
     }
 
     if (options.result) {
       query.result = options.result;
+    }
+
+    if (options.search) {
+      const searchRegex = { $regex: options.search, $options: 'i' };
+      query.$or = [
+        { actor: searchRegex },
+        { action: searchRegex },
+        { resource: searchRegex },
+        { resourceId: searchRegex },
+        { errorMessage: searchRegex },
+      ];
     }
 
     if (options.dateFrom || options.dateTo) {
@@ -176,6 +188,36 @@ export class AuditService {
     });
 
     return result.deletedCount || 0;
+  }
+
+  async purgeOldLogs(retentionDays: number = 90): Promise<number> {
+    return this.archiveOldLogs(retentionDays);
+  }
+
+  async exportLogs(options: AuditQueryOptions, format: 'json' | 'csv' = 'json'): Promise<string> {
+    const { entries } = await this.query({ ...options, limit: 5000, page: 1 });
+    
+    if (format === 'csv') {
+      const headers = ['ID', 'Timestamp', 'Actor', 'Action', 'Resource', 'ResourceID', 'Result', 'IPAddress', 'Details'];
+      const rows = entries.map(entry => {
+        const timestamp = new Date((entry as any).timestamp || (entry as any).createdAt).toISOString();
+        const detailsStr = JSON.stringify(entry.details || {}).replace(/"/g, '""');
+        return [
+          `"${(entry as any)._id || ''}"`,
+          `"${timestamp}"`,
+          `"${entry.actor || ''}"`,
+          `"${entry.action || ''}"`,
+          `"${entry.resource || ''}"`,
+          `"${entry.resourceId || ''}"`,
+          `"${entry.result || ''}"`,
+          `"${entry.ipAddress || ''}"`,
+          `"${detailsStr}"`,
+        ].join(',');
+      });
+      return [headers.join(','), ...rows].join('\n');
+    }
+
+    return JSON.stringify(entries, null, 2);
   }
 
   async getStatistics(dateFrom?: Date, dateTo?: Date): Promise<{

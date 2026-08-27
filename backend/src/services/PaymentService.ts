@@ -15,15 +15,19 @@ import {
   PaymentReceipt,
   RefundRequest,
   StellarPaymentSettings,
-  PaymentValidation
+  PaymentValidation,
+  type StellarPayment
 } from '../models/Payment';
 import { StellarPaymentService } from './StellarPaymentService';
+import { StripePaymentService, StripeIntentResult } from './payments/StripePaymentService';
+import { assertValidPaymentTransition } from './payments/paymentStateMachine';
 import { auditService } from './auditService';
 import { AuditAction } from '../models/AuditLog';
 import { v4 as uuidv4 } from 'uuid';
 
 export class PaymentService {
   private stellarPaymentService: StellarPaymentService;
+  private stripePaymentService: StripePaymentService;
   private payments: Map<string, Payment> = new Map();
   private paymentIntents: Map<string, PaymentIntent> = new Map();
   private transactions: Map<string, PaymentTransaction> = new Map();
@@ -59,8 +63,9 @@ export class PaymentService {
     };
 
     this.stellarPaymentService = new StellarPaymentService(stellarSettings);
+    this.stripePaymentService = new StripePaymentService();
     this.paymentSettings = {
-      acceptedMethods: [PaymentMethod.STELLAR, PaymentMethod.CREDIT_CARD],
+      acceptedMethods: [PaymentMethod.STELLAR, PaymentMethod.STRIPE, PaymentMethod.CREDIT_CARD],
       defaultCurrency: 'USD',
       supportedCurrencies: ['USD', 'EUR', 'XLM'],
       autoRefundEnabled: true,
@@ -95,8 +100,6 @@ export class PaymentService {
       expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
     };
 
-    this.paymentIntents.set(paymentIntent.id, paymentIntent);
-
     // Create payment record
     const payment: Payment = {
       id: uuidv4(),
@@ -112,6 +115,15 @@ export class PaymentService {
     };
 
     this.payments.set(payment.id, payment);
+
+    // Link the payment intent to its payment record so webhooks and confirm
+    // flows can resolve one from the other without scanning by enrollment.
+    paymentIntent.metadata = {
+      ...(paymentIntent.metadata ?? {}),
+      enrollmentId,
+      paymentId: payment.id,
+    };
+    this.paymentIntents.set(paymentIntent.id, paymentIntent);
 
     if (auditContext) {
       await auditService.create(
@@ -137,24 +149,35 @@ export class PaymentService {
 
   /**
    * Create Stellar payment intent
+   *
+   * A payment reference is generated up-front and stamped into the Stellar
+   * transaction memo so the reconciliation service can match the on-chain
+   * payment back to this record.
    */
   async createStellarPaymentIntent(
     enrollmentId: string,
     details: any
   ): Promise<PaymentIntent> {
-    const paymentIntent = await this.createPaymentIntent(enrollmentId, PaymentMethod.STELLAR, details);
+    const paymentReference = uuidv4();
+    const paymentIntent = await this.createPaymentIntent(enrollmentId, PaymentMethod.STELLAR, {
+      ...details,
+      metadata: { ...(details.metadata || {}), paymentReference }
+    });
 
-    // Create Stellar transaction
+    // Create Stellar transaction with the payment reference as the memo
     const { transactionXDR, paymentId } = await this.stellarPaymentService.createPaymentTransaction(
       details.fromAddress,
       details.amount.toString(),
       details.assetCode || 'XLM',
-      details.assetIssuer
+      details.assetIssuer,
+      paymentReference
     );
 
     paymentIntent.gatewayData = {
       transactionXDR,
       paymentId,
+      memo: paymentReference,
+      destination: this.stellarPaymentService.getDistributionAddress(),
       horizonUrl: this.paymentSettings.stellarSettings.horizonUrl
     };
 
@@ -256,18 +279,142 @@ export class PaymentService {
 
       throw error;
     }
+  }  /**
+   * Process a confirmed Stripe payment (fiat rail)
+   */
+  async processStripePayment(
+    paymentIntentId: string,
+    stripeResult: StripeIntentResult,
+    auditContext?: { actor: string; ipAddress?: string }
+  ): Promise<PaymentTransaction> {
+    const paymentIntent = this.paymentIntents.get(paymentIntentId);
+    if (!paymentIntent) {
+      throw new Error('Payment intent not found');
+    }
+
+    const payment = this.resolvePaymentForIntent(paymentIntent);
+    if (!payment) {
+      throw new Error('Payment record not found for payment intent');
+    }
+
+    const transaction = this.buildStripeTransaction(payment, stripeResult);
+    this.transactions.set(transaction.id, transaction);
+
+    payment.status = PaymentStatus.COMPLETED;
+    payment.transactionId = transaction.id;
+    payment.gateway = 'stripe';
+    payment.gatewayTransactionId = stripeResult.paymentIntentId;
+    payment.completedAt = new Date();
+    payment.updatedAt = new Date();
+    this.payments.set(payment.id, payment);
+
+    paymentIntent.status = 'succeeded';
+    paymentIntent.confirmedAt = new Date();
+    this.paymentIntents.set(paymentIntentId, paymentIntent);
+
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor,
+        AuditAction.PAYMENT_PROCESS,
+        'payment',
+        {
+          resourceId: transaction.id,
+          details: {
+            enrollmentId: transaction.enrollmentId,
+            courseId: transaction.courseId,
+            amount: transaction.amount,
+            currency: transaction.currency,
+            gatewayTransactionId: stripeResult.paymentIntentId
+          },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
+    return transaction;
   }
 
-/**
-    * Process refund
-    */
+  /**
+   * Finalize a Stripe payment directly from a payment record (webhook path
+   * when no checkout context exists).
+   */
+  async completeStripePaymentByPaymentId(
+    paymentId: string,
+    stripeResult: StripeIntentResult,
+    auditContext?: { actor: string; ipAddress?: string }
+  ): Promise<PaymentTransaction> {
+    const payment = this.payments.get(paymentId);
+    if (!payment) {
+      throw new Error('Payment not found');
+    }
+    assertValidPaymentTransition(payment.status, PaymentStatus.COMPLETED);
+
+    const transaction = this.buildStripeTransaction(payment, stripeResult);
+    this.transactions.set(transaction.id, transaction);
+
+    payment.status = PaymentStatus.COMPLETED;
+    payment.transactionId = transaction.id;
+    payment.gateway = 'stripe';
+    payment.gatewayTransactionId = stripeResult.paymentIntentId;
+    payment.completedAt = new Date();
+    payment.updatedAt = new Date();
+    this.payments.set(paymentId, payment);
+
+    if (auditContext) {
+      await auditService.create(
+        auditContext.actor,
+        AuditAction.PAYMENT_PROCESS,
+        'payment',
+        {
+          resourceId: transaction.id,
+          details: {
+            enrollmentId: payment.enrollmentId,
+            courseId: payment.courseId,
+            amount: payment.amount,
+            currency: payment.currency,
+            gatewayTransactionId: stripeResult.paymentIntentId
+          },
+          ipAddress: auditContext.ipAddress,
+        }
+      );
+    }
+
+    return transaction;
+  }
+
+  /**
+   * Build the completed transaction record for a successful Stripe payment.
+   */
+  private buildStripeTransaction(payment: Payment, stripeResult: StripeIntentResult): PaymentTransaction {
+    return {
+      id: uuidv4(),
+      enrollmentId: payment.enrollmentId,
+      userId: payment.userId,
+      courseId: payment.courseId,
+      amount: stripeResult.amount,
+      currency: stripeResult.currency.toUpperCase(),
+      method: PaymentMethod.STRIPE,
+      status: PaymentStatus.COMPLETED,
+      gateway: 'stripe',
+      gatewayTransactionId: stripeResult.paymentIntentId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      completedAt: new Date()
+    };
+  }
+
+  /**
+   * Process refund
+   */
   async processRefund(
     paymentId: string,
     amount: number,
     reason: string,
     auditContext?: { actor: string; ipAddress?: string }
   ): Promise<PaymentTransaction> {
-    const payment = this.payments.get(paymentId);
+    // Accept a payment id or, as a fallback for legacy callers, an enrollment
+    // id that maps to its completed payment.
+    const payment = this.payments.get(paymentId) || this.findCompletedPaymentByEnrollmentId(paymentId);
     if (!payment) {
       throw new Error('Payment not found');
     }
@@ -283,7 +430,32 @@ export class PaymentService {
     try {
       let refundTransaction: PaymentTransaction;
 
-      if (payment.method === PaymentMethod.STELLAR && payment.stellarTransactionHash) {
+      if (payment.method === PaymentMethod.STRIPE && payment.gatewayTransactionId) {
+        // Stripe refund (fiat rail)
+        const stripeRefund = await this.stripePaymentService.refund(
+          payment.gatewayTransactionId,
+          amount
+        );
+
+        refundTransaction = {
+          id: stripeRefund.refundId,
+          enrollmentId: payment.enrollmentId,
+          userId: payment.userId,
+          courseId: payment.courseId,
+          amount: -amount, // Negative amount for refund
+          currency: payment.currency,
+          method: payment.method,
+          status: PaymentStatus.COMPLETED,
+          gateway: 'stripe',
+          gatewayTransactionId: stripeRefund.refundId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          completedAt: new Date(),
+          refundAmount: amount,
+          refundReason: reason,
+          refundedAt: new Date()
+        };
+      } else if (payment.method === PaymentMethod.STELLAR && payment.stellarTransactionHash) {
         // Create Stellar refund transaction
         const { transactionXDR, refundId } = await this.stellarPaymentService.createRefundTransaction(
           payment.userId, // In production, this would be the actual user's Stellar address
@@ -386,6 +558,135 @@ export class PaymentService {
    */
   async getPaymentById(id: string): Promise<Payment | null> {
     return this.payments.get(id) || null;
+  }
+
+  /**
+   * Get the underlying Stellar payment service (used by reconciliation).
+   */
+  getStellarPaymentService(): StellarPaymentService {
+    return this.stellarPaymentService;
+  }
+
+  /**
+   * Distribution account address crypto payments are sent to.
+   */
+  getStellarDistributionAddress(): string {
+    return this.stellarPaymentService.getDistributionAddress();
+  }
+
+  /**
+   * Pending crypto (Stellar) payments awaiting on-chain confirmation.
+   */
+  getPendingCryptoPayments(): Payment[] {
+    return Array.from(this.payments.values())
+      .filter(p => p.method === PaymentMethod.STELLAR && p.status === PaymentStatus.PENDING);
+  }
+
+  /**
+   * Find a payment by its gateway reference: Stripe PaymentIntent id,
+   * Stellar transaction hash, or stored payment reference.
+   */
+  findPaymentByGatewayTransactionId(gatewayTransactionId: string): Payment | null {
+    return Array.from(this.payments.values()).find(p =>
+      p.gatewayTransactionId === gatewayTransactionId ||
+      p.stellarTransactionHash === gatewayTransactionId ||
+      p.metadata?.stripePaymentIntentId === gatewayTransactionId ||
+      p.metadata?.paymentReference === gatewayTransactionId
+    ) || null;
+  }
+
+  /**
+   * Attach a Stripe PaymentIntent reference to a locally created payment so
+   * webhooks and refunds can be matched back to it.
+   */
+  attachStripeIntent(paymentIntentId: string, stripePaymentIntentId: string): void {
+    const paymentIntent = this.paymentIntents.get(paymentIntentId);
+    const payment = paymentIntent ? this.resolvePaymentForIntent(paymentIntent) : undefined;
+    if (payment) {
+      payment.gateway = 'stripe';
+      payment.gatewayTransactionId = stripePaymentIntentId;
+      payment.metadata = { ...(payment.metadata ?? {}), stripePaymentIntentId };
+      this.payments.set(payment.id, payment);
+    }
+  }
+
+  /**
+   * Move a payment through the state machine. Invalid transitions (stale
+   * webhooks, duplicate confirms) throw instead of corrupting state.
+   */
+  transitionPaymentStatus(paymentId: string, to: PaymentStatus, fields?: Partial<Payment>): Payment {
+    const payment = this.payments.get(paymentId);
+    if (!payment) {
+      throw new Error('Payment not found');
+    }
+    assertValidPaymentTransition(payment.status, to);
+    payment.status = to;
+    Object.assign(payment, fields ?? {});
+    payment.updatedAt = new Date();
+    this.payments.set(paymentId, payment);
+    return payment;
+  }
+
+  /**
+   * Finalize a crypto payment once its on-chain transaction is verified.
+   * Called by the reconciliation service.
+   */
+  async completeCryptoPayment(paymentId: string, stellarPayment: StellarPayment): Promise<PaymentTransaction> {
+    const payment = this.payments.get(paymentId);
+    if (!payment) {
+      throw new Error('Payment not found');
+    }
+    assertValidPaymentTransition(payment.status, PaymentStatus.COMPLETED);
+
+    const transaction: PaymentTransaction = {
+      id: uuidv4(),
+      enrollmentId: payment.enrollmentId,
+      userId: payment.userId,
+      courseId: payment.courseId,
+      amount: parseFloat(stellarPayment.amount) || payment.amount,
+      currency: stellarPayment.assetCode || payment.currency,
+      method: PaymentMethod.STELLAR,
+      status: PaymentStatus.COMPLETED,
+      gateway: 'stellar',
+      stellarTransaction: stellarPayment,
+      stellarTransactionHash: stellarPayment.transactionHash,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      completedAt: new Date()
+    };
+
+    this.transactions.set(transaction.id, transaction);
+
+    payment.status = PaymentStatus.COMPLETED;
+    payment.transactionId = transaction.id;
+    payment.stellarTransactionHash = stellarPayment.transactionHash;
+    payment.completedAt = new Date();
+    this.payments.set(paymentId, payment);
+
+    return transaction;
+  }
+
+  /**
+   * Resolve the payment record backing a payment intent.
+   */
+  private resolvePaymentForIntent(paymentIntent: PaymentIntent): Payment | undefined {
+    const linkedId = paymentIntent.metadata?.paymentId;
+    if (linkedId && this.payments.has(linkedId)) {
+      return this.payments.get(linkedId);
+    }
+    return Array.from(this.payments.values()).find(p =>
+      p.userId === paymentIntent.userId &&
+      p.courseId === paymentIntent.courseId &&
+      p.amount === paymentIntent.amount
+    );
+  }
+
+  /**
+   * Find a completed payment for an enrollment (legacy refund flow fallback).
+   */
+  private findCompletedPaymentByEnrollmentId(enrollmentId: string): Payment | undefined {
+    return Array.from(this.payments.values())
+      .find(p => p.enrollmentId === enrollmentId && p.status === PaymentStatus.COMPLETED);
   }
 
   /**

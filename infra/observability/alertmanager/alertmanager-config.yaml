@@ -1,0 +1,106 @@
+# Alertmanager configuration (Issue #415).
+#
+# Routes alerts by severity:
+#   severity=page   → on-call rotation (Opsgenie/PagerDuty webhook) + email
+#   severity=ticket → team channel (Slack webhook) + email
+#
+# Values are supplied via environment variables on the Alertmanager pod so no
+# secrets are committed here. Alertmanager substitutes ${VAR} placeholders
+# from its environment at start-up (supported since Alertmanager v0.22).
+#
+# Wire the on-call rotation by exporting:
+#   ON_CALL_WEBHOOK_URL   e.g. Opsgenie v2 webhook or PagerDuty Events API URL
+#   ON_CALL_API_KEY       the API key / service integration key for that webhook
+#   SLACK_WEBHOOK_URL     incoming-webhook URL for the team channel
+#   ALERTMANAGER_EMAIL_TO comma-separated recipient list
+#
+# If ON_CALL_WEBHOOK_URL is unset the webhook receiver is skipped and alerts
+# fall back to email, so the cluster still degrades gracefully during setup.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aethermint-alertmanager
+  labels:
+    app.kubernetes.io/name: aethermint
+    app.kubernetes.io/part-of: aethermint
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+      smtp_smarthost: "${SMTP_HOST}:${SMTP_PORT}"
+      smtp_from: "${SMTP_FROM}"
+      smtp_auth_username: "${SMTP_USERNAME}"
+      smtp_auth_password: "${SMTP_PASSWORD}"
+
+    route:
+      receiver: "team-email"
+      group_by: ["alertname", "journey", "severity"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        # Pages go to the on-call rotation; tickets go to the team channel.
+        - matchers:
+            - severity = "page"
+          receiver: "on-call"
+          repeat_interval: 30m
+        - matchers:
+            - severity = "ticket"
+          receiver: "team-slack"
+
+    receivers:
+      - name: "on-call"
+        webhook_configs:
+          - url: "${ON_CALL_WEBHOOK_URL}"
+            send_resolved: true
+            http_config:
+              authorization:
+                credentials: "${ON_CALL_API_KEY}"
+        email_configs:
+          - to: "${ALERTMANAGER_EMAIL_TO}"
+            send_resolved: true
+
+      - name: "team-slack"
+        slack_configs:
+          - api_url: "${SLACK_WEBHOOK_URL}"
+            channel: "#aethermint-alerts"
+            send_resolved: true
+            title: '{{ template "aethermint.title" . }}'
+            text: '{{ template "aethermint.text" . }}'
+        email_configs:
+          - to: "${ALERTMANAGER_EMAIL_TO}"
+            send_resolved: true
+
+      - name: "team-email"
+        email_configs:
+          - to: "${ALERTMANAGER_EMAIL_TO}"
+            send_resolved: true
+
+    templates:
+      - "/etc/alertmanager/templates/*.tmpl"
+
+---
+# Shared notification templates referenced above.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aethermint-alertmanager-templates
+  labels:
+    app.kubernetes.io/name: aethermint
+    app.kubernetes.io/part-of: aethermint
+data:
+  aethermint.tmpl: |
+    {{ define "aethermint.title" -}}
+      [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ range .Alerts }}{{ .Labels.alertname }} ({{ .Labels.journey }}) {{ end }}
+    {{- end }}
+
+    {{ define "aethermint.text" -}}
+      {{ range .Alerts -}}
+        {{ .Annotations.summary }}
+        {{ .Annotations.description }}
+        Severity: {{ .Labels.severity }}
+        Started: {{ .StartsAt }}
+        {{ if gt (len .GeneratorURL) 0 }}Generator: {{ .GeneratorURL }}{{ end }}
+        Runbook: docs/observability/runbook.md
+      {{ end }}
+    {{- end }}

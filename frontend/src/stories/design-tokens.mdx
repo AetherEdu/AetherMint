@@ -1,0 +1,29 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Documentation/Design Tokens" />
+
+# Design tokens
+
+AetherMint components use Tailwind utility classes and the shared values below. Keep new UI aligned with these tokens so the application and Storybook remain visually consistent.
+
+## Colors
+
+| Token | Light value | Usage |
+| --- | --- | --- |
+| Primary | `#2563eb` | Primary actions and links |
+| Secondary | `#64748b` | Secondary actions and muted emphasis |
+| Destructive | `#dc2626` | Errors and irreversible actions |
+| Surface | `#ffffff` | Cards and page content |
+| Dark surface | `#0f172a` | Dark theme page background |
+
+## Spacing and shape
+
+Use Tailwind's spacing scale (`p-1` through `p-12`) and rounded sizes from `rounded-md` through `rounded-2xl`. Interactive controls should preserve the project's minimum 44px touch target where practical.
+
+## Typography
+
+The base body size is 16px with a 1.625 line height. Use `text-sm` for supporting content and `text-lg` through `text-3xl` for hierarchy.
+
+## Accessibility
+
+Every interactive story should demonstrate a meaningful accessible name, visible keyboard focus, disabled behavior where supported, and readable contrast. Use the dark-mode toolbar to verify both themes.
