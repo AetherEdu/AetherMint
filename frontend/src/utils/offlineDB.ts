@@ -14,7 +14,7 @@
 const DB_NAME = 'AetherMintOfflineDB';
 const DB_VERSION = 2;
 
-export type OfflineStoreName = 'courses' | 'lessons' | 'progress' | 'syncQueue';
+export type OfflineStoreName = 'courses' | 'lessons' | 'progress' | 'syncQueue' | 'credentials';
 
 /**
  * Anything stored inside `courses`. Callers can extend this in their own
@@ -50,6 +50,41 @@ export interface OfflineQueuedAction<T = unknown> {
   id?: number;
   payload: T;
   queuedAt: number;
+}
+
+/** Tamper-evident credential stored in offline wallet. */
+export interface OfflineCredentialRecord {
+  id: string;
+  credentialId: string;
+  title: string;
+  issuer: string;
+  issueDate: string;
+  expiryDate?: string;
+  type: 'certificate' | 'badge' | 'degree' | 'license';
+  verificationStatus: 'verified' | 'pending' | 'rejected' | 'expired';
+  verificationUrl?: string;
+  documentUrl?: string;
+  skills: string[];
+  /** Cryptographic signature for tamper-evidence */
+  signature: string;
+  /** SHA-256 hash of the credential payload for integrity verification */
+  contentHash: string;
+  /** Timestamp when the credential was stored locally */
+  storedAt: number;
+  /** Timestamp of last sync with on-chain state */
+  lastSyncedAt?: number;
+  /** Whether the credential has been verified locally */
+  locallyVerified: boolean;
+  /** Public key used for signature verification */
+  publicKey?: string;
+}
+
+/** Wallet export format for backup/restore. */
+export interface CredentialWalletExport {
+  version: string;
+  exportedAt: number;
+  credentials: OfflineCredentialRecord[];
+  walletHash: string;
 }
 
 /** Storage Quota details returned by navigator.storage */
@@ -106,6 +141,12 @@ export const initDB = (): Promise<IDBDatabase> => {
           keyPath: 'id',
           autoIncrement: true,
         });
+      }
+      if (!db.objectStoreNames.contains('credentials')) {
+        const credStore = db.createObjectStore('credentials', { keyPath: 'id' });
+        credStore.createIndex('credentialId', 'credentialId', { unique: true });
+        credStore.createIndex('issuer', 'issuer', { unique: false });
+        credStore.createIndex('verificationStatus', 'verificationStatus', { unique: false });
       }
     };
 
@@ -387,6 +428,277 @@ export const listAllOfflineLessons = async <T = unknown>(): Promise<
     request.onsuccess = () => resolve(request.result || []);
     request.onerror = () => reject(request.error ?? new Error('Failed to list all offline lessons'));
   });
+};
+
+// ---------------------------------------------------------------------------
+// Public API — `credentials` offline wallet storage.
+
+/**
+ * Compute a SHA-256 content hash for tamper-evidence.
+ * Uses the Web Crypto API (available in all modern browsers).
+ */
+export const computeContentHash = async (data: unknown): Promise<string> => {
+  const encoder = new TextEncoder();
+  const jsonString = JSON.stringify(data, Object.keys(data as object).sort());
+  const buffer = await crypto.subtle.digest('SHA-256', encoder.encode(jsonString));
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+/**
+ * Generate a digital signature for credential tamper-evidence.
+ * Uses HMAC-SHA-256 with a device-derived key.
+ */
+export const generateCredentialSignature = async (
+  credentialData: unknown,
+  secretKey?: string
+): Promise<string> => {
+  const encoder = new TextEncoder();
+  const keyMaterial = secretKey || await getDeviceKey();
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(keyMaterial),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    encoder.encode(JSON.stringify(credentialData))
+  );
+  
+  return Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+/**
+ * Verify a credential signature locally without server round-trip.
+ */
+export const verifyCredentialSignature = async (
+  credentialData: unknown,
+  signature: string,
+  secretKey?: string
+): Promise<boolean> => {
+  const expectedSignature = await generateCredentialSignature(credentialData, secretKey);
+  return signature === expectedSignature;
+};
+
+/**
+ * Get or create a device-specific key for signing.
+ * Stored in IndexedDB for persistence across sessions.
+ */
+let cachedDeviceKey: string | null = null;
+
+const getDeviceKey = async (): Promise<string> => {
+  if (cachedDeviceKey) return cachedDeviceKey;
+  
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('credentials', 'readonly');
+    const store = transaction.objectStore('credentials');
+    const request = store.get('__device_key__');
+    request.onsuccess = () => {
+      if (request.result && request.result.signature) {
+        cachedDeviceKey = request.result.signature;
+        resolve(cachedDeviceKey!);
+      } else {
+        // Generate new device key
+        const newKey = crypto.randomUUID();
+        const writeTx = db.transaction('credentials', 'readwrite');
+        const writeStore = writeTx.objectStore('credentials');
+        writeStore.put({
+          id: '__device_key__',
+          signature: newKey,
+          storedAt: Date.now()
+        } as any);
+        writeTx.oncomplete = () => {
+          cachedDeviceKey = newKey;
+          resolve(newKey);
+        };
+        writeTx.onerror = () => reject(writeTx.error);
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
+};
+
+/**
+ * Save a credential to the offline wallet with tamper-evident metadata.
+ */
+export const saveCredentialOffline = async (
+  credential: Omit<OfflineCredentialRecord, 'signature' | 'contentHash' | 'storedAt'>
+): Promise<OfflineCredentialRecord> => {
+  const contentHash = await computeContentHash(credential);
+  const signature = await generateCredentialSignature(credential);
+  
+  const record: OfflineCredentialRecord = {
+    ...credential,
+    signature,
+    contentHash,
+    storedAt: Date.now(),
+    locallyVerified: true
+  };
+  
+  await runRequest<IDBValidKey, 'credentials'>('credentials', 'readwrite', (store) => store.put(record));
+  return record;
+};
+
+/**
+ * Get a single credential from the offline wallet.
+ * Verifies tamper-evidence on read.
+ */
+export const getCredentialOffline = async (
+  credentialId: string
+): Promise<OfflineCredentialRecord | null> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('credentials', 'readonly');
+    const store = transaction.objectStore('credentials');
+    const index = store.index('credentialId');
+    const request = index.get(credentialId);
+    request.onsuccess = async () => {
+      const record = request.result as OfflineCredentialRecord | undefined;
+      if (!record) {
+        resolve(null);
+        return;
+      }
+      
+      // Verify tamper-evidence
+      const { signature, contentHash, storedAt, ...data } = record;
+      const expectedHash = await computeContentHash(data);
+      const isValid = await verifyCredentialSignature(data, signature);
+      
+      if (expectedHash !== contentHash || !isValid) {
+        console.warn('[offlineDB] Credential tamper detected:', credentialId);
+        resolve(null);
+        return;
+      }
+      
+      resolve(record);
+    };
+    request.onerror = () => reject(request.error);
+  });
+};
+
+/**
+ * List all credentials in the offline wallet, newest first.
+ */
+export const listOfflineCredentials = async (): Promise<OfflineCredentialRecord[]> => {
+  const records = await runRequest<OfflineCredentialRecord[]>(
+    'credentials',
+    'readonly',
+    (store) => store.getAll()
+  );
+  
+  return (records ?? [])
+    .filter((r) => r.id !== '__device_key__')
+    .sort((a, b) => b.storedAt - a.storedAt);
+};
+
+/**
+ * Delete a credential from the offline wallet.
+ */
+export const deleteCredentialOffline = async (credentialId: string): Promise<void> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('credentials', 'readwrite');
+    const store = transaction.objectStore('credentials');
+    const index = store.index('credentialId');
+    const request = index.getKey(credentialId);
+    request.onsuccess = () => {
+      if (request.result) {
+        const deleteReq = store.delete(request.result);
+        deleteReq.onsuccess = () => resolve();
+        deleteReq.onerror = () => reject(deleteReq.error);
+      } else {
+        resolve(undefined);
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
+};
+
+/**
+ * Update the sync timestamp for a credential after on-chain verification.
+ */
+export const markCredentialSynced = async (credentialId: string): Promise<void> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('credentials', 'readwrite');
+    const store = transaction.objectStore('credentials');
+    const index = store.index('credentialId');
+    const request = index.get(credentialId);
+    request.onsuccess = () => {
+      const record = request.result as OfflineCredentialRecord | undefined;
+      if (record) {
+        record.lastSyncedAt = Date.now();
+        store.put(record);
+      }
+      resolve();
+    };
+    request.onerror = () => reject(request.error);
+  });
+};
+
+/**
+ * Export all credentials for wallet backup.
+ */
+export const exportCredentialWallet = async (): Promise<CredentialWalletExport> => {
+  const credentials = await listOfflineCredentials();
+  const walletHash = await computeContentHash(credentials);
+  
+  return {
+    version: '1.0.0',
+    exportedAt: Date.now(),
+    credentials,
+    walletHash
+  };
+};
+
+/**
+ * Import credentials from a wallet backup.
+ * Validates integrity before importing.
+ */
+export const importCredentialWallet = async (
+  walletData: CredentialWalletExport
+): Promise<{ imported: number; skipped: number; errors: string[] }> => {
+  const errors: string[] = [];
+  let imported = 0;
+  let skipped = 0;
+  
+  // Validate wallet hash
+  const expectedHash = await computeContentHash(walletData.credentials);
+  if (expectedHash !== walletData.walletHash) {
+    errors.push('Wallet integrity check failed: hash mismatch');
+    return { imported, skipped, errors };
+  }
+  
+  for (const credential of walletData.credentials) {
+    try {
+      // Verify each credential's integrity
+      const { signature, contentHash, storedAt, ...data } = credential;
+      const expectedContentHash = await computeContentHash(data);
+      const isValid = await verifyCredentialSignature(data, signature);
+      
+      if (expectedContentHash !== contentHash || !isValid) {
+        skipped++;
+        continue;
+      }
+      
+      await saveCredentialOffline(credential);
+      imported++;
+    } catch (err) {
+      errors.push(`Failed to import credential ${credential.credentialId}: ${err}`);
+      skipped++;
+    }
+  }
+  
+  return { imported, skipped, errors };
 };
 
 // ---------------------------------------------------------------------------
