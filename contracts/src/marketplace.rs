@@ -16,6 +16,7 @@ pub enum MarketplaceKey {
     Rental(u64, Address),
     Stake(u64, Address),
     Dispute(u64),
+    DisputeEvidence(u64, u32),
     MarketplaceCount,
     ListingCount,
     EscrowCount,
@@ -93,7 +94,17 @@ pub struct Dispute {
     pub listing_id: u64,
     pub buyer: Address,
     pub reason: String,
-    pub status: u32,
+    pub status: u32, // 0=open, 1=refund, 2=release, 3=closed
+    pub evidence_count: u32,
+    pub resolved_by: Option<Address>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DisputeEvidence {
+    pub submitted_by: Address,
+    pub content: String,
+    pub created_at: u64,
 }
 
 /// Calculate bonding curve price for a credential (placeholder)
@@ -454,6 +465,23 @@ pub fn open_dispute(env: &Env, buyer: &Address, listing_id: u64, reason: String)
     PauseUtils::require_not_paused(env);
     buyer.require_auth();
 
+    let listing: ItemListing = env
+        .storage()
+        .instance()
+        .get(&MarketplaceKey::Listing(listing_id))
+        .unwrap_or_else(|| panic!("Listing not found"));
+    if listing.escrow_id == 0 {
+        panic!("Listing has no escrow");
+    }
+    let escrow: Escrow = env
+        .storage()
+        .instance()
+        .get(&MarketplaceKey::Escrow(listing.escrow_id))
+        .unwrap_or_else(|| panic!("Escrow not found"));
+    if escrow.buyer != *buyer || escrow.status != 0 {
+        panic!("Buyer is not eligible to open dispute");
+    }
+
     let dispute_id = env
         .storage()
         .instance()
@@ -467,6 +495,8 @@ pub fn open_dispute(env: &Env, buyer: &Address, listing_id: u64, reason: String)
         buyer: buyer.clone(),
         reason,
         status: 0, // Open
+        evidence_count: 0,
+        resolved_by: None,
     };
 
     env.storage()
@@ -484,7 +514,51 @@ pub fn open_dispute(env: &Env, buyer: &Address, listing_id: u64, reason: String)
     dispute_id
 }
 
-/// Resolve a dispute (Admin only)
+/// Attach evidence or a message to an open dispute.
+pub fn add_dispute_evidence(env: &Env, author: &Address, dispute_id: u64, content: String) {
+    PauseUtils::require_not_paused(env);
+    author.require_auth();
+    if content.is_empty() || content.len() > 4096 {
+        panic!("Invalid evidence");
+    }
+    let mut dispute: Dispute = env
+        .storage()
+        .instance()
+        .get(&MarketplaceKey::Dispute(dispute_id))
+        .unwrap_or_else(|| panic!("Dispute not found"));
+    if dispute.status != 0 {
+        panic!("Dispute is closed");
+    }
+    if *author != dispute.buyer {
+        let listing: ItemListing = env
+            .storage()
+            .instance()
+            .get(&MarketplaceKey::Listing(dispute.listing_id))
+            .unwrap_or_else(|| panic!("Listing not found"));
+        if *author != listing.seller {
+            panic!("Only buyer or seller can add evidence");
+        }
+    }
+    let evidence_id = dispute.evidence_count;
+    env.storage().instance().set(
+        &MarketplaceKey::DisputeEvidence(dispute_id, evidence_id),
+        &DisputeEvidence {
+            submitted_by: author.clone(),
+            content,
+            created_at: env.ledger().timestamp(),
+        },
+    );
+    dispute.evidence_count += 1;
+    env.storage()
+        .instance()
+        .set(&MarketplaceKey::Dispute(dispute_id), &dispute);
+    env.events().publish(
+        (symbol_short!("dispute"), symbol_short!("evidence")),
+        (dispute_id, evidence_id, author.clone()),
+    );
+}
+
+/// Resolve a dispute (Admin only). `resolved=true` refunds the buyer; false releases the seller.
 pub fn resolve_dispute(env: &Env, admin: &Address, dispute_id: u64, resolved: bool) {
     PauseUtils::require_not_paused(env);
     admin.require_auth();
@@ -505,7 +579,28 @@ pub fn resolve_dispute(env: &Env, admin: &Address, dispute_id: u64, resolved: bo
         .get(&MarketplaceKey::Dispute(dispute_id))
         .unwrap_or_else(|| panic!("Dispute not found"));
 
+    if dispute.status != 0 {
+        panic!("Dispute already resolved");
+    }
+    let listing: ItemListing = env
+        .storage()
+        .instance()
+        .get(&MarketplaceKey::Listing(dispute.listing_id))
+        .unwrap_or_else(|| panic!("Listing not found"));
+    let mut escrow: Escrow = env
+        .storage()
+        .instance()
+        .get(&MarketplaceKey::Escrow(listing.escrow_id))
+        .unwrap_or_else(|| panic!("Escrow not found"));
+    if escrow.status != 0 {
+        panic!("Escrow already processed");
+    }
+    escrow.status = if resolved { 2 } else { 1 };
+    env.storage()
+        .instance()
+        .set(&MarketplaceKey::Escrow(listing.escrow_id), &escrow);
     dispute.status = if resolved { 1 } else { 2 };
+    dispute.resolved_by = Some(admin.clone());
     env.storage()
         .instance()
         .set(&MarketplaceKey::Dispute(dispute_id), &dispute);
@@ -518,11 +613,15 @@ pub fn resolve_dispute(env: &Env, admin: &Address, dispute_id: u64, resolved: bo
 
 /// Release escrow funds to the seller after successful transfer.
 pub fn release_escrow(env: &Env, listing_id: u64) {
-    let escrow_id = env
+    let listing: ItemListing = env
         .storage()
         .instance()
-        .get::<_, u64>(&symbol_short!("esc_cnt"))
-        .unwrap_or(1);
+        .get(&MarketplaceKey::Listing(listing_id))
+        .unwrap_or_else(|| panic!("Listing not found"));
+    let escrow_id = listing.escrow_id;
+    if escrow_id == 0 {
+        panic!("Escrow not found");
+    }
 
     let mut escrow: Escrow = env
         .storage()
@@ -547,11 +646,15 @@ pub fn release_escrow(env: &Env, listing_id: u64) {
 
 /// Refund escrow to buyer on dispute or cancellation.
 pub fn refund_escrow(env: &Env, listing_id: u64) {
-    let escrow_id = env
+    let listing: ItemListing = env
         .storage()
         .instance()
-        .get::<_, u64>(&symbol_short!("esc_cnt"))
-        .unwrap_or(1);
+        .get(&MarketplaceKey::Listing(listing_id))
+        .unwrap_or_else(|| panic!("Listing not found"));
+    let escrow_id = listing.escrow_id;
+    if escrow_id == 0 {
+        panic!("Escrow not found");
+    }
 
     let mut escrow: Escrow = env
         .storage()

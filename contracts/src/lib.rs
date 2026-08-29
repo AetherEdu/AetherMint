@@ -172,6 +172,7 @@ mod access_control_test;
 mod pause_test;
 
 pub mod utils;
+pub mod zk;
 
 pub mod bridge;
 pub mod dna_services;
@@ -1152,6 +1153,21 @@ impl AetherMintContract {
         marketplace::refund_escrow(&env, listing_id)
     }
 
+    /// Open a buyer dispute against an escrow-backed listing.
+    pub fn open_dispute(env: Env, buyer: Address, listing_id: u64, reason: String) -> u64 {
+        marketplace::open_dispute(&env, &buyer, listing_id, reason)
+    }
+
+    /// Add buyer/seller evidence or a message to an open dispute.
+    pub fn add_dispute_evidence(env: Env, author: Address, dispute_id: u64, content: String) {
+        marketplace::add_dispute_evidence(&env, &author, dispute_id, content)
+    }
+
+    /// Resolve a dispute: `refund_buyer` true refunds escrow, otherwise releases it.
+    pub fn resolve_dispute(env: Env, admin: Address, dispute_id: u64, refund_buyer: bool) {
+        marketplace::resolve_dispute(&env, &admin, dispute_id, refund_buyer)
+    }
+
     /// Get listing details.
     pub fn get_listing(env: Env, listing_id: u64) -> marketplace::ItemListing {
         marketplace::get_listing(&env, listing_id)
@@ -1193,13 +1209,7 @@ impl AetherMintContract {
         verifier: Address,
     ) -> bool {
         PauseUtils::require_not_paused(&env);
-        credential_registry::verify_zk_selective_proof(
-            &env,
-            credential_id,
-            proof,
-            holder,
-            verifier,
-        )
+        credential_registry::verify_zk_selective_proof(&env, credential_id, proof, holder, verifier)
     }
 
     /// Check if a ZK nullifier has already been recorded (spent).
