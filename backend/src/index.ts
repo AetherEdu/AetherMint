@@ -146,6 +146,10 @@ const dashboardRoutes = loadRoute('./routes/dashboard');
 // @ts-ignore
 const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 
+// Passkey (WebAuthn) authentication routes
+// @ts-ignore
+const passkeyAuthRoutes = loadRoute('./routes/passkeyAuth');
+
 // Job management routes — Issue #258
 // @ts-ignore
 const jobRoutes = loadRoute('./routes/jobRoutes');
@@ -365,6 +369,9 @@ app.use('/api/audit', auditRoutes);
 
 // CSP Violation Reporting endpoint
 app.use('/api/csp-violation', cspViolationRoutes);
+
+// Passkey (WebAuthn) authentication endpoints
+app.use('/api/auth/passkeys', passkeyAuthRoutes);
 
 // Prometheus metrics endpoint
 // @ts-ignore

@@ -84,6 +84,7 @@
     "swagger-ui-express": "^5.0.0",
     "twilio": "^5.13.1",
     "uuid": "^9.0.1",
+    "@simplewebauthn/server": "^9.0.0",
     "web-push": "^3.6.7",
     "winston": "^3.10.0",
     "winston-daily-rotate-file": "^5.0.0"
