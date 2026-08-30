@@ -390,10 +390,7 @@ fn test_escrow_status_after_refund() {
     assert_eq!(escrow.status, 2);
 }
 
-// This test is skipped: escrow tracking via `esc_cnt` currently uses a global counter
-// that isn't scoped per-listing in release_escrow / refund_escrow, producing stale reads.
 #[test]
-#[should_panic]
 fn test_multiple_listings_and_escrows() {
     let env = Env::default();
     env.mock_all_auths();
@@ -422,4 +419,18 @@ fn test_multiple_listings_and_escrows() {
     assert_eq!(e1.status, 1);
     assert_eq!(e2.status, 2);
     assert_eq!(e3.status, 1);
+}
+
+#[test]
+fn test_dispute_resolution_refunds_correct_escrow() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, seller, buyer) = setup_contract(&env);
+    let listing_id = client.list_item(&seller, &1u64, &1000u64, &0u32);
+    client.buy_item(&buyer, &listing_id);
+    let dispute_id = client.open_dispute(&buyer, &listing_id, &soroban_sdk::String::from_str(&env, "not delivered"));
+    client.add_dispute_evidence(&buyer, &dispute_id, &soroban_sdk::String::from_str(&env, "proof"));
+    client.resolve_dispute(&admin, &dispute_id, &true);
+    let listing = client.get_listing(&listing_id);
+    assert_eq!(client.get_escrow(&listing.escrow_id).status, 2);
 }

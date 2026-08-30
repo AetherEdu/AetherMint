@@ -1,3 +1,4 @@
+use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{contracttype, Address, Bytes, BytesN, Env, String};
 
 /// Predicate types supported by the selective disclosure ZK scheme
@@ -46,10 +47,10 @@ pub fn compute_credential_commitment(
     salt: &BytesN<32>,
 ) -> BytesN<32> {
     let mut payload = Bytes::new(env);
-    payload.append(&credential_id.to_be_bytes().into());
+    payload.append(&Bytes::from_slice(env, &credential_id.to_be_bytes()));
     payload.append(&holder.to_xdr(env));
     payload.append(&crate::string_to_bytes(env, attribute_name));
-    payload.append(&attribute_val.to_be_bytes().into());
+    payload.append(&Bytes::from_slice(env, &attribute_val.to_be_bytes()));
     payload.append(&salt.to_bytes());
     env.crypto().sha256(&payload).into()
 }
@@ -65,7 +66,7 @@ pub fn compute_nullifier(
     let mut payload = Bytes::new(env);
     payload.append(&holder.to_xdr(env));
     payload.append(&verifier.to_xdr(env));
-    payload.append(&credential_id.to_be_bytes().into());
+    payload.append(&Bytes::from_slice(env, &credential_id.to_be_bytes()));
     payload.append(&nonce.to_bytes());
     env.crypto().sha256(&payload).into()
 }
@@ -100,8 +101,8 @@ pub fn compute_fiat_shamir_challenge(
     payload.append(&commitment.to_bytes());
     payload.append(&nullifier.to_bytes());
     payload.append(&crate::string_to_bytes(env, attribute_name));
-    payload.append(&param1.to_be_bytes().into());
-    payload.append(&param2.to_be_bytes().into());
+    payload.append(&Bytes::from_slice(env, &param1.to_be_bytes()));
+    payload.append(&Bytes::from_slice(env, &param2.to_be_bytes()));
     payload.append(&r_commitment.to_bytes());
     env.crypto().sha256(&payload).into()
 }

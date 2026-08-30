@@ -161,6 +161,9 @@ const jobRoutes = loadRoute('./routes/jobRoutes');
 // Unified payments routes — Issue #391 (Stripe fiat + Stellar crypto)
 // @ts-ignore
 const paymentsRoutes = loadRoute('./routes/payments');
+// Marketplace dispute resolution and arbitration — Issue #394
+// @ts-ignore
+const disputesRoutes = loadRoute('./routes/disputes');
 
 // Initialize Express app
 const app: Application = express();
@@ -298,6 +301,7 @@ app.use('/api/dashboard', dashboardRoutes);
 
 // Unified payments — Issue #391
 app.use('/api/payments', paymentsRoutes);
+app.use('/api/disputes', disputesRoutes);
 
 // Autonomous Agents routes
 // @ts-ignore
@@ -395,6 +399,8 @@ app.use('/api/metrics', metricsRoutes);
 app.use('/api/jobs', jobRoutes);
 
 // DID registry — Issue #397
+// @ts-ignore
+const didRoutes = loadRoute('./routes/did');
 app.use('/api/did', didRoutes);
 
 // Root endpoint
@@ -427,6 +433,7 @@ app.use('/api/v1/agi-tutor', agiTutorRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/payments', paymentsRoutes);
+app.use('/api/v1/disputes', disputesRoutes);
 app.use('/api/v1/autonomous-agents', autonomousAgentsRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/bridge', bridgeRoutes);
@@ -436,6 +443,9 @@ app.use('/api/v1/vrf', vrfRoutes);
 app.use('/api/v1/translate', translationRoutes);
 app.use('/api/v1/localization', localizationRoutes);
 app.use('/api/v1/did', didRoutes);
+// Credential verification endpoint
+// @ts-ignore
+const verifyRoutes = loadRoute('./routes/verify');
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/classroom', classroomRoutes);

@@ -18,26 +18,32 @@ fn helper_generate_proof(
     param1: u64,
     param2: u64,
 ) -> ZkProof {
-    let salt: BytesN<32> = env.crypto().sha256(&Bytes::from_slice(env, b"test_salt")).into();
-    let nonce: BytesN<32> = env.crypto().sha256(&Bytes::from_slice(env, b"test_nonce")).into();
-    let response: BytesN<32> = env.crypto().sha256(&Bytes::from_slice(env, b"test_response")).into();
+    let salt: BytesN<32> = env
+        .crypto()
+        .sha256(&Bytes::from_slice(env, b"test_salt"))
+        .into();
+    let nonce: BytesN<32> = env
+        .crypto()
+        .sha256(&Bytes::from_slice(env, b"test_nonce"))
+        .into();
+    let response: BytesN<32> = env
+        .crypto()
+        .sha256(&Bytes::from_slice(env, b"test_response"))
+        .into();
     let attr_str = String::from_str(env, attribute_name);
 
-    let commitment = compute_credential_commitment(
-        env,
-        credential_id,
-        holder,
-        &attr_str,
-        attribute_val,
-        &salt,
-    );
+    let commitment =
+        compute_credential_commitment(env, credential_id, holder, &attr_str, attribute_val, &salt);
 
     let nullifier = compute_nullifier(env, holder, verifier, credential_id, &nonce);
 
     // Build r_reconstructed based on predicate
     let mut payload = Bytes::new(env);
     payload.append(&response.to_bytes());
-    let dummy_challenge: BytesN<32> = env.crypto().sha256(&Bytes::from_slice(env, b"challenge_seed")).into();
+    let dummy_challenge: BytesN<32> = env
+        .crypto()
+        .sha256(&Bytes::from_slice(env, b"challenge_seed"))
+        .into();
     payload.append(&dummy_challenge.to_bytes());
     payload.append(&Bytes::from_slice(env, &param1.to_be_bytes()));
     if predicate_type == PredicateType::Range {
@@ -75,13 +81,8 @@ fn helper_generate_proof(
         &r_final,
     );
 
-    let holder_binding = compute_holder_binding(
-        env,
-        holder,
-        &commitment,
-        &nullifier,
-        &final_challenge,
-    );
+    let holder_binding =
+        compute_holder_binding(env, holder, &commitment, &nullifier, &final_challenge);
 
     ZkProof {
         credential_commitment: commitment,
@@ -207,7 +208,10 @@ fn test_zk_proof_invalid_challenge_rejected() {
     );
 
     // Tamper with challenge hash
-    proof.challenge = env.crypto().sha256(&Bytes::from_slice(&env, b"tampered")).into();
+    proof.challenge = env
+        .crypto()
+        .sha256(&Bytes::from_slice(&env, b"tampered"))
+        .into();
     // Update holder_binding so it passes step 1, but fails challenge step
     proof.holder_binding = compute_holder_binding(
         &env,

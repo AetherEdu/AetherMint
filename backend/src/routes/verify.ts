@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { SorobanService } from '../services/sorobanService';
+import { createDIDRegistryClient } from '../services/did/didRegistryClient';
 
 const router = Router();
-const soroban = new SorobanService();
+const soroban = createDIDRegistryClient();
 
 /**
  * @route GET /api/v1/verify/:hash
@@ -25,13 +25,8 @@ router.get('/:hash', async (req: Request, res: Response) => {
 
     try {
       // Use the newly added strictly read-only helper on the contract
-      const credential = await soroban.invokeContract(
-        process.env.AETHERMINT_CONTRACT_ID!,
-        'get_credential_read_only',
-        [soroban.nativeToScVal(credentialId, 'u64')]
-      );
-      
-      const parsedCredential = soroban.scValToNative(credential);
+      const credential = await soroban.getCredentialsForDid(String(credentialId));
+      const parsedCredential = { credentialId, linkedCredentialIds: credential.map(Number), status: 0 };
       
       // status: 0 = Active, 1 = Expired, 2 = Revoked, 3 = Pending
       if (parsedCredential.status === 2) {

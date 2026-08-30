@@ -346,12 +346,12 @@ pub fn get_credential_read_only(env: &Env, credential_id: u64) -> CredentialRegi
         .persistent()
         .get(&CredentialRegistryKey::Credential(credential_id))
         .unwrap_or_else(|| panic!("Credential not found"));
-        
+
     let current_time = env.ledger().timestamp();
     if credential.status == CredentialStatus::Active && current_time >= credential.expires_at {
         credential.status = CredentialStatus::Expired;
     }
-    
+
     credential
 }
 
@@ -780,4 +780,3 @@ pub fn verify_selective_disclosure_proof(
 ) -> bool {
     verify_zk_selective_proof(env, credential_id, proof, holder, verifier)
 }
-
