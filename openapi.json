@@ -1611,6 +1611,10 @@
     {
       "name": "Adaptation",
       "description": "Engagement-aware content adaptation (issue"
+    },
+    {
+      "name": "Credentials Sync",
+      "description": "Sync offline credential wallet with on-chain state"
     }
   ],
   "paths": {
