@@ -150,6 +150,10 @@ const cspViolationRoutes = loadRoute('./routes/cspViolationRoutes');
 // @ts-ignore
 const passkeyAuthRoutes = loadRoute('./routes/passkeyAuth');
 
+// Classroom session routes — Issue #403
+// @ts-ignore
+const classroomRoutes = loadRoute('./routes/classroom');
+
 // Job management routes — Issue #258
 // @ts-ignore
 const jobRoutes = loadRoute('./routes/jobRoutes');
@@ -163,6 +167,12 @@ const app: Application = express();
 const server = createServer(app);
 const websocketService = initWebsocketService(server);
 const collaborationService = initCollaborationService(server);
+
+// Initialize signaling service for live classrooms — Issue #403
+// @ts-ignore - signaling service
+const { getSignalingService } = require('./services/signaling/signalingService');
+const signalingService = getSignalingService();
+signalingService.initialize(websocketService.getIO());
 
 // Initialize secure communication
 const redis = new Redis({
@@ -373,6 +383,9 @@ app.use('/api/csp-violation', cspViolationRoutes);
 // Passkey (WebAuthn) authentication endpoints
 app.use('/api/auth/passkeys', passkeyAuthRoutes);
 
+// Classroom session endpoints — Issue #403
+app.use('/api/classroom', classroomRoutes);
+
 // Prometheus metrics endpoint
 // @ts-ignore
 const metricsRoutes = resolveRoute(require('./routes/metrics'));
@@ -425,6 +438,7 @@ app.use('/api/v1/localization', localizationRoutes);
 app.use('/api/v1/did', didRoutes);
 app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/classroom', classroomRoutes);
 app.use('/api/v1/verify', verifyRoutes);
 app.get('/api/v1/health', (req, res) => {
   if (isShuttingDown()) {
