@@ -26,6 +26,17 @@ export const CardHeader = React.forwardRef<HTMLElement, CardProps>(
 );
 CardHeader.displayName = 'CardHeader';
 
+export const CardDescription = React.forwardRef<HTMLElement, CardProps>(
+  ({ as: Component = 'p', className, children, ...props }, ref) => {
+    return (
+      <Component ref={ref as any} className={className} {...props}>
+        {children}
+      </Component>
+    );
+  }
+);
+CardDescription.displayName = 'CardDescription';
+
 export const CardTitle = React.forwardRef<HTMLElement, CardProps>(
   ({ as: Component = 'h3', className, children, ...props }, ref) => {
     return (

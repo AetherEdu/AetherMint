@@ -1,4 +1,4 @@
-import { performanceMonitor, PerformanceMetrics, PerformanceAlert } from '@/lib/performance-monitor';
+import { performanceMonitor, PerformanceMetrics, PerformanceAlert, PerformanceMetricKey } from '@/lib/performance-monitor';
 
 export interface PerformanceReport {
   timestamp: number;
@@ -61,9 +61,10 @@ class PerformanceReportingService {
     let totalWeight = 0;
 
     Object.entries(this.PERFORMANCE_SCORE_WEIGHTS).forEach(([metric, weight]) => {
-      const value = metrics[metric as keyof PerformanceMetrics];
-      if (value !== undefined) {
-        const score = this.getMetricScore(metric as keyof PerformanceMetrics, value);
+      const key = metric as PerformanceMetricKey;
+      const value = metrics[key];
+      if (typeof value === 'number') {
+        const score = this.getMetricScore(key, value);
         totalScore += score * weight;
         totalWeight += weight;
       }
@@ -72,7 +73,7 @@ class PerformanceReportingService {
     return totalWeight > 0 ? Math.round(totalScore / totalWeight) : 0;
   }
 
-  private getMetricScore(metric: keyof PerformanceMetrics, value: number): number {
+  private getMetricScore(metric: PerformanceMetricKey, value: number): number {
     const thresholds = this.PERFORMANCE_THRESHOLDS[metric];
     
     if (value <= thresholds.excellent) return 100;

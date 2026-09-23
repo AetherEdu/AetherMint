@@ -149,9 +149,10 @@ class PerformanceOptimizationService {
     }
 
     // Check for render-blocking scripts
-    const blockingScripts = Array.from(scripts).filter(script => 
-      !script.async && !script.defer && script.hasAttribute('src')
-    );
+    const blockingScripts = Array.from(scripts).filter((script) => {
+      const el = script as HTMLScriptElement;
+      return !el.async && !el.defer && script.hasAttribute('src');
+    });
 
     if (blockingScripts.length > 0) {
       suggestions.push({
@@ -277,8 +278,8 @@ class PerformanceOptimizationService {
     return {
       totalSize: this.estimateTotalSize(resources),
       requestCount: resources.length,
-      loadTime: navigation?.loadEventEnd - navigation?.navigationStart || 0,
-      renderTime: navigation?.domContentLoadedEventEnd - navigation?.navigationStart || 0,
+      loadTime: navigation?.loadEventEnd - navigation?.startTime || 0,
+      renderTime: navigation?.domContentLoadedEventEnd - navigation?.startTime || 0,
     };
   }
 

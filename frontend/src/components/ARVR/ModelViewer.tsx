@@ -9,7 +9,7 @@ export type RenderMode = 'solid' | 'wireframe' | 'points' | 'normals' | 'uv';
 export type InteractionMode = 'orbit' | 'pan' | 'zoom' | 'select' | 'measure';
 export type LoadingState = 'idle' | 'loading' | 'loaded' | 'error';
 
-interface ModelInfo {
+export interface ModelInfo {
   id: string;
   name: string;
   format: ModelFormat;
@@ -27,7 +27,7 @@ interface ModelInfo {
   metadata: Record<string, any>;
 }
 
-interface ModelViewerSettings {
+export interface ModelViewerSettings {
   autoRotate: boolean;
   autoRotateSpeed: number;
   environmentIntensity: number;
@@ -42,7 +42,7 @@ interface ModelViewerSettings {
   quality: 'low' | 'medium' | 'high' | 'ultra';
 }
 
-interface PerformanceStats {
+export interface PerformanceStats {
   fps: number;
   drawCalls: number;
   triangles: number;
@@ -52,7 +52,7 @@ interface PerformanceStats {
   renderTime: number;
 }
 
-interface ModelViewerProps {
+export interface ModelViewerProps {
   modelUrl?: string;
   models?: ModelInfo[];
   onModelLoad?: (model: ModelInfo) => void;

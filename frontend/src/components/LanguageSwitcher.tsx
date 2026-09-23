@@ -73,7 +73,7 @@ export function LanguageSwitcher({
     document.cookie = `i18nextLng=${language.code};path=/;max-age=${oneYearSeconds};SameSite=Lax`;
 
     // 4. Reflect the choice in the URL (?lang=es) so shared links preserve it.
-    if (router?.push) {
+    if (router) {
       const nextQuery = { ...router.query, lang: language.code };
       // Replace, don't push, so the back button doesn't fill up with switches.
       router.replace(

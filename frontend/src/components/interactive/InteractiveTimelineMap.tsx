@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface InteractiveTimelineMapProps {
+export interface InteractiveTimelineMapProps {
   contentType: 'timeline' | 'map' | 'hybrid';
   title: string;
   description: string;
@@ -12,7 +12,7 @@ interface InteractiveTimelineMapProps {
   accessibilityMode?: boolean;
 }
 
-interface TimelineEvent {
+export interface TimelineEvent {
   id: string;
   title: string;
   description: string;
@@ -28,14 +28,14 @@ interface TimelineEvent {
   relatedEvents?: string[];
 }
 
-interface TimelineData {
+export interface TimelineData {
   events: TimelineEvent[];
   categories: string[];
   startDate: Date;
   endDate: Date;
 }
 
-interface MapLocation {
+export interface MapLocation {
   id: string;
   name: string;
   description: string;
@@ -56,7 +56,7 @@ interface MapLocation {
   };
 }
 
-interface MapData {
+export interface MapData {
   locations: MapLocation[];
   center: {
     lat: number;

@@ -19,6 +19,7 @@ interface NeuralData {
   attention: number;
   meditation: number;
   cognitiveLoad: number;
+  signalQuality: number;
 }
 
 interface EEGData {

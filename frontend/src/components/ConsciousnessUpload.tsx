@@ -88,7 +88,7 @@ const ConsciousnessUpload: React.FC = () => {
       alert('Consciousness uploaded successfully!');
     } catch (error) {
       console.error('Upload failed:', error);
-      alert(`Upload failed: ${error.message}`);
+      alert(`Upload failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setUploading(false);
     }
@@ -107,11 +107,11 @@ const ConsciousnessUpload: React.FC = () => {
         verificationHash: consciousnessData.neuralHash
       });
 
-      setVerificationResult(result);
-      alert(`Consciousness verification: ${result ? 'PASSED' : 'FAILED'}`);
+      setVerificationResult(result.isValid);
+      alert(`Consciousness verification: ${result.isValid ? 'PASSED' : 'FAILED'}`);
     } catch (error) {
       console.error('Verification failed:', error);
-      alert(`Verification failed: ${error.message}`);
+      alert(`Verification failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setVerifying(false);
     }
@@ -141,7 +141,7 @@ const ConsciousnessUpload: React.FC = () => {
       }
     } catch (error) {
       console.error('Transfer failed:', error);
-      alert(`Transfer failed: ${error.message}`);
+      alert(`Transfer failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setTransferring(false);
     }

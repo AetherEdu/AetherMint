@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface DragDropActivityProps {
+export interface DragDropActivityProps {
   activityType: 'matching' | 'sorting' | 'categorization' | 'sequencing' | 'labeling';
   title: string;
   instructions: string;
@@ -12,7 +12,7 @@ interface DragDropActivityProps {
   accessibilityMode?: boolean;
 }
 
-interface DragDropItem {
+export interface DragDropItem {
   id: string;
   content: string;
   image?: string;
@@ -22,7 +22,7 @@ interface DragDropItem {
   metadata?: Record<string, any>;
 }
 
-interface DropTarget {
+export interface DropTarget {
   id: string;
   label: string;
   accepts?: string[];
@@ -30,7 +30,7 @@ interface DropTarget {
   position?: { x: number; y: number };
 }
 
-interface ActivityResults {
+export interface ActivityResults {
   correct: number;
   total: number;
   accuracy: number;
@@ -39,7 +39,7 @@ interface ActivityResults {
   items: ItemResult[];
 }
 
-interface ItemResult {
+export interface ItemResult {
   itemId: string;
   correct: boolean;
   attempts: number;
@@ -262,7 +262,7 @@ const DragDropLearningActivity: React.FC<DragDropActivityProps> = ({
     <motion.div
       key={item.id}
       draggable
-      onDragStart={(e) => handleDragStart(e, item)}
+      onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent, item)}
       onDragEnd={handleDragEnd}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}

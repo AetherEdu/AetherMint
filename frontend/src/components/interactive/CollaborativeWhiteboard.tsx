@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface CollaborativeWhiteboardProps {
+export interface CollaborativeWhiteboardProps {
   whiteboardId: string;
   userId: string;
   title: string;
@@ -13,7 +13,7 @@ interface CollaborativeWhiteboardProps {
   accessibilityMode?: boolean;
 }
 
-interface WhiteboardUser {
+export interface WhiteboardUser {
   id: string;
   name: string;
   avatar?: string;
@@ -22,7 +22,7 @@ interface WhiteboardUser {
   isActive: boolean;
 }
 
-interface DrawingElement {
+export interface DrawingElement {
   id: string;
   type: 'pen' | 'line' | 'rectangle' | 'circle' | 'text' | 'image' | 'sticky';
   userId: string;
@@ -37,7 +37,7 @@ interface DrawingElement {
   };
 }
 
-interface WhiteboardData {
+export interface WhiteboardData {
   elements: DrawingElement[];
   users: WhiteboardUser[];
   version: number;

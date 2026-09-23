@@ -8,7 +8,7 @@ export type ClassroomLayout = 'lecture' | 'seminar' | 'lab' | 'discussion' | 'pr
 export type AvatarState = 'idle' | 'listening' | 'speaking' | 'raising-hand' | 'applauding';
 export type UserRole = 'instructor' | 'student' | 'assistant' | 'visitor';
 
-interface UserAvatar {
+export interface UserAvatar {
   id: string;
   name: string;
   role: UserRole;
@@ -26,7 +26,7 @@ interface UserAvatar {
   animations: string[];
 }
 
-interface ClassroomEnvironment {
+export interface ClassroomEnvironment {
   layout: ClassroomLayout;
   capacity: number;
   scene: string;
@@ -58,7 +58,7 @@ interface ClassroomEnvironment {
   };
 }
 
-interface ClassroomSession {
+export interface ClassroomSession {
   id: string;
   title: string;
   description: string;
@@ -73,7 +73,7 @@ interface ClassroomSession {
   tools: string[];
 }
 
-interface VirtualClassroomProps {
+export interface VirtualClassroomProps {
   session: ClassroomSession;
   onUserJoin?: (user: UserAvatar) => void;
   onUserLeave?: (userId: string) => void;

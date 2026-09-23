@@ -121,12 +121,13 @@ export function HolographicRenderer({
 
   // Initialize holographic renderer
   useEffect(() => {
-    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     const initializeRenderer = async () => {
       try {
         // Initialize WebGL context with holographic extensions
-        const gl = canvasRef.current.getContext('webgl2', {
+        const gl = canvas.getContext('webgl2', {
           antialias: true,
           alpha: true,
           premultipliedAlpha: false,
@@ -381,6 +382,23 @@ export function HolographicRenderer({
     return matrix;
   };
 
+  // Best-effort parse of a CSS colour string into normalized RGB floats.
+  // Falls back to the holographic default when the format isn't hex.
+  const parseColor = (value: string): [number, number, number] => {
+    const hex = (value ?? '').trim();
+    if (hex.startsWith('#')) {
+      const digits = hex.slice(1);
+      const expanded = digits.length === 3
+        ? digits.split('').map((c) => c + c).join('')
+        : digits;
+      const n = parseInt(expanded, 16);
+      if (!Number.isNaN(n)) {
+        return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+      }
+    }
+    return [0.3, 0.6, 0.9];
+  };
+
   // Render 3D model
   const render3DModel = (gl: WebGL2RenderingContext, item: HolographicContent, modelMatrix: Float32Array, material: any) => {
     // In production, this would render actual 3D geometry
@@ -424,9 +442,9 @@ export function HolographicRenderer({
     gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
 
     // Apply holographic material
-    gl.uniform3f(1, material.color); // color uniform
+    gl.uniform3f(1, ...parseColor(material.color)); // color uniform
     gl.uniform1f(2, material.opacity); // opacity uniform
-    gl.uniform3f(3, material.emissive); // emissive uniform
+    gl.uniform3f(3, ...parseColor(material.emissive)); // emissive uniform
 
     // Draw the geometry
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);

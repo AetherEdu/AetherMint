@@ -1,6 +1,19 @@
 // Interactive Learning Components - Main Export File
 // AetherMint Education Platform
 
+// Local imports give the convenience object below concrete bindings. Re-exporting
+// with `export { default as X } from './X'` does not create a local binding.
+import VirtualLabSimulation from './VirtualLabSimulation';
+import InteractiveDiagram from './InteractiveDiagram';
+import DragDropActivity from './DragDropActivity';
+import GamificationEngine from './GamificationEngine';
+import InteractiveTimelineMap from './InteractiveTimelineMap';
+import CollaborativeWhiteboard from './CollaborativeWhiteboard';
+import ProgressVisualization from './ProgressVisualization';
+import InteractiveQuiz from './InteractiveQuiz';
+import AccessibilityProvider from './AccessibilityProvider';
+import type { AccessibilitySettings } from './AccessibilityProvider';
+
 // Core Interactive Components
 export { default as VirtualLabSimulation } from './VirtualLabSimulation';
 export { default as InteractiveDiagram } from './InteractiveDiagram';
@@ -50,7 +63,6 @@ export type {
   TimelineData,
   MapLocation,
   MapData,
-  Milestone,
 } from './InteractiveTimelineMap';
 
 export type {

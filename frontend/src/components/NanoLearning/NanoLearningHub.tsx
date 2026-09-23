@@ -7,12 +7,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useNeuralInterface } from '../hooks/useNeuralInterface';
-import { useSkillAcquisition } from '../hooks/useSkillAcquisition';
-import { useNanotechMonitoring } from '../hooks/useNanotechMonitoring';
-import type { Skill } from '../types/nanotech';
+import { useNeuralInterface } from '@/hooks/useNeuralInterface';
+import { useSkillAcquisition } from '@/hooks/useSkillAcquisition';
+import { useNanotechMonitoring } from '@/hooks/useNanotechMonitoring';
+import type { Skill } from '@/types/nanotech';
 
-interface NanoLearningHubProps {
+export interface NanoLearningHubProps {
   userId: string;
   availableSkills?: Skill[];
   onSessionComplete?: (skillId: string, masteryLevel: number) => void;

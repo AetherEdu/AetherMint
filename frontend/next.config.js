@@ -43,8 +43,9 @@ const nextConfig = {
   // Empty in local/dev, so default behaviour is unchanged.
   assetPrefix: process.env.ASSET_PREFIX || undefined,
   typescript: {
-    // Ignore TS build errors — pre-existing type issues across the codebase
-    ignoreBuildErrors: true,
+    // Fail the build on type errors. The codebase type-checks clean
+    // (`npm run type-check`) and CI enforces it, so type debt can't ship.
+    ignoreBuildErrors: false,
   },
   eslint: {
     // Ignore ESLint errors during build — pre-existing issues across the codebase

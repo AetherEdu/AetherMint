@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { saveOfflineProgress } from '../../utils/offlineDB';
 
-interface InteractiveQuizProps {
+export interface InteractiveQuizProps {
   quizId: string;
   title: string;
   description: string;
@@ -17,7 +17,7 @@ interface InteractiveQuizProps {
   accessibilityMode?: boolean;
 }
 
-interface QuizQuestion {
+export interface QuizQuestion {
   id: string;
   type: 'multiple-choice' | 'true-false' | 'fill-blank' | 'matching' | 'ordering' | 'essay';
   question: string;
@@ -36,7 +36,7 @@ interface QuizQuestion {
   };
 }
 
-interface QuizProgress {
+export interface QuizProgress {
   currentQuestion: number;
   totalQuestions: number;
   timeSpent: number;
@@ -45,7 +45,7 @@ interface QuizProgress {
   maxScore: number;
 }
 
-interface QuizResults {
+export interface QuizResults {
   quizId: string;
   userId: string;
   score: number;
@@ -58,7 +58,7 @@ interface QuizResults {
   completedAt: Date;
 }
 
-interface QuestionResult {
+export interface QuestionResult {
   questionId: string;
   userAnswer: any;
   correctAnswer: any;

@@ -515,7 +515,7 @@ grep "optimization:completed" logs/cdn-optimization.log | jq '.processingTime'
 
 ```bash
 # Clone repository
-git clone https://github.com/jobbykings/aethermint-education.git
+git clone https://github.com/AetherEdu/AetherMint.git
 cd aethermint-education/backend
 
 # Install dependencies
@@ -554,8 +554,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 For support and questions:
 
 - **Documentation**: [Full API Documentation](./docs/api.md)
-- **Issues**: [GitHub Issues](https://github.com/jobbykings/aethermint-education/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/jobbykings/aethermint-education/discussions)
+- **Issues**: [GitHub Issues](https://github.com/AetherEdu/AetherMint/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/AetherEdu/AetherMint/discussions)
 - **Email**: support@aethermint-education.org
 
 ---

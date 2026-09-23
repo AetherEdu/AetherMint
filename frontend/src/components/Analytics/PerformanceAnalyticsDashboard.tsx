@@ -26,8 +26,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { DateRange } from 'react-day-picker';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -48,6 +46,8 @@ import {
 interface AnalyticsData {
   timeframe: string;
   metrics: any;
+  /** Raw analytics payload returned by the platform endpoint. */
+  analytics?: any;
   insights: any[];
   recommendations: any[];
 }
@@ -81,7 +81,6 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'
 export default function PerformanceAnalyticsDashboard() {
   const [selectedTimeframe, setSelectedTimeframe] = useState('month');
   const [selectedView, setSelectedView] = useState('overview');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [studentMetrics, setStudentMetrics] = useState<StudentMetrics | null>(null);
   const [courseMetrics, setCourseMetrics] = useState<CourseMetrics | null>(null);
@@ -350,7 +349,7 @@ export default function PerformanceAnalyticsDashboard() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
@@ -469,7 +468,7 @@ export default function PerformanceAnalyticsDashboard() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"

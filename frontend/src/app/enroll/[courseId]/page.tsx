@@ -20,7 +20,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 const EnrollmentPage: React.FC = () => {
   const params = useParams();
   const router = useRouter();
-  const courseId = params.courseId as string;
+  const courseId = (params?.courseId as string) ?? '';
 
   const [course, setCourse] = useState<Course | null>(null);
   const [wallet, setWallet] = useState<WalletInfo | null>(null);

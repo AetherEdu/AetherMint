@@ -1,5 +1,12 @@
 # AetherMint
 
+[![CI](https://github.com/AetherEdu/AetherMint/actions/workflows/ci.yml/badge.svg)](https://github.com/AetherEdu/AetherMint/actions/workflows/ci.yml)
+[![OpenAPI Docs](https://github.com/AetherEdu/AetherMint/actions/workflows/openapi.yml/badge.svg)](https://github.com/AetherEdu/AetherMint/actions/workflows/openapi.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Stellar](https://img.shields.io/badge/Stellar-Soroban-blueviolet.svg)](https://stellar.org)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org)
+[![Rust](https://img.shields.io/badge/Rust-1.84%2B-orange.svg)](https://www.rust-lang.org)
+
 AetherMint is a decentralized learning and credential verification platform powered by Stellar blockchain. It enables secure, tamper-proof issuance and verification of educational credentials, certificates, and achievements using Soroban smart contracts.
 
 ## 🎯 Features
@@ -40,7 +47,7 @@ AetherMint is a decentralized learning and credential verification platform powe
 ### **Smart Contracts**
 - **Rust** - Memory-safe smart contract language
 - **Soroban SDK** - Stellar smart contract development
-- **Cairo Compatibility** - Cross-platform contract support
+- **Shared Storage Utilities** - Reusable packing/hashing helpers for gas-efficient state
 
 ## 🚀 Quick Start
 
@@ -51,7 +58,7 @@ AetherMint is a decentralized learning and credential verification platform powe
 - PostgreSQL
 - Redis
 - Freighter or compatible Stellar wallet
-- **Rust** (stable toolchain, 1.75+)
+- **Rust** (stable toolchain, 1.84+)
 - **Soroban SDK** (26.1.0)
 - **Soroban CLI** (26.1.0)
 
@@ -96,8 +103,8 @@ stellar version
 
 ```bash
 # Clone the repository
-git clone https://github.com/jobbykings/aethermint-education.git
-cd aethermint-education
+git clone https://github.com/AetherEdu/AetherMint.git
+cd AetherMint
 
 # Install dependencies
 npm run install:all
@@ -148,7 +155,7 @@ See the [ADR index](docs/adr/README.md) for details.
 ## 📁 Project Structure
 
 ```
-aethermint-education/
+AetherMint/
 ├── contracts/              # Soroban smart contracts (Rust)
 │   ├── src/
 │   │   ├── lib.rs       # Main contract logic
@@ -244,7 +251,7 @@ cargo test -- --nocapture
 
 Our smart contracts implement advanced storage optimization techniques to reduce gas costs and improve deployment efficiency:
 
-#### � Key Optimizations
+#### 🔑 Key Optimizations
 
 1. **Bit Packing** - Multiple boolean flags and small integers packed into single bytes
 2. **Hash-Based Storage** - Large strings and vectors stored as hashes to save space
@@ -294,10 +301,10 @@ cargo test --release -- --nocapture test_gas_benchmarks
 Generate detailed gas report:
 
 ```bash
-soroban contract invoke \
+stellar contract invoke \
   --id <contract-id> \
   --fn generate_gas_report \
-  --wasm target/wasm32-unknown-unknown/release/aethermint_education.wasm
+  --wasm target/wasm32v1-none/release/aethermint_education_contracts.wasm
 ```
 
 ## 📖 API Documentation
@@ -310,7 +317,7 @@ AetherMint ships with fully interactive API reference documentation built on Ope
 | **Raw OpenAPI spec** | `http://localhost:3001/api/docs/json` | Machine-readable JSON spec for tooling |
 | **Developer Portal** | `http://localhost:3002` | Full playground with code generation and auth docs |
 | **Auth Docs** | `http://localhost:3002/auth-docs` | JWT flow, API key usage, roles & error codes |
-| **Published docs** | [GitHub Pages](https://jobbykings.github.io/aethermint-education/) | Auto-updated on every push to `main` |
+| **Published docs** | [GitHub Pages](https://aetheredu.github.io/AetherMint/) | Auto-updated on every push to `main` |
 
 To start the documentation locally:
 
@@ -324,7 +331,7 @@ cd backend/portal && npm run dev    # → http://localhost:3002
 
 The OpenAPI spec is validated on every CI run — a PR fails if fewer than 10 paths are documented or the spec is structurally invalid.
 
-## �🌐 API Endpoints
+## 🌐 API Endpoints
 
 ### Authentication
 - `POST /api/auth/register` - User registration
@@ -450,14 +457,16 @@ For detailed documentation, see [HOLOGRAPHIC_STORAGE_README.md](./backend/HOLOGR
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ### 🐛 Found a Bug?
-- [Create an issue](https://github.com/jobbykings/aethermint-education/issues/new?assignees=&labels=bug&template=bug_report.md)
+- [Create an issue](https://github.com/AetherEdu/AetherMint/issues/new?assignees=&labels=bug&template=bug_report.md)
 
 ### 💡 Feature Request?
-- [Suggest a feature](https://github.com/jobbykings/aethermint-education/issues/new?assignees=&labels=enhancement&template=feature_request.md)
+- [Suggest a feature](https://github.com/AetherEdu/AetherMint/issues/new?assignees=&labels=enhancement&template=feature_request.md)
 
 ### 🔒 Security Issue?
-- Email: security@aethermint-education.org
-- [Security template](https://github.com/jobbykings/aethermint-education/issues/new?assignees=&labels=security&template=security_vulnerability.md)
+
+Please **do not** report vulnerabilities in public issues. Email
+[security@aetheredu.xyz](mailto:security@aetheredu.xyz) — see [SECURITY.md](SECURITY.md)
+for our disclosure process.
 
 ## 👥 Contributors
 
@@ -471,7 +480,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Discord](https://discord.gg/aethermint-education)
 - [Twitter](https://twitter.com/aethermint_education)
-- [GitHub Discussions](https://github.com/jobbykings/aethermint-education/discussions)
+- [GitHub Discussions](https://github.com/AetherEdu/AetherMint/discussions)
 - [Website](https://aethermint-education.org)
 
 ## 📊 Project Status
@@ -479,7 +488,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Version**: 0.1.0 (Alpha)
 - **Network**: Stellar Testnet
 - **Status**: Under Development
-- **Roadmap**: [View Project Board](https://github.com/jobbykings/aethermint-education/projects)
+- **Roadmap**: [View Project Board](https://github.com/AetherEdu/AetherMint/projects)
 - **Gas Optimization**: ✅ **30% storage reduction achieved**
 - **Holographic Storage**: ✅ **Software abstraction layer implemented**
 - **Latest Update**: Holographic storage system with 3D spatial encoding

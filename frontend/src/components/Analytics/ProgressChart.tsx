@@ -125,7 +125,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({
               />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip 
-                formatter={formatTooltipValue}
+                formatter={formatTooltipValue as any}
                 labelFormatter={(value) => new Date(value).toLocaleDateString()}
               />
               <Area 
@@ -155,7 +155,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({
                 domain={[0, 100]}
               />
               <Tooltip 
-                formatter={formatTooltipValue}
+                formatter={formatTooltipValue as any}
                 labelFormatter={(value) => new Date(value).toLocaleDateString()}
               />
               <Line 
@@ -182,7 +182,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({
               />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip 
-                formatter={formatTooltipValue}
+                formatter={formatTooltipValue as any}
                 labelFormatter={(value) => new Date(value).toLocaleDateString()}
               />
               <Area 
@@ -209,7 +209,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({
               />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip 
-                formatter={formatTooltipValue}
+                formatter={formatTooltipValue as any}
                 labelFormatter={(value) => new Date(value).toLocaleDateString()}
               />
               <Line 

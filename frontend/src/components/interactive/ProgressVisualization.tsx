@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 
-interface ProgressVisualizationProps {
+export interface ProgressVisualizationProps {
   userId: string;
   courseId?: string;
   progressData: ProgressData;
@@ -11,7 +11,7 @@ interface ProgressVisualizationProps {
   accessibilityMode?: boolean;
 }
 
-interface ProgressData {
+export interface ProgressData {
   overallProgress: number;
   courseProgress?: CourseProgress[];
   weeklyProgress: WeeklyProgress[];
@@ -20,7 +20,7 @@ interface ProgressData {
   streakData: StreakData;
 }
 
-interface CourseProgress {
+export interface CourseProgress {
   courseId: string;
   courseName: string;
   progress: number;
@@ -30,7 +30,7 @@ interface CourseProgress {
   lastAccessed: Date;
 }
 
-interface WeeklyProgress {
+export interface WeeklyProgress {
   week: string;
   hoursSpent: number;
   lessonsCompleted: number;
@@ -38,7 +38,7 @@ interface WeeklyProgress {
   pointsEarned: number;
 }
 
-interface SkillProgress {
+export interface SkillProgress {
   skillName: string;
   category: string;
   currentLevel: number;
@@ -48,7 +48,7 @@ interface SkillProgress {
   progressPercentage: number;
 }
 
-interface TimeSpentData {
+export interface TimeSpentData {
   totalTime: number;
   todayTime: number;
   weekTime: number;
@@ -56,14 +56,14 @@ interface TimeSpentData {
   averageSession: number;
 }
 
-interface StreakData {
+export interface StreakData {
   currentStreak: number;
   longestStreak: number;
   lastActivityDate: Date;
   streakHistory: { date: Date; active: boolean }[];
 }
 
-interface Achievement {
+export interface Achievement {
   id: string;
   title: string;
   description: string;
@@ -76,7 +76,7 @@ interface Achievement {
   pointsAwarded: number;
 }
 
-interface Milestone {
+export interface Milestone {
   id: string;
   title: string;
   description: string;

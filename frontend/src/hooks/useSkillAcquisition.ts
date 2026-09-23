@@ -132,6 +132,7 @@ export function useSkillAcquisition(userId: string): UseSkillAcquisitionReturn {
           prerequisiteSkills: [],
           estimatedLearningTime: 60000,
           knowledgeBlocks: [],
+          totalKnowledge: 0,
           testQuestions: [],
           masteryThreshold: 80
         };

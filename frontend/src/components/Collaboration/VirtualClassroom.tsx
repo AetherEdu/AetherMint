@@ -270,8 +270,8 @@ const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ session }) => {
                     />
                     <MediaInfo
                       label="Media Server"
-                      value={classroom.mediaProvider.mediaServer.transport.toUpperCase()}
-                      detail={`${classroom.mediaProvider.mediaServer.provider} · ${classroom.mediaProvider.mediaServer.region}`}
+                      value={classroom.mediaProvider.mediaServer?.transport?.toUpperCase() ?? 'N/A'}
+                      detail={`${classroom.mediaProvider.mediaServer?.provider ?? 'unknown'} · ${classroom.mediaProvider.mediaServer?.region ?? 'unknown'}`}
                     />
                     <MediaInfo
                       label="Recording"

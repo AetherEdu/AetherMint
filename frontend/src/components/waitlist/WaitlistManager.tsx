@@ -23,6 +23,7 @@ import {
   Bell,
   Settings,
   Loader2,
+  BarChart3,
   ExternalLink,
   Info
 } from 'lucide-react';

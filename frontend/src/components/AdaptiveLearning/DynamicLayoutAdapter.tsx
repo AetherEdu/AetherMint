@@ -9,14 +9,14 @@ export type LayoutType = 'grid' | 'list' | 'cards' | 'timeline' | 'mindmap' | 'f
 export type DensityLevel = 'compact' | 'comfortable' | 'spacious';
 export type ContentPriority = 'visual' | 'text' | 'interactive' | 'balanced';
 
-interface LayoutConfiguration {
+export interface LayoutConfiguration {
   type: LayoutType;
   density: DensityLevel;
   contentPriority: ContentPriority;
   columns: number;
   sidebarPosition: 'left' | 'right' | 'none' | 'both';
   headerSize: 'small' | 'medium' | 'large';
-  navigationStyle: 'tabs' | 'sidebar' | 'topbar' | 'floating';
+  navigationStyle: 'tabs' | 'sidebar' | 'topbar' | 'floating' | 'minimal';
   animationSpeed: 'fast' | 'normal' | 'slow';
   colorScheme: 'light' | 'dark' | 'auto' | 'high-contrast';
 }

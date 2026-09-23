@@ -9,7 +9,7 @@ export type HandSide = 'left' | 'right' | 'both';
 export type TrackingMode = 'basic' | 'advanced' | 'precise';
 export type ConfidenceLevel = 'low' | 'medium' | 'high' | 'very-high';
 
-interface HandGesture {
+export interface HandGesture {
   id: string;
   type: GestureType;
   confidence: number;
@@ -29,7 +29,7 @@ interface HandGesture {
   isValid: boolean;
 }
 
-interface GesturePattern {
+export interface GesturePattern {
   id: string;
   name: string;
   sequence: GestureType[];
@@ -40,7 +40,7 @@ interface GesturePattern {
   icon: any;
 }
 
-interface TrackingSettings {
+export interface TrackingSettings {
   mode: TrackingMode;
   minConfidence: number;
   maxHands: number;
@@ -57,7 +57,7 @@ interface TrackingSettings {
   };
 }
 
-interface GestureControlsProps {
+export interface GestureControlsProps {
   onGestureDetected?: (gesture: HandGesture) => void;
   onPatternDetected?: (pattern: GesturePattern) => void;
   onHandTracked?: (hand: HandGesture) => void;

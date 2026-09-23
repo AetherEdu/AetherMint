@@ -1,5 +1,8 @@
 import { getCLS, getFID, getFCP, getLCP, getTTFB, Metric } from 'web-vitals';
 
+/** The numeric Core Web Vitals keys we track. */
+export type PerformanceMetricKey = 'cls' | 'fid' | 'fcp' | 'lcp' | 'ttfb';
+
 export interface PerformanceMetrics {
   cls: number;
   fid: number;
@@ -15,7 +18,7 @@ export interface PerformanceMetrics {
 }
 
 export interface PerformanceAlert {
-  metric: keyof PerformanceMetrics;
+  metric: PerformanceMetricKey;
   value: number;
   threshold: number;
   severity: 'low' | 'medium' | 'high';
@@ -77,7 +80,7 @@ class PerformanceMonitor {
         this.addMetric(performanceData as PerformanceMetrics);
       }
 
-      this.checkAlerts(metric.name as keyof PerformanceMetrics, metric.value);
+      this.checkAlerts(metric.name as PerformanceMetricKey, metric.value);
     };
 
     getCLS(handleMetric);
@@ -147,7 +150,7 @@ class PerformanceMonitor {
             const timingData = {
               domContentLoaded: navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart,
               loadComplete: navEntry.loadEventEnd - navEntry.loadEventStart,
-              domInteractive: navEntry.domInteractive - navEntry.navigationStart,
+              domInteractive: navEntry.domInteractive - navEntry.startTime,
               firstPaint: this.getFirstPaint(),
               firstContentfulPaint: this.getFirstContentfulPaint(),
             };
@@ -172,7 +175,7 @@ class PerformanceMonitor {
     return fcp ? fcp.startTime : null;
   }
 
-  private checkAlerts(metric: keyof PerformanceMetrics, value: number) {
+  private checkAlerts(metric: PerformanceMetricKey, value: number) {
     const threshold = this.alertThresholds[metric];
     if (!threshold) return;
 

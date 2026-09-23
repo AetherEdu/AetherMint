@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface VirtualLabProps {
+export interface VirtualLabProps {
   labType: 'chemistry' | 'physics' | 'biology' | 'mathematics';
   title: string;
   description: string;
@@ -9,7 +9,7 @@ interface VirtualLabProps {
   accessibilityMode?: boolean;
 }
 
-interface ExperimentStep {
+export interface ExperimentStep {
   id: string;
   title: string;
   description: string;

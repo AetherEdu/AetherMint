@@ -9,6 +9,7 @@
 
 const SUPPORTED_LOCALES = ['en', 'es', 'fr', 'de', 'zh', 'ja', 'ko', 'ar'];
 
+/** @type {import('next-i18next').UserConfig} */
 module.exports = {
   i18n: {
     defaultLocale: 'en',

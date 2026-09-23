@@ -751,7 +751,7 @@ if (debugMode) {
 
 For issues, questions, or contributions:
 
-- **GitHub Issues**: [Create an issue](https://github.com/jobbykings/aethermint-education/issues)
+- **GitHub Issues**: [Create an issue](https://github.com/AetherEdu/AetherMint/issues)
 - **Documentation**: [View docs](https://aethermint-education.org/docs)
 - **Community**: [Join Discord](https://discord.gg/aethermint-education)
 
@@ -762,7 +762,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ### Development Setup
 
 ```bash
-git clone https://github.com/jobbykings/aethermint-education.git
+git clone https://github.com/AetherEdu/AetherMint.git
 cd aethermint-education
 npm install
 npm run dev

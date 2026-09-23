@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import CollaborationRoom from '@/components/collaboration/CollaborationRoom';
+import CollaborationRoom from '@/components/Collaboration/CollaborationRoom';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import toast from 'react-hot-toast';
 
 const CollaborationRoomPage = () => {
   const params = useParams();
   const router = useRouter();
-  const roomId = params.roomId as string;
+  const roomId = (params?.roomId as string) ?? '';
 
   const [isLoading, setIsLoading] = useState(true);
   const [userInfo, setUserInfo] = useState<{

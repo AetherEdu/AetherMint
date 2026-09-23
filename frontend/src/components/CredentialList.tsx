@@ -22,6 +22,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { ExportButton } from './Analytics/ExportButton';
+import { EmptyState } from './LoadingFallback';
 
 interface CredentialListProps {
   credentials?: Credential[];

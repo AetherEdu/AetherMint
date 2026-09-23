@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface GamificationProps {
+export interface GamificationProps {
   userId: string;
   courseId?: string;
   showPoints?: boolean;
@@ -12,14 +12,14 @@ interface GamificationProps {
   accessibilityMode?: boolean;
 }
 
-interface Points {
+export interface Points {
   total: number;
   weekly: number;
   monthly: number;
   coursePoints?: number;
 }
 
-interface Badge {
+export interface Badge {
   id: string;
   name: string;
   description: string;
@@ -31,7 +31,7 @@ interface Badge {
   maxProgress?: number;
 }
 
-interface Achievement {
+export interface Achievement {
   id: string;
   title: string;
   description: string;
@@ -40,7 +40,7 @@ interface Achievement {
   unlockedAt: Date;
 }
 
-interface LeaderboardEntry {
+export interface LeaderboardEntry {
   userId: string;
   username: string;
   avatar?: string;
@@ -49,7 +49,7 @@ interface LeaderboardEntry {
   change: number;
 }
 
-interface LearningStreak {
+export interface LearningStreak {
   current: number;
   longest: number;
   lastActivityDate: Date;

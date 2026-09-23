@@ -169,16 +169,21 @@ export const initDB = (): Promise<IDBDatabase> => {
  * Lower-level helper that runs an async transaction against a single store
  * and resolves with the resulting IDBRequest result.
  */
-async function runRequest<T, S extends OfflineStoreName>(
+async function runRequest<
+  T = unknown,
+  S extends OfflineStoreName = OfflineStoreName
+>(
   store: S,
   mode: IDBTransactionMode,
-  action: (objectStore: IDBObjectStore) => IDBRequest<T>
+  // Accept any request payload (put/add return a key, delete/clear return
+  // `undefined`); the caller pins the resolved value via `T`.
+  action: (objectStore: IDBObjectStore) => IDBRequest<any>
 ): Promise<T> {
   const db = await initDB();
   return new Promise<T>((resolve, reject) => {
     const transaction = db.transaction(store, mode);
     const objectStore = transaction.objectStore(store);
-    const request = action(objectStore);
+    const request = action(objectStore) as IDBRequest<T>;
     request.onsuccess = () => resolve(request.result);
     request.onerror = () =>
       reject(request.error ?? new Error(`IDB ${store} request failed`));

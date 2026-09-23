@@ -8,7 +8,7 @@ export type PerformanceMode = 'quality' | 'balanced' | 'performance' | 'mobile';
 export type OptimizationStrategy = 'adaptive' | 'manual' | 'automatic';
 export type DeviceType = 'desktop' | 'mobile' | 'tablet' | 'vr' | 'ar';
 
-interface PerformanceMetrics {
+export interface PerformanceMetrics {
   fps: number;
   frameTime: number;
   drawCalls: number;
@@ -23,7 +23,7 @@ interface PerformanceMetrics {
   renderTime: number;
 }
 
-interface LODSettings {
+export interface LODSettings {
   enabled: boolean;
   levels: number;
   distances: number[];
@@ -35,7 +35,7 @@ interface LODSettings {
   autoAdjust: boolean;
 }
 
-interface RenderSettings {
+export interface RenderSettings {
   resolution: {
     width: number;
     height: number;
@@ -57,7 +57,7 @@ interface RenderSettings {
   };
 }
 
-interface OptimizationSettings {
+export interface OptimizationSettings {
   mode: PerformanceMode;
   strategy: OptimizationStrategy;
   targetFPS: number;
@@ -82,7 +82,7 @@ interface OptimizationSettings {
   };
 }
 
-interface PerformanceOptimizerProps {
+export interface PerformanceOptimizerProps {
   deviceType: DeviceType;
   onPerformanceUpdate?: (metrics: PerformanceMetrics) => void;
   onOptimizationChange?: (settings: OptimizationSettings) => void;
@@ -270,7 +270,12 @@ export function PerformanceOptimizer({
 
   // Check for performance issues
   const checkPerformanceIssues = (metrics: PerformanceMetrics) => {
-    const newAlerts = [];
+    const newAlerts: Array<{
+      id: string;
+      type: 'warning' | 'error' | 'info';
+      message: string;
+      timestamp: number;
+    }> = [];
     
     // Low FPS warning
     if (metrics.fps < targetFPS * 0.8) {

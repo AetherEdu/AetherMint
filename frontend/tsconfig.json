@@ -26,6 +26,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@creit.tech/stellar-wallets-kit": [
+        "./src/stubs/stellar-wallets-kit.ts"
       ]
     },
     "strictNullChecks": true,

@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 
-interface AccessibilityFeaturesProps {
+export interface AccessibilityFeaturesProps {
   children: React.ReactNode;
   onSettingsChange?: (settings: AccessibilitySettings) => void;
   initialSettings?: Partial<AccessibilitySettings>;
 }
 
-interface AccessibilitySettings {
+export interface AccessibilitySettings {
   fontSize: 'small' | 'medium' | 'large' | 'extra-large';
   highContrast: boolean;
   reducedMotion: boolean;

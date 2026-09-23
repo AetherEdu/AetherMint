@@ -181,7 +181,7 @@ export function useFormValidation<T extends FieldValues>({
 
   // --- Handlers ---
   const resetForm = useCallback(() => {
-    reset(defaultValues);
+    reset(defaultValues as T | undefined);
     if (persistenceKey) clearPersistedData(persistenceKey);
   }, [reset, defaultValues, persistenceKey]);
 

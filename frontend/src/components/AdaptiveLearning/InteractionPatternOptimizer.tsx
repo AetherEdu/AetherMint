@@ -254,8 +254,9 @@ export function InteractionPatternOptimizer({
     document.addEventListener('keydown', handleKeyDown);
 
     // Touch events for mobile
+    let handleTouchStart: ((e: TouchEvent) => void) | undefined;
     if ('ontouchstart' in window) {
-      const handleTouchStart = (e: TouchEvent) => {
+      handleTouchStart = (e: TouchEvent) => {
         const touch = e.touches[0];
         if (touch) {
           trackInteraction({
@@ -276,7 +277,7 @@ export function InteractionPatternOptimizer({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('scroll', handleScroll);
       document.removeEventListener('keydown', handleKeyDown);
-      if ('ontouchstart' in window) {
+      if (handleTouchStart) {
         document.removeEventListener('touchstart', handleTouchStart);
       }
     };
@@ -384,7 +385,7 @@ export function InteractionPatternOptimizer({
     const dominantPatterns = Object.entries(patternFrequency)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 3)
-      .map(([type]) => type);
+      .map(([type]) => type as InteractionType);
 
     // Update performance metrics
     const newMetrics = {
@@ -468,7 +469,9 @@ export function InteractionPatternOptimizer({
     }
 
     setRecommendations(recommendations);
-    onRecommendationGenerated?.(recommendations);
+    recommendations.forEach((recommendation) =>
+      onRecommendationGenerated?.(recommendation)
+    );
   }, [onRecommendationGenerated]);
 
   // Apply optimization

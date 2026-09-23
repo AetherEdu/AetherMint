@@ -119,7 +119,9 @@ export class MLModel {
     try {
       const input = tf.tensor2d([features]);
       const prediction = this.model.predict(input) as tf.Tensor;
-      const values = await prediction.data();
+      // `.data()` is typed as a union of typed arrays; a float model always
+      // returns Float32Array, so narrow it for the helpers below.
+      const values = (await prediction.data()) as Float32Array;
 
       prediction.dispose();
       input.dispose();

@@ -5,7 +5,6 @@ import {
   Asset, 
   Keypair,
   Memo,
-  MemoText,
   Operation
 } from '@stellar/stellar-sdk';
 import { PaymentDetails, TransactionReceipt, WalletInfo } from '@/types/enrollment';
@@ -15,7 +14,7 @@ const HORIZON_MAINNET_URL = 'https://horizon.stellar.org';
 
 export class StellarTransactionService {
   private server: Horizon.Server;
-  private network: Networks.Network;
+  private network: Networks;
 
   constructor(network: 'testnet' | 'mainnet' = 'testnet') {
     this.server = new Horizon.Server(
@@ -47,7 +46,7 @@ export class StellarTransactionService {
       const account = await this.server.loadAccount(fromPublicKey);
       
       const transaction = new TransactionBuilder(account, {
-        fee: await this.server.fetchBaseFee(),
+        fee: String(await this.server.fetchBaseFee()),
         networkPassphrase: this.networkPassphrase,
       })
         .addOperation(
@@ -57,7 +56,7 @@ export class StellarTransactionService {
             amount: amount,
           })
         )
-        .addMemo(memo ? new MemoText(memo) : Memo.none())
+        .addMemo(memo ? Memo.text(memo) : Memo.none())
         .setTimeout(30)
         .build();
 
@@ -77,8 +76,7 @@ export class StellarTransactionService {
         transactionHash: result.hash,
         status: result.successful ? 'success' : 'failed',
         timestamp: new Date().toISOString(),
-        blockNumber: result.latest_ledger,
-        fee: result.fee_charged ? parseInt(result.fee_charged.toString()) : undefined,
+        blockNumber: result.ledger,
         amount: this.extractPaymentAmount(result),
         from: this.extractSourceAccount(result),
         to: this.extractDestinationAccount(result),
@@ -102,15 +100,17 @@ export class StellarTransactionService {
         .transaction(transactionHash)
         .call();
 
+      const operations = await transaction.operations();
+
       return {
         transactionHash: transaction.hash,
         status: transaction.successful ? 'success' : 'failed',
         timestamp: transaction.created_at,
-        blockNumber: transaction.ledger,
-        fee: transaction.fee_paid ? parseInt(transaction.fee_paid) : undefined,
-        amount: this.extractPaymentAmountFromOperations(transaction.operations),
+        blockNumber: transaction.ledger_attr,
+        fee: transaction.fee_charged ? parseInt(String(transaction.fee_charged)) : undefined,
+        amount: this.extractPaymentAmountFromOperations(operations.records),
         from: transaction.source_account,
-        to: this.extractDestinationFromOperations(transaction.operations),
+        to: this.extractDestinationFromOperations(operations.records),
         memo: transaction.memo ? transaction.memo : undefined,
       };
     } catch (error) {
@@ -198,7 +198,7 @@ export class StellarTransactionService {
       const baseFee = await this.server.fetchBaseFee();
       
       const transaction = new TransactionBuilder(account, {
-        fee: baseFee,
+        fee: String(baseFee),
         networkPassphrase: this.networkPassphrase,
       })
         .addOperation(

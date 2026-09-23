@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface InteractiveDiagramProps {
+export interface InteractiveDiagramProps {
   diagramType: 'flowchart' | 'mindmap' | 'network' | 'hierarchy' | 'timeline';
   title: string;
   data: DiagramData;
@@ -11,7 +11,7 @@ interface InteractiveDiagramProps {
   accessibilityMode?: boolean;
 }
 
-interface DiagramNode {
+export interface DiagramNode {
   id: string;
   label: string;
   x: number;
@@ -22,7 +22,7 @@ interface DiagramNode {
   connections?: string[];
 }
 
-interface DiagramConnection {
+export interface DiagramConnection {
   id: string;
   from: string;
   to: string;
@@ -30,7 +30,7 @@ interface DiagramConnection {
   type: 'solid' | 'dashed' | 'arrow';
 }
 
-interface DiagramData {
+export interface DiagramData {
   nodes: DiagramNode[];
   connections: DiagramConnection[];
 }

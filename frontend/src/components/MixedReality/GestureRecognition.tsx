@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hand, MousePointer, Move, RotateCw, ZoomIn, Pinch, Swipe, Grab, Eye } from 'lucide-react';
+import { Hand, MousePointer, Move, RotateCw, ZoomIn, MoveDiagonal, MoveHorizontal, Grab, Eye, Settings } from 'lucide-react';
 
 export type GestureType = 
   | 'point' 
@@ -436,8 +436,8 @@ export function GestureRecognition({
     const icons = {
       'point': MousePointer,
       'grab': Grab,
-      'pinch': Pinch,
-      'swipe': Swipe,
+      'pinch': MoveDiagonal,
+      'swipe': MoveHorizontal,
       'rotate': RotateCw,
       'wave': Hand,
       'thumbs-up': Hand,

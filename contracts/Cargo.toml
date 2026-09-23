@@ -5,7 +5,7 @@ edition = "2021"
 description = "AetherMint smart contracts for decentralized credential verification on Stellar"
 authors = ["jobbykings"]
 license = "MIT"
-repository = "https://github.com/jobbykings/aethermint-education"
+repository = "https://github.com/AetherEdu/AetherMint"
 
 [lib]
 crate-type = ["cdylib"]

@@ -173,7 +173,7 @@ export function LearningStyleDetector({
     setIsDetecting(true);
     
     // Track various user interactions
-    const trackInteraction = (event: MouseEvent | TouchEvent | KeyboardEvent) => {
+    const trackInteraction = (event: Event) => {
       const interaction: InteractionData = {
         type: getInteractionType(event),
         duration: 0, // Will be updated on interaction end

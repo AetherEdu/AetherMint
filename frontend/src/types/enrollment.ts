@@ -37,6 +37,8 @@ export interface PaymentDetails {
 }
 
 export interface EnrollmentData {
+  /** Server-generated enrollment identifier (set when an enrollment is created). */
+  id?: string;
   studentId: string;
   courseId: string;
   walletAddress: string;

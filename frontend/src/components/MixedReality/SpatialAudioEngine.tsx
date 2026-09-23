@@ -242,7 +242,7 @@ export function SpatialAudioEngine({
     
     // Set position
     pannerNode.setPosition(config.position.x, config.position.y, config.position.z);
-    pannerNode.setOrientation(0, 0, 0, 0, 0, -1, 0, 1);
+    pannerNode.setOrientation(0, 0, -1);
     
     // Create filter node for effects
     const filterNode = context.createBiquadFilter();
@@ -335,13 +335,22 @@ export function SpatialAudioEngine({
     audioListener.forwardX.value = listener.orientation.x;
     audioListener.forwardY.value = listener.orientation.y;
     audioListener.forwardZ.value = listener.orientation.z;
-    audioListener.upX.value = listener.upX;
-    audioListener.upY.value = listener.upY;
-    audioListener.upZ.value = listener.upZ;
+    // `upX/Y/Z`, `dopplerFactor` and `speedOfSound` are legacy AudioListener
+    // members that current lib.dom typings no longer surface.
+    const legacyListener = audioListener as unknown as AudioListener & {
+      upX: AudioParam;
+      upY: AudioParam;
+      upZ: AudioParam;
+      dopplerFactor: number;
+      speedOfSound: number;
+    };
+    legacyListener.upX.value = listener.orientation.upX;
+    legacyListener.upY.value = listener.orientation.upY;
+    legacyListener.upZ.value = listener.orientation.upZ;
     
     // Set doppler factor
-    audioListener.dopplerFactor = listener.dopplerFactor;
-    audioListener.speedOfSound = listener.speedOfSound;
+    legacyListener.dopplerFactor = listener.dopplerFactor;
+    legacyListener.speedOfSound = listener.speedOfSound;
   };
 
   // Update audio nodes

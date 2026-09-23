@@ -190,7 +190,7 @@ export function EnrollmentFlow({
       const data = await response.json();
 
       if (data.success) {
-        setEnrollmentData(prev => ({ ...prev, enrollment: data.data.enrollment }));
+        setEnrollmentData((prev: any) => ({ ...prev, enrollment: data.data.enrollment }));
         setCurrentStep('complete');
         onEnrollmentComplete?.(data.data);
       } else {
@@ -529,7 +529,7 @@ function PaymentStep({
 
   const handlePaymentMethodSelect = async (method: string) => {
     setSelectedMethod(method);
-    setEnrollmentData(prev => ({ ...prev, paymentMethod: method }));
+    setEnrollmentData((prev: any) => ({ ...prev, paymentMethod: method }));
 
     if (method === 'stellar') {
       await createStellarPaymentIntent();
@@ -553,7 +553,7 @@ function PaymentStep({
 
       const data = await response.json();
       if (data.success) {
-        setEnrollmentData(prev => ({ 
+        setEnrollmentData((prev: any) => ({ 
           ...prev, 
           paymentIntent: data.data,
           paymentDetails: {

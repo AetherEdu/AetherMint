@@ -183,8 +183,11 @@ export function useWhiteboardPersistence(options: UseWhiteboardPersistenceOption
   // Manual save — gated by an in-flight pointer so two clicks in quick
   // succession do not race the same backend write.
   // ---------------------------------------------------------------------------
-  const saveNow = useCallback(async () => {
-    if (inflightRef.current) return inflightRef.current;
+  const saveNow = useCallback(async (): Promise<void> => {
+    if (inflightRef.current) {
+      await inflightRef.current;
+      return;
+    }
     const ops = collectOps();
     if (ops.length === 0) return;
     setStatus((s) => ({ ...s, isSaving: true }));
@@ -192,7 +195,7 @@ export function useWhiteboardPersistence(options: UseWhiteboardPersistenceOption
       inflightRef.current = null;
     });
     inflightRef.current = promise;
-    return promise;
+    await promise;
   }, [collectOps, performSave, buildPayload]);
 
   const saveAsNew = useCallback(
@@ -285,7 +288,7 @@ export function useWhiteboardPersistence(options: UseWhiteboardPersistenceOption
     if (!session?.id || !shareLink) return;
     const token = new URL(shareLink).searchParams.get('token');
     if (!token) return;
-    await whiteboardClient.revokeShareToken(session.id, token);
+    await whiteboardClient.revokeShare(session.id, token);
     setShareLink(null);
   }, [session?.id, shareLink]);
 

@@ -9,6 +9,12 @@ import { SafetyMonitor } from './SafetyMonitor';
 import { LearningProfile } from './LearningProfile';
 import { NeuralDataService } from '@/services/neuralData';
 import { SafetyConstraints } from '@/lib/safetyConstraints';
+import type {
+  LearningContent,
+  LearningMetrics,
+  LearningSession,
+  NeuralData,
+} from '@/types/neural';
 
 interface NeuralInterfaceDashboardProps {
   userId: string;

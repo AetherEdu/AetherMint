@@ -5,6 +5,7 @@ import { WalletsKit, MAINNET, TESTNET } from '@creit.tech/stellar-wallets-kit';
 import { WalletInfo } from '@/types/enrollment';
 import { stellarService, isValidStellarAddress, formatStellarBalance } from '@/lib/stellar';
 import { Wallet, AlertCircle, CheckCircle, Copy, ExternalLink, Loader2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface WalletConnectorProps {
   onWalletConnect: (wallet: WalletInfo) => void;

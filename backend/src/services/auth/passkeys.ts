@@ -12,18 +12,20 @@
  *  - generateRecoveryCodes / verifyRecoveryCode
  */
 
-// @ts-ignore - types not yet installed
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
+} from '@simplewebauthn/server';
+// The JSON/response types live in `@simplewebauthn/types`, which is the
+// peer package pulled in by `@simplewebauthn/server`. They are imported
+// with `import type`, so nothing is required at runtime.
+import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
-} from '@simplewebauthn/server';
-// @ts-ignore
-import type { Passkey } from '@simplewebauthn/server/helpers';
+} from '@simplewebauthn/types';
 import crypto from 'crypto';
 import { PasskeyModel, IPasskeyDocument } from '../../models/Passkey';
 
@@ -96,7 +98,8 @@ export async function createRegistrationOptions(
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: RP_ID,
-    userID: Buffer.from(userId, 'utf-8'),
+    // SimpleWebAuthn v9 expects a base64url-encoded string user handle.
+    userID: Buffer.from(userId, 'utf-8').toString('base64url'),
     userName: username,
     userDisplayName: username,
     attestationType: 'none',
@@ -135,15 +138,22 @@ export async function verifyRegistration(
     return { verified: false };
   }
 
-  const { credential, credentialDeviceType, credentialBackedUp } =
-    verification.registrationInfo;
+  // SimpleWebAuthn v9 exposes the credential fields directly on
+  // `registrationInfo` (v11+ nests them under `registrationInfo.credential`).
+  const {
+    credentialID,
+    credentialPublicKey,
+    counter,
+    credentialDeviceType,
+    credentialBackedUp,
+  } = verification.registrationInfo;
 
   // Persist the new credential
   const passkey = new PasskeyModel({
     userId,
-    credentialId: Buffer.from(credential.id, 'base64url'),
-    credentialPublicKey: Buffer.from(credential.publicKey),
-    counter: credential.counter,
+    credentialId: Buffer.from(credentialID),
+    credentialPublicKey: Buffer.from(credentialPublicKey),
+    counter,
     deviceName,
     transports: response.response?.transports || [],
     active: true,
@@ -220,9 +230,9 @@ export async function verifyAuthentication(
     expectedChallenge,
     expectedOrigin: ORIGIN,
     expectedRPID: RP_ID,
-    credential: {
-      id: passkey.credentialId,
-      publicKey: new Uint8Array(passkey.credentialPublicKey),
+    authenticator: {
+      credentialID: new Uint8Array(passkey.credentialId),
+      credentialPublicKey: new Uint8Array(passkey.credentialPublicKey),
       counter: passkey.counter,
       transports: passkey.transports as AuthenticatorTransportFuture[],
     },

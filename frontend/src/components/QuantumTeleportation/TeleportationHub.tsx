@@ -36,11 +36,7 @@ export function TeleportationHub({
   // Initialize on mount
   useEffect(() => {
     const init = async () => {
-      await quantumTeleportation.initialize(userId, locationId, courseId, moduleId, {
-        stateSnapshotInterval: 5000,
-        enableErrorCorrection: true,
-        errorCorrectionLevel: 'hamming'
-      });
+      await quantumTeleportation.initialize(userId, locationId, courseId, moduleId);
 
       setInitialized(true);
     };

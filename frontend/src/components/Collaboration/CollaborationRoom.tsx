@@ -175,9 +175,7 @@ const CollaborationRoom: React.FC<CollaborationRoomProps> = ({
   const startScreenShare = async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          cursor: 'always'
-        },
+        video: true,
         audio: false
       });
 

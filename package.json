@@ -7,11 +7,11 @@
     "install:all": "npm install && cd contracts && cargo build",
     "build": "npm run build:contracts && npm run build:backend && npm run build:frontend",
     "build:contracts": "cd contracts && cargo build --release",
-    "build:backend": "cd backend && pnpm run build",
-    "build:frontend": "cd frontend && pnpm run build",
+    "build:backend": "npm run build -w backend",
+    "build:frontend": "npm run build -w frontend",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && pnpm run dev",
-    "dev:frontend": "cd frontend && pnpm run dev"
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend"
   },
   "dependencies": {
     "aws-sdk": "^2.1450.0",
@@ -53,12 +53,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/akordavid373/aethermint-education.git"
+    "url": "https://github.com/AetherEdu/AetherMint.git"
   },
   "bugs": {
-    "url": "https://github.com/akordavid373/aethermint-education/issues"
+    "url": "https://github.com/AetherEdu/AetherMint/issues"
   },
-  "homepage": "https://github.com/akordavid373/aethermint-education#readme",
+  "homepage": "https://github.com/AetherEdu/AetherMint#readme",
   "workspaces": [
     "backend",
     "frontend"

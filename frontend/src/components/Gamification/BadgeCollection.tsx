@@ -80,6 +80,13 @@ const CATEGORY_CONFIG = {
   special: { name: 'Special', icon: Sparkles }
 };
 
+/** Renders the category icon for a badge (module-level so it can be used
+ * outside the badge-grid map callback). */
+function CategoryIcon({ category, className }: { category: string; className?: string }) {
+  const Icon = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG]?.icon || Star;
+  return <Icon className={className} />;
+}
+
 export function BadgeCollection({
   achievements,
   showLocked = true,
@@ -92,6 +99,7 @@ export function BadgeCollection({
   const [searchQuery, setSearchQuery] = useState('');
   const [viewModeState, setViewModeState] = useState<'grid' | 'list'>(viewMode);
   const [selectedBadge, setSelectedBadge] = useState<Achievement | null>(null);
+  const [showLockedState, setShowLocked] = useState(showLocked);
 
   // Get unique categories and rarities
   const categories = useMemo(() => {
@@ -124,13 +132,13 @@ export function BadgeCollection({
       }
 
       // Locked filter
-      if (!showLocked && !achievement.earnedDate) {
+      if (!showLockedState && !achievement.earnedDate) {
         return false;
       }
 
       return true;
     });
-  }, [achievements, searchQuery, selectedCategory, selectedRarity, showLocked]);
+  }, [achievements, searchQuery, selectedCategory, selectedRarity, showLockedState]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -343,14 +351,14 @@ export function BadgeCollection({
               </select>
 
               <button
-                onClick={() => setShowLocked(!showLocked)}
+                onClick={() => setShowLocked(!showLockedState)}
                 className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
-                  showLocked
+                  showLockedState
                     ? 'bg-purple-600 text-white border-purple-600'
                     : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-white border-gray-300 dark:border-slate-600'
                 }`}
               >
-                {showLocked ? 'Hide' : 'Show'} Locked
+                {showLockedState ? 'Hide' : 'Show'} Locked
               </button>
             </div>
           </div>
@@ -586,7 +594,7 @@ export function BadgeCollection({
                       {RARITY_CONFIG[selectedBadge.rarity].name}
                     </div>
                     <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                      <CategoryIcon className="h-4 w-4" />
+                      <CategoryIcon category={selectedBadge.category} className="h-4 w-4" />
                       <span>{selectedBadge.category}</span>
                     </div>
                   </div>

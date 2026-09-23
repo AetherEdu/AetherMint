@@ -298,7 +298,7 @@ export function useClassroomMedia({
     const connection = getPeerConnection(signal.fromUserId);
 
     if (signal.type === 'offer') {
-      await connection.setRemoteDescription(new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit));
+      await connection.setRemoteDescription(new RTCSessionDescription(signal.payload as unknown as RTCSessionDescriptionInit));
       const answer = await connection.createAnswer();
       await connection.setLocalDescription(answer);
       await sendSignal({
@@ -311,7 +311,7 @@ export function useClassroomMedia({
     }
 
     if (signal.type === 'answer') {
-      await connection.setRemoteDescription(new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit));
+      await connection.setRemoteDescription(new RTCSessionDescription(signal.payload as unknown as RTCSessionDescriptionInit));
       return;
     }
 

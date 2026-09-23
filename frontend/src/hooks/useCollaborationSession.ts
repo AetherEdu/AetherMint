@@ -62,6 +62,12 @@ export interface ClassroomState {
     screenSharingEnabled: boolean;
     recordingEnabled: boolean;
     liveStreamingEnabled: boolean;
+    /** Backing media server details, when one is provisioned. */
+    mediaServer?: {
+      transport: string;
+      provider: string;
+      region: string;
+    };
   };
   participants: CollaborationParticipant[];
   messages: ClassroomMessage[];
@@ -596,7 +602,7 @@ export function useCollaborationSession() {
   const addWorkspaceNote = useCallback(async (payload: { userId: string; userName: string; body: string }) => {
     if (!workspace?.id) return;
 
-    const note = await requestJson(`/api/collaboration/workspaces/${workspace.id}/notes`, {
+    const note = await requestJson<WorkspaceState['notes'][number]>(`/api/collaboration/workspaces/${workspace.id}/notes`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(payload)
@@ -608,7 +614,7 @@ export function useCollaborationSession() {
   const addDiscussionPost = useCallback(async (payload: { userId: string; authorName: string; body: string }) => {
     if (!workspace?.id) return;
 
-    const post = await requestJson(`/api/collaboration/workspaces/${workspace.id}/discussions`, {
+    const post = await requestJson<WorkspaceState['discussionPosts'][number]>(`/api/collaboration/workspaces/${workspace.id}/discussions`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(payload)

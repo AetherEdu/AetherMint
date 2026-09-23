@@ -11,7 +11,7 @@ import { DifficultyLevel } from './DifficultyAdjustmentEngine';
 export type AdaptationTrigger = 'performance' | 'preference' | 'context' | 'accessibility' | 'difficulty' | 'interaction';
 export type AdaptationPriority = 'low' | 'medium' | 'high' | 'critical';
 
-interface AdaptationEvent {
+export interface AdaptationEvent {
   id: string;
   timestamp: string;
   trigger: AdaptationTrigger;
@@ -25,7 +25,7 @@ interface AdaptationEvent {
   userFeedback?: 'positive' | 'negative' | 'neutral';
 }
 
-interface AdaptationRule {
+export interface AdaptationRule {
   id: string;
   name: string;
   description: string;
@@ -38,7 +38,7 @@ interface AdaptationRule {
   lastApplied?: number;
 }
 
-interface AdaptationContext {
+export interface AdaptationContext {
   userId: string;
   learningStyle: LearningStyle;
   currentLayout: LayoutConfiguration;

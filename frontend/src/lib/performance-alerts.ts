@@ -1,4 +1,4 @@
-import { getPerformanceMonitor, PerformanceAlert } from './performance-monitor';
+import { getPerformanceMonitor, PerformanceAlert, PerformanceMetricKey } from './performance-monitor';
 
 const performanceMonitor =
   typeof window !== 'undefined' ? getPerformanceMonitor() : null;
@@ -73,7 +73,7 @@ class PerformanceAlertService {
   private setupAlertListeners() {
     // Listen for performance alerts from the monitor
     setInterval(() => {
-      const alerts = performanceMonitor.getAlerts();
+      const alerts = performanceMonitor?.getAlerts() ?? [];
       const newAlerts = alerts.filter(alert => 
         !this.alertHistory.some(existing => 
           existing.metric === alert.metric && 
@@ -216,7 +216,7 @@ class PerformanceAlertService {
     this.lastAlertTimes.clear();
   }
 
-  public testAlert(metric: keyof PerformanceAlert['metric']) {
+  public testAlert(metric: PerformanceMetricKey) {
     const testAlert: PerformanceAlert = {
       metric,
       value: this.config.thresholds[metric].critical,

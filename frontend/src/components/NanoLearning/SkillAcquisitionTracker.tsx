@@ -6,9 +6,9 @@
 'use client';
 
 import React from 'react';
-import type { SkillTracking } from '../types/nanotech';
+import type { SkillTracking } from '@/types/nanotech';
 
-interface SkillAcquisitionTrackerProps {
+export interface SkillAcquisitionTrackerProps {
   skillName: string;
   tracking: SkillTracking | null;
   isTransferring: boolean;

@@ -33,6 +33,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [supportsPasskeys, setSupportsPasskeys] = useState(false);
+
+  useEffect(() => {
+    // WebAuthn support can only be probed in the browser. Deferring it to an
+    // effect keeps the server render deterministic and avoids a hydration
+    // mismatch (and a `window is not defined` error during prerender).
+    setSupportsPasskeys(browserSupportsWebAuthn());
+  }, []);
 
   useEffect(() => {
     // Check for existing session on mount
@@ -90,8 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = (permission: string): boolean => {
     return user?.permissions.includes(permission) || false;
   };
-
-  const supportsPasskeys = browserSupportsWebAuthn();
 
   const loginWithPasskey = async (username?: string) => {
     try {

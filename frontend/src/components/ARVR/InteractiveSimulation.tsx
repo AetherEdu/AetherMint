@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCw, Settings, Flask, Atom, Beaker, Zap, Activity, Clock, Award, BookOpen, Lightbulb, Target } from 'lucide-react';
+import { Play, Pause, RotateCw, Settings, FlaskConical, Atom, Beaker, Zap, Activity, Clock, Award, BookOpen, Lightbulb, Target } from 'lucide-react';
 
 export type SimulationType = 'physics' | 'chemistry' | 'biology' | 'mathematics' | 'engineering' | 'astronomy';
 export type ExperimentState = 'idle' | 'running' | 'paused' | 'completed' | 'error';
 export type InteractionMode = 'observe' | 'interact' | 'measure' | 'record';
 
-interface SimulationParameter {
+export interface SimulationParameter {
   id: string;
   name: string;
   type: 'number' | 'boolean' | 'string' | 'range';
@@ -20,7 +20,7 @@ interface SimulationParameter {
   description: string;
 }
 
-interface SimulationObject {
+export interface SimulationObject {
   id: string;
   name: string;
   type: 'particle' | 'force' | 'field' | 'instrument' | 'container';
@@ -37,7 +37,7 @@ interface SimulationObject {
   properties: Record<string, any>;
 }
 
-interface SimulationResult {
+export interface SimulationResult {
   id: string;
   timestamp: number;
   data: Record<string, any>;
@@ -53,7 +53,7 @@ interface SimulationResult {
   completed: boolean;
 }
 
-interface SimulationExperiment {
+export interface SimulationExperiment {
   id: string;
   title: string;
   description: string;
@@ -76,7 +76,7 @@ interface SimulationExperiment {
   };
 }
 
-interface InteractiveSimulationProps {
+export interface InteractiveSimulationProps {
   experiment: SimulationExperiment;
   onSimulationStart?: (experiment: SimulationExperiment) => void;
   onSimulationComplete?: (result: SimulationResult) => void;
@@ -141,9 +141,10 @@ export function InteractiveSimulation({
 
   // Timer
   useEffect(() => {
-    if (simulationState === 'running' && startTimeRef.current) {
+    const startedAt = startTimeRef.current;
+    if (simulationState === 'running' && startedAt) {
       const interval = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
+        setElapsedTime(Math.floor((Date.now() - startedAt) / 1000));
       }, 1000);
       
       return () => clearInterval(interval);
@@ -582,7 +583,7 @@ export function InteractiveSimulation({
   const getSimulationIcon = (type: SimulationType) => {
     const icons = {
       'physics': Atom,
-      'chemistry': Flask,
+      'chemistry': FlaskConical,
       'biology': Beaker,
       'mathematics': Target,
       'engineering': Zap,
@@ -704,7 +705,7 @@ export function InteractiveSimulation({
             <div className="text-gray-400 text-xs mb-2">{experiment.description}</div>
             <div className="flex items-center gap-2 text-xs">
               <span className="text-gray-400">Type:</span>
-              <span className={getSimulationColor(experiment.type)} capitalize>{experiment.type}</span>
+              <span className={`${getSimulationColor(experiment.type)} capitalize`}>{experiment.type}</span>
               <span className="text-gray-400">•</span>
               <span className="text-yellow-300 capitalize">{experiment.difficulty}</span>
             </div>

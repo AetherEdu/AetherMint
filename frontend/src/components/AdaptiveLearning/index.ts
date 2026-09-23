@@ -15,10 +15,6 @@ export type { DifficultyLevel } from './DifficultyAdjustmentEngine';
 
 // Re-exports for easier importing
 export type {
-  ShareableContent
-} from './SocialSharing';
-
-export type {
   AdaptationTrigger,
   AdaptationPriority,
   AdaptationEvent,

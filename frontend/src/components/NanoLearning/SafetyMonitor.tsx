@@ -6,9 +6,9 @@
 'use client';
 
 import React from 'react';
-import type { SafetyStatus } from '../types/nanotech';
+import type { SafetyStatus } from '@/types/nanotech';
 
-interface SafetyMonitorProps {
+export interface SafetyMonitorProps {
   safetyStatus: SafetyStatus | null;
   swarmHealth: number;
   containmentStatus: number;

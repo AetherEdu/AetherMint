@@ -300,7 +300,7 @@ export interface UseNeuralInterfaceReturn {
   neuralPattern: NeuralPattern | null;
   isMonitoring: boolean;
   error: Error | null;
-  startMonitoring: () => Promise<void>;
+  startMonitoring: (context?: string) => Promise<void>;
   stopMonitoring: () => Promise<void>;
   getNeuralState: () => Partial<NeuralPattern>;
 }
@@ -311,7 +311,7 @@ export interface UseSkillAcquisitionReturn {
   isTransferring: boolean;
   swarmStatus: NanobotSwarm | null;
   error: Error | null;
-  initiateTransfer: (skillId: string) => Promise<void>;
+  initiateTransfer: (skillId: string, skillData?: Skill) => Promise<void>;
   stopTransfer: () => Promise<void>;
   getProgress: () => number;
 }
@@ -322,7 +322,7 @@ export interface UseNanotechMonitoringReturn {
   error: Error | null;
   swarmHealth: number;
   containmentStatus: number;
-  startMonitoring: () => Promise<void>;
+  startMonitoring: (swarmId?: string) => Promise<void>;
   stopMonitoring: () => Promise<void>;
   emergencyShutdown: () => Promise<void>;
 }

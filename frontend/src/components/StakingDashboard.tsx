@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import '../styles/features.css';
 
+const apyOptions = {
+   '1m': '5%',
+   '3m': '12%',
+   '6m': '18%',
+   '1y': '32%',
+   '2y': '55%'
+} as const;
+
+type LockDuration = keyof typeof apyOptions;
+
 const StakingDashboard = () => {
   const [stakeAmount, setStakeAmount] = useState(100);
-  const [lockDuration, setLockDuration] = useState('3m');
+  const [lockDuration, setLockDuration] = useState<LockDuration>('3m');
   const [activeStakes, setActiveStakes] = useState([
      { id: 1, amount: 500, lock: '1y', apy: '32%', earned: 42, status: 'locked' }
   ]);
-  
-  const apyOptions = {
-     '1m': '5%',
-     '3m': '12%',
-     '6m': '18%',
-     '1y': '32%',
-     '2y': '55%'
-  };
 
   return (
     <div className="feature-container">
@@ -41,7 +43,7 @@ const StakingDashboard = () => {
            </div>
 
            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-             {Object.keys(apyOptions).map(opt => (
+             {(Object.keys(apyOptions) as LockDuration[]).map(opt => (
                 <button key={opt} className="glass-card" style={{ flex: '1 1 50px', border: lockDuration === opt ? '1px solid var(--primary-accent)' : 'none' }} onClick={() => setLockDuration(opt)}>
                   {opt}<br/><span style={{ fontSize: '0.7rem', color: '#00ff88' }}>{apyOptions[opt]} APY</span>
                 </button>

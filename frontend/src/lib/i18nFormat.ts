@@ -119,7 +119,7 @@ export function formatRelativeTime(input: Date | string | number, options: Forma
   // For "just now" we deliberately render zero rather than the locale's
   // "in 0 seconds" rendering.
   if (value === 0) {
-    return Intl.RelativeTimeFormat(norm(options.lng), { numeric: 'auto' }).format(0, 'second');
+    return new Intl.RelativeTimeFormat(norm(options.lng), { numeric: 'auto' }).format(0, 'second');
   }
   const rtf = new Intl.RelativeTimeFormat(norm(options.lng), { numeric: 'auto' });
   return rtf.format(future ? value : -value, chosen.unit);

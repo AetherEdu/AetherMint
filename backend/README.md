@@ -150,7 +150,7 @@ await recommendationService.recordUserActivity('user_456', 'complete', 'course_1
 > | Raw OpenAPI JSON | `http://localhost:3001/api/docs/json` |
 > | Developer Portal | `http://localhost:3002` |
 > | Auth Docs | `http://localhost:3002/auth-docs` |
-> | Published (GitHub Pages) | https://jobbykings.github.io/aethermint-education/ |
+> | Published (GitHub Pages) | https://aetheredu.github.io/AetherMint/ |
 
 ### Search
 - `POST /api/courses/search` - Search with filters and pagination

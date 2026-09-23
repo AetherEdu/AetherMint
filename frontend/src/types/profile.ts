@@ -24,6 +24,8 @@ export interface Achievement {
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
   requirement: string;
   category: string;
+  /** Points awarded when the achievement is unlocked. */
+  points?: number;
   progress?: number;
   maxProgress?: number;
 }
@@ -78,9 +80,9 @@ export interface ProfileSettings {
 export interface ProfileFormData {
   name: string;
   email: string;
-  bio: string;
-  location: string;
-  website: string;
+  bio?: string;
+  location?: string;
+  website?: string;
   privacy: 'public' | 'private' | 'friends-only';
 }
 

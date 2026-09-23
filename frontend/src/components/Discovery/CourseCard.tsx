@@ -6,7 +6,8 @@ import { DiscoveryCourse, ViewMode } from './types';
 const truncate = (value = '', maxLength = 120) =>
   value.length > maxLength ? `${value.slice(0, maxLength).trim()}...` : value;
 
-type CourseCardProps = React.HTMLAttributes<HTMLDivElement> & {
+type CourseCardProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'onKeyDown'> & {
+  onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
   course: DiscoveryCourse;
   view: ViewMode;
   isSelected?: boolean;
