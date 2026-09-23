@@ -1,0 +1,9 @@
+# Created by `vercel link`. The Vercel project id and the VERCEL_OIDC_TOKEN
+# Vercel writes to .env.local are local-machine state, never committed.
+.vercel/
+
+# Local env files. .env.example IS tracked, so negation comes last.
+.env
+.env.local
+.env.*.local
+!.env.example

@@ -73,7 +73,9 @@ const zodResolver =
   async (values) => {
     const result = schema.safeParse(values);
     if (result.success) {
-      return { values: result.data, errors: {} as FieldErrors<T> };
+      // ResolverSuccess.error is `Record<string, never>` — it must be an empty
+      // object, not a FieldErrors bag, or the union won't discriminate.
+      return { values: result.data, errors: {} as Record<string, never> };
     }
     const fieldErrors: Record<string, { type: string; message: string }> = {};
     for (const issue of result.error.issues) {
@@ -83,7 +85,10 @@ const zodResolver =
       }
     }
     // Cast is safe: react-hook-form accepts this shape at runtime
-    return { values: {} as T, errors: fieldErrors as unknown as FieldErrors<T> };
+    return {
+      values: {} as Record<string, never>,
+      errors: fieldErrors as unknown as FieldErrors<T>,
+    };
   };
 
 // ---------------------------------------------------------------------------
