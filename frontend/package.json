@@ -4,9 +4,9 @@
   "description": "Frontend for AetherMint decentralized education platform",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "npx next build",
-    "start": "next start",
+    "dev": "node init && next dev",
+    "build": "node init && npx next build",
+    "start": "node init && next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
