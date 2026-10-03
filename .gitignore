@@ -29,8 +29,6 @@ jest_out.txt
 tsc_errors.txt
 
 # Environment & secrets
-.env
-.env.local
 .env.development.local
 .env.test.local
 .env.production.local
@@ -76,7 +74,6 @@ temp/
 *.log.*
 
 # Editor / IDE
-.vscode/
 .idea/
 *.sublime-*
 *.code-workspace
@@ -110,3 +107,4 @@ contracts/target
 
 # Soroban-generated test snapshots
 contracts/test_snapshots/
+config.bat
