@@ -17,6 +17,7 @@
     "test:verbose": "jest --verbose",
     "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand",
     "test:api": "jest --testPathPattern=routes",
+    "test:routes:coverage": "jest --config jest.routes.config.js --coverage",
     "test:integration": "jest --testPathPattern=integration",
     "test:performance": "jest --testPathPattern=performance",
     "test:federated": "jest --testPathPattern=federatedLearning",

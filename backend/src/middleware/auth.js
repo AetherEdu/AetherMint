@@ -136,9 +136,29 @@ const requireAdmin = requireRole([UserRole.ADMIN]);
  */
 const requireStudentOrAbove = requireRole([UserRole.STUDENT, UserRole.EDUCATOR, UserRole.ADMIN]);
 
+/**
+ * Optional authentication middleware - attaches user if valid token is provided,
+ * otherwise falls through as anonymous.
+ */
+const optionalAuth = (req, _res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) {
+    return next();
+  }
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+    if (!err && user) {
+      req.user = user;
+    }
+    next();
+  });
+};
+
 module.exports = {
   authenticateToken,
   authenticate: authenticateToken,
+  authMiddleware: authenticateToken,
+  optionalAuth,
   authorize,
   requireRole,
   requirePermission,
