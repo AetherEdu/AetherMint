@@ -5,13 +5,13 @@
   "main": "index.js",
   "scripts": {
     "install:all": "npm install && cd contracts && cargo build",
-    "build": "npm run build:contracts && npm run build:backend && npm run build:frontend",
-    "build:contracts": "cd contracts && cargo build --release",
-    "build:backend": "npm run build -w backend",
-    "build:frontend": "npm run build -w frontend",
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "npm run dev -w backend",
-    "dev:frontend": "npm run dev -w frontend"
+    "build": "node init && npm run build:contracts && npm run build:backend && npm run build:frontend",
+    "build:contracts": "node init && cd contracts && cargo build --release",
+    "build:backend": "node init && npm run build -w backend",
+    "build:frontend": "node init && npm run build -w frontend",
+    "dev": "node init && concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "node init && npm run dev -w backend",
+    "dev:frontend": "node init && npm run dev -w frontend"
   },
   "dependencies": {
     "aws-sdk": "^2.1450.0",

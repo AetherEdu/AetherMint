@@ -4,9 +4,9 @@
   "description": "Comprehensive developer portal with API playground, SDK tools, and community features",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001",
-    "build": "next build",
-    "start": "next start -p 3001",
+    "dev": "node init && next dev -p 3001",
+    "build": "node init && next build",
+    "start": "node init && next start -p 3001",
     "lint": "next lint"
   },
   "dependencies": {
