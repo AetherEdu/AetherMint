@@ -3,6 +3,23 @@ const redisConfig = require('../config/redis');
 const Transaction = require('../models/Transaction');
 const logger = require('../utils/logger');
 
+// Webhook service is optional; guard the require so a missing/failed module
+// never prevents transaction processing from working.
+let webhookService = null;
+try {
+  webhookService = require('../services/webhookService');
+} catch (error) {
+  logger.warn('Webhook service unavailable; webhook events will be skipped:', error.message);
+}
+
+// Map transaction event types to outgoing webhook event names.
+const WEBHOOK_EVENT_MAP = {
+  CREDENTIAL_ISSUED: 'credential.issued',
+  CREDENTIAL_VERIFIED: 'credential.verified',
+  CREDENTIAL_REVOKED: 'credential.revoked',
+  ENROLLMENT_CREATED: 'enrollment.created'
+};
+
 class TransactionEvents extends EventEmitter {
   constructor() {
     super();
@@ -89,12 +106,39 @@ class TransactionEvents extends EventEmitter {
       // Call the default handler
       await this.defaultEventHandler(type, data);
 
+      // Dispatch to outgoing webhooks (never let failures break processing)
+      await this.dispatchWebhookEvent(type, data);
+
       this.stats.eventsProcessed++;
 
     } catch (error) {
       this.stats.eventsFailed++;
       logger.error(`Error handling transaction event:`, error);
       this.emit('eventError', { error, message });
+    }
+  }
+
+  /**
+   * Dispatch a transaction event to the outgoing webhook service.
+   * Failures are swallowed so webhook delivery issues never break
+   * transaction processing.
+   */
+  async dispatchWebhookEvent(type, data) {
+    const webhookEvent = WEBHOOK_EVENT_MAP[type];
+    if (!webhookEvent) {
+      return;
+    }
+
+    if (!webhookService || typeof webhookService.dispatchEvent !== 'function') {
+      logger.debug(`Webhook service not available; skipping ${webhookEvent}`);
+      return;
+    }
+
+    try {
+      await webhookService.dispatchEvent(webhookEvent, data);
+      logger.debug(`Dispatched webhook event: ${webhookEvent}`);
+    } catch (error) {
+      logger.error(`Error dispatching webhook event ${webhookEvent}:`, error);
     }
   }
 
@@ -142,8 +186,68 @@ class TransactionEvents extends EventEmitter {
       case 'TRANSACTION_COMPLETED':
         await this.handleTransactionCompleted(data);
         break;
+      case 'CREDENTIAL_ISSUED':
+        await this.handleCredentialIssued(data);
+        break;
+      case 'CREDENTIAL_VERIFIED':
+        await this.handleCredentialVerified(data);
+        break;
+      case 'CREDENTIAL_REVOKED':
+        await this.handleCredentialRevoked(data);
+        break;
+      case 'ENROLLMENT_CREATED':
+        await this.handleEnrollmentCreated(data);
+        break;
       default:
         logger.debug(`Unknown event type: ${type}`);
+    }
+  }
+
+  /**
+   * Handle credential issued event
+   */
+  async handleCredentialIssued(data) {
+    try {
+      logger.info(`Credential issued: ${data.credentialId} for user ${data.userId}`);
+      await this.dispatchWebhookEvent('CREDENTIAL_ISSUED', data);
+    } catch (error) {
+      logger.error('Error handling credential issued event:', error);
+    }
+  }
+
+  /**
+   * Handle credential verified event
+   */
+  async handleCredentialVerified(data) {
+    try {
+      logger.info(`Credential verified: ${data.credentialId}`);
+      await this.dispatchWebhookEvent('CREDENTIAL_VERIFIED', data);
+    } catch (error) {
+      logger.error('Error handling credential verified event:', error);
+    }
+  }
+
+  /**
+   * Handle credential revoked event
+   */
+  async handleCredentialRevoked(data) {
+    try {
+      logger.info(`Credential revoked: ${data.credentialId}`);
+      await this.dispatchWebhookEvent('CREDENTIAL_REVOKED', data);
+    } catch (error) {
+      logger.error('Error handling credential revoked event:', error);
+    }
+  }
+
+  /**
+   * Handle enrollment created event
+   */
+  async handleEnrollmentCreated(data) {
+    try {
+      logger.info(`Enrollment created: ${data.enrollmentId} for user ${data.userId}`);
+      await this.dispatchWebhookEvent('ENROLLMENT_CREATED', data);
+    } catch (error) {
+      logger.error('Error handling enrollment created event:', error);
     }
   }
 
