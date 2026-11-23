@@ -363,6 +363,11 @@ app.use('/api/admin/audit', adminAuditRoutes);
 const adminSimulateRoutes = resolveRoute(require('./routes/admin/simulate'));
 app.use('/api/admin/simulate', adminSimulateRoutes);
 
+// Admin outgoing webhook subscription & delivery routes — Issue #182
+// @ts-ignore
+const webhookRoutes = loadRoute('./routes/webhooks');
+app.use('/api/admin/webhooks', webhookRoutes);
+
 // Public evaluation endpoint for SPA / mobile clients – Issue #267
 // First pulls `publicRouter` off the same module so the admin auth
 // middleware on the default export is not applied to public callers.
@@ -450,6 +455,7 @@ app.use('/api/v1/cross-protocol-bridge', crossProtocolBridgeRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/classroom', classroomRoutes);
 app.use('/api/v1/verify', verifyRoutes);
+app.use('/api/v1/admin/webhooks', webhookRoutes);
 app.get('/api/v1/health', (req, res) => {
   if (isShuttingDown()) {
     res.status(503).json({
