@@ -17,22 +17,27 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <AuthProvider>
-          <div className="min-h-screen bg-gray-50">
-            <div className="flex flex-col md:flex-row">
-              <AdminSidebar />
-              <div className="flex-1">
-                <AdminHeader />
-                <main className="p-6">
-                  {children}
-                </main>
-              </div>
-            </div>
+    <AuthProvider>
+      <div className={`min-h-screen bg-gray-50 ${inter.className}`}>
+        <div className="flex flex-col md:flex-row">
+          <nav aria-label="Admin navigation">
+            <AdminSidebar />
+          </nav>
+          <div className="flex-1">
+            <header aria-label="Admin header">
+              <AdminHeader />
+            </header>
+            <main
+              id="main-content"
+              role="main"
+              tabIndex={-1}
+              className="p-6 focus:outline-none"
+            >
+              {children}
+            </main>
           </div>
-        </AuthProvider>
-      </body>
-    </html>
+        </div>
+      </div>
+    </AuthProvider>
   );
 }

@@ -36,12 +36,31 @@ module.exports = {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic':
           'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        'skeleton-shimmer':
+          'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.6) 50%, transparent 100%)',
+      },
+      colors: {
+        // WCAG 2.1 AA contrast-audited tokens (issue #271).
+        // gray-400 (#9ca3af) on white is ~2.5:1 and fails AA for text;
+        // use gray-500 (#6b7280, ~4.8:1) or darker for body text.
+        'gray-400': '#9ca3af', // decorative / non-text only
+        'gray-500': '#6b7280', // minimum for normal text on white
+        'gray-600': '#4b5563', // preferred secondary text
+        'gray-700': '#374151', // primary body text
+        // blue-100 on blue-600 fails AA (~2.1:1); use blue-50 on blue-700
+        // (~5.4:1) or blue-100 on blue-800 (~7.6:1) for text on solid blue.
+        'blue-50': '#eff6ff',
+        'blue-100': '#dbeafe', // decorative / non-text only on blue-600
+        'blue-600': '#2563eb',
+        'blue-700': '#1d4ed8', // AA-compliant text on blue-50
+        'blue-800': '#1e40af', // AA-compliant text on blue-100
       },
       animation: {
         'spin': 'spin 1s linear infinite',
         'fade-in': 'fadeIn 0.3s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
         'slide-down': 'slideDown 0.3s ease-out',
+        'shimmer': 'shimmer 1.5s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -55,6 +74,10 @@ module.exports = {
         slideDown: {
           '0%': { transform: 'translateY(-10px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
         },
       },
     },

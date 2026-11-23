@@ -16,6 +16,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { Skeleton, SkeletonText, SkeletonCircle } from '@/components/Skeleton';
 
 const EnrollmentPage: React.FC = () => {
   const params = useParams();
@@ -130,10 +131,72 @@ const EnrollmentPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading course details...</p>
+      <div
+        className="min-h-screen bg-gray-50"
+        role="status"
+        aria-label="Loading course details"
+        aria-busy="true"
+      >
+        <span className="sr-only">Loading course details...</span>
+
+        {/* Course Header Skeleton */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="flex items-center space-x-4 mb-3 sm:mb-4">
+              <Skeleton variant="button" width={88} height={44} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+              <div className="lg:col-span-2">
+                <Skeleton variant="title" width="80%" className="mb-3" />
+                <SkeletonText lines={3} className="mb-4" />
+
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                  <Skeleton variant="text" width={120} height={16} />
+                  <Skeleton variant="text" width={100} height={16} />
+                  <Skeleton variant="text" width={90} height={16} />
+                </div>
+              </div>
+
+              <div className="lg:col-span-1">
+                <div className="bg-gray-50 rounded-xl sm:rounded-lg p-4 sm:p-6">
+                  <div className="text-center mb-4 sm:mb-6">
+                    <Skeleton variant="title" width={140} height={32} className="mx-auto mb-2" />
+                    <Skeleton variant="text" width={110} height={14} className="mx-auto" />
+                  </div>
+
+                  <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="flex items-center space-x-2">
+                        <SkeletonCircle size={20} />
+                        <Skeleton variant="text" width="70%" height={14} />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl sm:rounded-lg p-3 sm:p-4">
+                    <Skeleton variant="text" width="60%" height={14} className="mx-auto" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Enrollment Form Skeleton */}
+        <div className="max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+            <Skeleton variant="title" width="40%" className="mb-6" />
+            <div className="space-y-6">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton variant="text" width={120} height={14} />
+                  <Skeleton variant="input" height={44} />
+                </div>
+              ))}
+              <Skeleton variant="button" width="100%" height={48} />
+            </div>
+          </div>
         </div>
       </div>
     );

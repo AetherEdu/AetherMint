@@ -26,8 +26,8 @@ export function LoadingFallback({ message = 'Loading...', size = 'md', className
 export function LoadingSpinner({ size = 'md', className = '' }: { size?: 'sm' | 'md' | 'lg'; className?: string }) {
   const sizeClasses = { sm: 'h-4 w-4', md: 'h-6 w-6', lg: 'h-8 w-8' };
   return (
-    <div className={`flex items-center justify-center ${className}`}>
-      <Loader2 className={`animate-spin text-blue-600 ${sizeClasses[size]}`} />
+    <div className={`flex items-center justify-center ${className}`} role="status" aria-live="polite" aria-label="Loading">
+      <Loader2 className={`animate-spin text-blue-600 ${sizeClasses[size]}`} aria-hidden="true" />
     </div>
   );
 }
@@ -38,13 +38,28 @@ interface SkeletonProps {
   className?: string;
 }
 
+// Shimmer animation: a moving highlight over a neutral base. Defined inline so the
+// legacy helpers stay self-contained and consistent with the new Skeleton primitive.
+const SHIMMER_STYLE: React.CSSProperties = {
+  backgroundImage:
+    'linear-gradient(90deg, rgba(148,163,184,0.15) 0%, rgba(148,163,184,0.35) 50%, rgba(148,163,184,0.15) 100%)',
+  backgroundSize: '200% 100%',
+  animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
+};
+
 export function Skeleton({ className }: SkeletonProps) {
-  return <div className={cn('animate-pulse rounded bg-gray-200 dark:bg-slate-700', className)} />;
+  return (
+    <div
+      className={cn('rounded bg-gray-200 dark:bg-slate-700', className)}
+      style={SHIMMER_STYLE}
+      aria-hidden="true"
+    />
+  );
 }
 
 export function SkeletonText({ lines = 3, className }: { lines?: number; className?: string }) {
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-2', className)} role="status" aria-live="polite" aria-label="Loading content">
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton key={i} className={cn('h-4', i === lines - 1 ? 'w-3/4' : 'w-full')} />
       ))}
@@ -54,7 +69,12 @@ export function SkeletonText({ lines = 3, className }: { lines?: number; classNa
 
 export function SkeletonCard({ className }: SkeletonProps) {
   return (
-    <div className={cn('rounded-xl border border-gray-200 dark:border-slate-700 p-4 space-y-3', className)}>
+    <div
+      className={cn('rounded-xl border border-gray-200 dark:border-slate-700 p-4 space-y-3', className)}
+      role="status"
+      aria-live="polite"
+      aria-label="Loading content"
+    >
       <Skeleton className="h-40 w-full rounded-lg" />
       <Skeleton className="h-4 w-3/4" />
       <Skeleton className="h-4 w-1/2" />
@@ -68,7 +88,12 @@ export function SkeletonCard({ className }: SkeletonProps) {
 
 export function SkeletonProfile({ className }: SkeletonProps) {
   return (
-    <div className={cn('rounded-xl bg-gradient-to-r from-gray-200 to-gray-300 dark:from-slate-700 dark:to-slate-600 p-8', className)}>
+    <div
+      className={cn('rounded-xl bg-gradient-to-r from-gray-200 to-gray-300 dark:from-slate-700 dark:to-slate-600 p-8', className)}
+      role="status"
+      aria-live="polite"
+      aria-label="Loading profile"
+    >
       <div className="flex items-center gap-6">
         <Skeleton className="h-24 w-24 rounded-full flex-shrink-0" />
         <div className="flex-1 space-y-3">
@@ -90,7 +115,7 @@ export function SkeletonProfile({ className }: SkeletonProps) {
 
 export function SkeletonList({ rows = 4, className }: { rows?: number; className?: string }) {
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-3', className)} role="status" aria-live="polite" aria-label="Loading list">
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-slate-700">
           <Skeleton className="h-12 w-12 rounded-xl flex-shrink-0" />

@@ -15,6 +15,10 @@ const customJestConfig = {
     '^@creit.tech/stellar-wallets-kit$': '<rootDir>/src/stubs/stellar-wallets-kit.ts',
   },
   testEnvironment: 'jest-environment-jsdom',
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '<rootDir>/src/test-profile.tsx',
+  ],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',

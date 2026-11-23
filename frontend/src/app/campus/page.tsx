@@ -3,7 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
 import { Map } from 'lucide-react';
-import { Skeleton, ErrorDisplay, EmptyState } from '../../components/LoadingFallback';
+import { ErrorDisplay, EmptyState } from '../../components/LoadingFallback';
+import { Skeleton } from '@/components/Skeleton';
 
 // Dynamically import MetaverseCampus to avoid SSR issues with Three.js
 const MetaverseCampus = dynamic(
@@ -11,9 +12,15 @@ const MetaverseCampus = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="min-h-screen bg-slate-950 p-6 space-y-4">
+      <div
+        className="min-h-screen bg-slate-950 p-6 space-y-4"
+        role="status"
+        aria-live="polite"
+        aria-label="Loading 3D campus"
+      >
         <Skeleton className="h-12 w-64 bg-slate-800" />
         <Skeleton className="h-[calc(100vh-120px)] w-full bg-slate-800 rounded-xl" />
+        <span className="sr-only">Loading 3D campus…</span>
       </div>
     ),
   }

@@ -39,6 +39,19 @@ export default defineConfig({
       name: 'Mobile Safari',
       use: { ...devices['iPhone 12'] },
     },
+    {
+      // Dedicated accessibility project running axe-core scans (@axe-core/playwright).
+      // Tests tagged with @a11y are executed here against a single browser to keep
+      // CI runtime reasonable while still enforcing WCAG 2.1 AA checks.
+      name: 'a11y',
+      testMatch: /.*a11y.*\.spec\.ts/,
+      grep: /@a11y/,
+      use: {
+        ...devices['Desktop Chrome'],
+        // Ensure axe scans run against a stable, deterministic viewport.
+        viewport: { width: 1280, height: 720 },
+      },
+    },
   ],
   webServer: {
     command: 'npm run dev',

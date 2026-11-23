@@ -41,8 +41,10 @@ export default async function VerifyPage({ params }: Props) {
     } else {
       credentialData = data.data;
     }
-  } catch (err: any) {
-    error = 'Network error or unable to reach verification service.';
+  } catch (err: unknown) {
+    error = err instanceof Error
+      ? `Network error or unable to reach verification service: ${err.message}`
+      : 'Network error or unable to reach verification service.';
   }
 
   const currentUrl = process.env.NEXT_PUBLIC_APP_URL 
@@ -61,36 +63,38 @@ export default async function VerifyPage({ params }: Props) {
           </p>
         </div>
 
-        {error && !revoked && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
-            <div className="flex">
-              <div className="ml-3">
-                <p className="text-sm text-red-700 font-medium">
-                  {error}
-                </p>
+        <div role="status" aria-live="polite" aria-atomic="true">
+          {error && !revoked && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+              <div className="flex">
+                <div className="ml-3">
+                  <p className="text-sm text-red-700 font-medium">
+                    {error}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {revoked && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-            <strong className="font-bold">Invalid State: </strong>
-            <span className="block sm:inline">This credential has been revoked by the issuer.</span>
-          </div>
-        )}
+          {revoked && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+              <strong className="font-bold">Invalid State: </strong>
+              <span className="block sm:inline">This credential has been revoked by the issuer.</span>
+            </div>
+          )}
 
-        {credentialData && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="col-span-2">
-              <CredentialDisplay credential={credentialData} revoked={revoked} />
+          {credentialData && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="col-span-2">
+                <CredentialDisplay credential={credentialData} revoked={revoked} />
+              </div>
+              <div className="col-span-1 flex flex-col items-center space-y-4 justify-center border-l border-gray-200 pl-8">
+                <QRCodeDisplay url={currentUrl} />
+                <p className="text-xs text-gray-500 text-center">Scan to share or verify on mobile</p>
+              </div>
             </div>
-            <div className="col-span-1 flex flex-col items-center space-y-4 justify-center border-l border-gray-200 pl-8">
-              <QRCodeDisplay url={currentUrl} />
-              <p className="text-xs text-gray-500 text-center">Scan to share or verify on mobile</p>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

@@ -24,6 +24,21 @@ import dynamic from 'next/dynamic';
 import { LoadingFallback } from '@/components/LoadingFallback';
 import { VirtualScienceLabSkeleton } from './VirtualScienceLabSkeleton';
 
+/**
+ * Skeleton placeholder shown while the lab chunk and its 3D/data
+ * dependencies initialize. Wrapped in a polite live region so screen
+ * readers announce the loading state (issue #271) while the shimmer
+ * skeleton reduces perceived load time and layout shift (issue #268).
+ */
+function LabLoadingState() {
+  return (
+    <div role="status" aria-live="polite" aria-busy="true">
+      <span className="sr-only">Loading Virtual Science Lab…</span>
+      <VirtualScienceLabSkeleton />
+    </div>
+  );
+}
+
 const VirtualScienceLab = dynamic(
   () =>
     import('@/components/Lab/VirtualScienceLab').then((m) => ({
@@ -31,7 +46,7 @@ const VirtualScienceLab = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <VirtualScienceLabSkeleton />,
+    loading: () => <LabLoadingState />,
   },
 );
 

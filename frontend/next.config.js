@@ -48,8 +48,9 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   eslint: {
-    // Ignore ESLint errors during build — pre-existing issues across the codebase
-    ignoreDuringBuilds: true,
+    // Fail the build on lint errors. CI runs `npm run lint` and the
+    // codebase lints clean, so lint debt can't ship.
+    ignoreDuringBuilds: false,
   },
   transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
   env: {

@@ -1,6 +1,7 @@
 import { BookmarkPlus, Eye, Network } from 'lucide-react';
 import React from 'react';
 
+import Skeleton from '../common/Skeleton';
 import { DiscoveryCourse, ViewMode } from './types';
 
 const truncate = (value = '', maxLength = 120) =>
@@ -8,9 +9,10 @@ const truncate = (value = '', maxLength = 120) =>
 
 type CourseCardProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'onKeyDown'> & {
   onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
-  course: DiscoveryCourse;
+  course?: DiscoveryCourse;
   view: ViewMode;
   isSelected?: boolean;
+  isLoading?: boolean;
   onPreview?: () => void;
   onSave?: () => void;
   onFindSimilar?: () => void;
@@ -22,6 +24,7 @@ export const CourseCard = React.forwardRef<HTMLDivElement, CourseCardProps>(
       course,
       view,
       isSelected,
+      isLoading,
       onPreview,
       onSave,
       onFindSimilar,
@@ -31,6 +34,21 @@ export const CourseCard = React.forwardRef<HTMLDivElement, CourseCardProps>(
     },
     ref,
   ) => {
+    if (isLoading || !course) {
+      return (
+        <div
+          ref={ref}
+          role="listitem"
+          aria-busy="true"
+          aria-label="Loading course"
+          className={`rounded-[20px] sm:rounded-[24px] border border-slate-200 bg-white p-3 sm:p-4 min-h-[44px] ${className || ''}`}
+          {...props}
+        >
+          <Skeleton variant="card" />
+        </div>
+      );
+    }
+
     const headingId = `course-${course.id}-title`;
 
     return (
@@ -38,6 +56,7 @@ export const CourseCard = React.forwardRef<HTMLDivElement, CourseCardProps>(
         ref={ref}
         aria-describedby={`course-${course.id}-meta course-${course.id}-description`}
         aria-labelledby={headingId}
+        aria-label={`Course: ${course.title}`}
         role="listitem"
         tabIndex={0}
         onKeyDown={(event) => {

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/Skeleton';
 import {
   Users,
   BookOpen,
@@ -109,18 +110,36 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div
+        className="space-y-6"
+        role="status"
+        aria-live="polite"
+        aria-label="Loading dashboard"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="bg-white rounded-lg shadow-md p-6">
-              <div className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-                <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-              </div>
-            </div>
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} variant="card" />
           ))}
         </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+            <Skeleton variant="text" className="w-1/3 mb-4" />
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} variant="list-item" />
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <Skeleton variant="text" className="w-1/2 mb-4" />
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} variant="list-item" />
+              ))}
+            </div>
+          </div>
+        </div>
+        <span className="sr-only">Loading dashboard…</span>
       </div>
     );
   }

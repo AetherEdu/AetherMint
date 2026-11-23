@@ -9,6 +9,11 @@ interface SkeletonProps {
    * Accessible label describing what content is loading
    */
   'aria-label'?: string;
+  /**
+   * Use the shimmer animation instead of the default pulse.
+   * Falls back to pulse when `prefers-reduced-motion` is set.
+   */
+  shimmer?: boolean;
 }
 
 interface TextSkeletonProps extends SkeletonProps {
@@ -45,11 +50,22 @@ type SkeletonComponentProps = SkeletonVariantProps & {
   'aria-label'?: string;
 };
 
-function SkeletonBase({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function SkeletonBase({
+  className,
+  style,
+  shimmer = false,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+  shimmer?: boolean;
+}) {
   return (
     <div
       className={cn(
-        'animate-pulse rounded-md bg-gray-200 dark:bg-gray-700',
+        'rounded-md bg-gray-200 dark:bg-gray-700',
+        shimmer
+          ? 'animate-shimmer motion-reduce:animate-pulse'
+          : 'animate-pulse',
         className
       )}
       style={style}
@@ -58,12 +74,21 @@ function SkeletonBase({ className, style }: { className?: string; style?: React.
   );
 }
 
-function TextLines({ lines = 3, lastLineWidth = '60%' }: { lines?: number; lastLineWidth?: string }) {
+function TextLines({
+  lines = 3,
+  lastLineWidth = '60%',
+  shimmer = false,
+}: {
+  lines?: number;
+  lastLineWidth?: string;
+  shimmer?: boolean;
+}) {
   return (
     <div className="space-y-2.5" aria-hidden="true">
       {Array.from({ length: lines }).map((_, i) => (
         <SkeletonBase
           key={i}
+          shimmer={shimmer}
           className="h-3.5 w-full"
           style={i === lines - 1 ? { width: lastLineWidth } : undefined}
         />
@@ -82,7 +107,7 @@ function TextLines({ lines = 3, lastLineWidth = '60%' }: { lines?: number; lastL
  * <Skeleton variant="list-item" hasAvatar />
  */
 export default function Skeleton(props: SkeletonComponentProps) {
-  const { variant, 'aria-label': ariaLabel, ...rest } = props;
+  const { variant, 'aria-label': ariaLabel, shimmer = false, ...rest } = props;
   const baseLabel = ariaLabel || `Loading ${variant} content...`;
 
   switch (variant) {
@@ -90,7 +115,7 @@ export default function Skeleton(props: SkeletonComponentProps) {
       const { lines = 3, lastLineWidth = '60%' } = rest as TextSkeletonProps;
       return (
         <div role="status" aria-label={baseLabel} className="w-full">
-          <TextLines lines={lines} lastLineWidth={lastLineWidth} />
+          <TextLines lines={lines} lastLineWidth={lastLineWidth} shimmer={shimmer} />
           <span className="sr-only">{baseLabel}</span>
         </div>
       );
@@ -101,6 +126,7 @@ export default function Skeleton(props: SkeletonComponentProps) {
       return (
         <div role="status" aria-label={baseLabel} className="w-full">
           <SkeletonBase
+            shimmer={shimmer}
             className="h-0 w-full rounded-lg"
             style={{ paddingBottom: `calc(100% / (${aspectRatio}))` }}
           />
@@ -122,17 +148,18 @@ export default function Skeleton(props: SkeletonComponentProps) {
           className="w-full rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
         >
           <SkeletonBase
+            shimmer={shimmer}
             className="h-0 w-full rounded-lg"
             style={{ paddingBottom: `calc(100% / (${imageAspectRatio}))` }}
           />
           <div className="mt-4 space-y-3">
-            <SkeletonBase className="h-4 w-3/4" />
-            <TextLines lines={lines} lastLineWidth="40%" />
+            <SkeletonBase shimmer={shimmer} className="h-4 w-3/4" />
+            <TextLines lines={lines} lastLineWidth="40%" shimmer={shimmer} />
           </div>
           {hasFooter && (
             <div className="mt-4 flex items-center gap-3 border-t border-gray-100 pt-4 dark:border-gray-700">
-              <SkeletonBase className="h-8 w-8 rounded-full" />
-              <SkeletonBase className="h-3.5 w-1/4" />
+              <SkeletonBase shimmer={shimmer} className="h-8 w-8 rounded-full" />
+              <SkeletonBase shimmer={shimmer} className="h-3.5 w-1/4" />
             </div>
           )}
           <span className="sr-only">{baseLabel}</span>
@@ -149,11 +176,11 @@ export default function Skeleton(props: SkeletonComponentProps) {
           className="flex w-full items-start gap-3 rounded-lg p-3"
         >
           {hasAvatar && (
-            <SkeletonBase className="h-10 w-10 shrink-0 rounded-full" />
+            <SkeletonBase shimmer={shimmer} className="h-10 w-10 shrink-0 rounded-full" />
           )}
           <div className="min-w-0 flex-1">
-            <SkeletonBase className="mb-2 h-4 w-1/3" />
-            <TextLines lines={lines} lastLineWidth="40%" />
+            <SkeletonBase shimmer={shimmer} className="mb-2 h-4 w-1/3" />
+            <TextLines lines={lines} lastLineWidth="40%" shimmer={shimmer} />
           </div>
           <span className="sr-only">{baseLabel}</span>
         </div>
@@ -168,11 +195,16 @@ export default function Skeleton(props: SkeletonComponentProps) {
 /**
  * Simple inline skeleton block — useful inside existing layouts.
  */
-export function SkeletonBlock({ className, 'aria-label': ariaLabel }: SkeletonProps) {
+export function SkeletonBlock({
+  className,
+  'aria-label': ariaLabel,
+  shimmer = false,
+}: SkeletonProps) {
+  const label = ariaLabel || 'Loading content...';
   return (
-    <SkeletonBase
-      className={className}
-      aria-label={ariaLabel}
-    />
+    <div role="status" aria-label={label}>
+      <SkeletonBase className={className} shimmer={shimmer} />
+      <span className="sr-only">{label}</span>
+    </div>
   );
 }
