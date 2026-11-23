@@ -101,6 +101,24 @@ export default function RootLayout({
             </TourProvider>
           </RootErrorBoundary>
         </main>
+        {/* Global polite live region: dynamic status/notification messages
+            (toasts, async results) are announced to screen readers without
+            interrupting the user. Visually hidden but available to AT. */}
+        <div
+          id="global-live-region"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        />
+        <footer className="border-t border-gray-200 py-6 text-center text-sm text-gray-600">
+          <a
+            href="/accessibility"
+            className="underline hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          >
+            Accessibility statement
+          </a>
+        </footer>
       </body>
     </html>
   );

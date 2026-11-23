@@ -2,7 +2,7 @@
  * Type definitions for the offline credential wallet.
  */
 
-import { OfflineCredentialRecord } from '@/utils/offlineDB';
+import type { OfflineCredentialRecord } from '@/utils/offlineDB';
 
 /** Wallet connection status. */
 export type WalletStatus = 'disconnected' | 'connecting' | 'connected' | 'syncing' | 'error';

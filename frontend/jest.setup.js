@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom'
 import React from 'react'
+import { toHaveNoViolations } from 'jest-axe'
+
+// Extend Jest's expect with axe-core accessibility matchers so tests can
+// assert `expect(container).toHaveNoViolations()` (issue #271).
+expect.extend(toHaveNoViolations)
 
 // Provide a valid Stellar receiver address so the strict env-var validator
 // in next.config.js (`zod` schema) doesn't blow up the moment

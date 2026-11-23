@@ -1,3 +1,5 @@
+export type ProfileVisibility = 'public' | 'private' | 'friends-only';
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -12,7 +14,7 @@ export interface UserProfile {
   studyHours: number;
   level: number;
   experience: number;
-  privacy: 'public' | 'private' | 'friends-only';
+  privacy: ProfileVisibility;
 }
 
 export interface Achievement {
@@ -66,7 +68,7 @@ export interface ProfileSettings {
   achievementAlerts: boolean;
   darkMode: boolean;
   language: string;
-  privacy: 'public' | 'private' | 'friends-only';
+  privacy: ProfileVisibility;
   twoFactorEnabled: boolean;
   newsletter: boolean;
   profileVisibility: {
@@ -83,7 +85,7 @@ export interface ProfileFormData {
   bio?: string;
   location?: string;
   website?: string;
-  privacy: 'public' | 'private' | 'friends-only';
+  privacy: ProfileVisibility;
 }
 
 export interface ProfileUpdateResponse {

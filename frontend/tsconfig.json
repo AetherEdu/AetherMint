@@ -32,6 +32,8 @@
       ]
     },
     "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictFunctionTypes": true,
     "downlevelIteration": true,
     "ignoreDeprecations": "5.0",
     "types": ["node", "jest"]

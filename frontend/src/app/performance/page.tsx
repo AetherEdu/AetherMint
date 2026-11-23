@@ -7,6 +7,7 @@ import PerformanceAlerts from '@/components/performance/PerformanceAlerts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/Skeleton';
 import { 
   Activity, 
   TrendingUp, 
@@ -51,6 +52,81 @@ const PerformanceDashboard: React.FC = () => {
     if (score >= 50) return 'text-orange-600 bg-orange-50 border-orange-200';
     return 'text-red-600 bg-red-50 border-red-200';
   };
+
+  const isLoading = metrics.length === 0 && !currentReport;
+
+  const PerformanceDashboardSkeleton: React.FC = () => (
+    <div
+      className="space-y-6"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Loading performance data"
+    >
+      <span className="sr-only">Loading performance data…</span>
+
+      {/* Score overview skeleton */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <Skeleton className="h-6 w-48" />
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="text-center space-y-2">
+                <Skeleton className="h-10 w-20 mx-auto" />
+                <Skeleton className="h-4 w-24 mx-auto" />
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 space-y-3">
+            <Skeleton className="h-5 w-24" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-4 w-full" />
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Core Web Vitals metrics grid skeleton */}
+      <div>
+        <Skeleton className="h-8 w-56 mb-4" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Card key={index}>
+              <CardContent className="p-6 space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-20" />
+                <Skeleton className="h-3 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Alerts list skeleton */}
+      <div>
+        <Skeleton className="h-8 w-52 mb-4" />
+        <Card>
+          <CardContent className="p-6 space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -103,6 +179,10 @@ const PerformanceDashboard: React.FC = () => {
         </div>
       </div>
 
+      {isLoading ? (
+        <PerformanceDashboardSkeleton />
+      ) : (
+        <>
       {/* Performance Score Overview */}
       {currentReport && (
         <Card>
@@ -240,6 +320,8 @@ const PerformanceDashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+      )}
+        </>
       )}
     </div>
   );

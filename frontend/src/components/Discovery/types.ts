@@ -162,4 +162,5 @@ export interface DiscoveryFilters {
 }
 
 export type SortOption = 'relevance' | 'newest' | 'popular' | 'rating' | 'duration' | 'price-low' | 'price-high';
+export type DiscoverySortOption = SortOption;
 export type ViewMode = 'grid' | 'list';

@@ -22,7 +22,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { ExportButton } from './Analytics/ExportButton';
-import { EmptyState } from './LoadingFallback';
+import { EmptyState, Skeleton } from './LoadingFallback';
 
 interface CredentialListProps {
   credentials?: Credential[];
@@ -93,8 +93,9 @@ export function CredentialList({
   filterable = true,
   searchable = true
 }: CredentialListProps) {
-  const { credentials: hookCredentials, addCredential, updateCredentialStatus } = useProfile();
+  const { credentials: hookCredentials, addCredential, updateCredentialStatus, loading } = useProfile();
   const credentials = propCredentials || hookCredentials;
+  const isLoading = !propCredentials && loading;
   
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -169,6 +170,27 @@ export function CredentialList({
   };
 
   if (compact) {
+    if (isLoading) {
+      return (
+        <div className="space-y-3" role="status" aria-live="polite" aria-busy="true">
+          <span className="sr-only">Loading credentials...</span>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700"
+            >
+              <Skeleton variant="circular" width={36} height={36} />
+              <div className="flex-1 min-w-0 space-y-2">
+                <Skeleton variant="text" width="60%" height={16} />
+                <Skeleton variant="text" width="40%" height={12} />
+              </div>
+              <Skeleton variant="circular" width={16} height={16} />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-3">
         {filteredCredentials.length === 0 ? (
@@ -324,6 +346,39 @@ export function CredentialList({
       )}
 
       {/* Credential List */}
+      {isLoading ? (
+        <div className="space-y-4" role="status" aria-live="polite" aria-busy="true">
+          <span className="sr-only">Loading credentials...</span>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-4 sm:p-6"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                <Skeleton variant="rounded" width={48} height={48} />
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 space-y-2">
+                      <Skeleton variant="text" width="50%" height={20} />
+                      <Skeleton variant="text" width="70%" height={14} />
+                    </div>
+                    <Skeleton variant="rounded" width={96} height={24} />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Skeleton variant="rounded" width={64} height={20} />
+                    <Skeleton variant="rounded" width={80} height={20} />
+                    <Skeleton variant="rounded" width={56} height={20} />
+                  </div>
+                  <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-slate-700">
+                    <Skeleton variant="rounded" width={72} height={28} />
+                    <Skeleton variant="rounded" width={88} height={28} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="space-y-4">
         {filteredCredentials.map((credential) => {
           const statusConfig = VERIFICATION_STATUS_CONFIG[credential.verificationStatus];
@@ -426,8 +481,9 @@ export function CredentialList({
           );
         })}
       </div>
+      )}
 
-      {filteredCredentials.length === 0 && (
+      {!isLoading && filteredCredentials.length === 0 && (
         <EmptyState
           icon={<Award className="h-8 w-8" />}
           title={
